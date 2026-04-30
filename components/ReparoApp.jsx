@@ -146,6 +146,41 @@ function SAVCard({ brand, data, highlight }) {
   );
 }
 
+
+// Composant input stable — défini hors de ReparoApp pour éviter les re-renders
+function ChatInput({ onSend, loading, fileRef, handleFile }) {
+  const [val, setVal] = React.useState("");
+  const inputEl = React.useRef(null);
+  
+  const send = () => {
+    if (!val.trim() || loading) return;
+    onSend(val.trim());
+    setVal("");
+    setTimeout(() => inputEl.current?.focus(), 50);
+  };
+
+  return (
+    <div style={{ padding: "10px 16px 12px", display: "flex", gap: "8px", alignItems: "center" }}>
+      <button onClick={() => fileRef.current.click()} style={{ background: "#EFF4FF", border: "none", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </button>
+      <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => handleFile(e.target.files[0])} />
+      <input
+        ref={inputEl}
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter") send(); }}
+        placeholder="Décrivez votre panne ici..."
+        style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "12px", padding: "10px 14px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none" }}
+      />
+      <button onClick={send} disabled={loading || !val.trim()}
+        style={{ background: "#2563EB", border: "none", borderRadius: "50%", width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: loading || !val.trim() ? 0.5 : 1, flexShrink: 0 }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  );
+}
+
 export default function ReparoApp() {
   const [appState,    setAppState]    = useState("onboarding");
   const [isLoggedIn,  setIsLoggedIn]  = useState(false);
@@ -849,20 +884,7 @@ export default function ReparoApp() {
               <button onClick={() => { setImage(null); setImageB64(null); }} style={{ position: "absolute", top: "14px", right: "4px", background: "rgba(0,0,0,.5)", border: "none", borderRadius: "50%", width: "22px", height: "22px", color: "white", fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
             </div>
           )}
-          <div style={{ padding: "10px 16px 12px", display: "flex", gap: "8px", alignItems: "center" }}>
-            <button onClick={() => fileRef.current.click()} style={{ background: "#EFF4FF", border: "none", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            </button>
-            <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => handleFile(e.target.files[0])} />
-            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") sendMessage(); }}
-              placeholder="Décrivez votre panne ici..."
-              style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "12px", padding: "10px 14px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none" }} />
-            <MicBtn />
-            <button onClick={sendMessage} disabled={loading || (!input.trim() && !imageB64)}
-              style={{ background: ACCENT, border: "none", borderRadius: "50%", width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: loading || (!input.trim() && !imageB64) ? 0.5 : 1, flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            </button>
-          </div>
+          <ChatInput onSend={sendMessage} loading={loading} fileRef={fileRef} handleFile={handleFile} />
         </div>
       )}
 
