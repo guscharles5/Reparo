@@ -224,9 +224,18 @@ export default function ReparoApp() {
 
   const callAPI = async (msgs, appareilContext) => {
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1000));
-    setLoading(false);
-    return "Bonjour ! Je suis Reparo et je fonctionne correctement. 🎉 L'application marche bien !";
+    try {
+      const r = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "claude-3-5-sonnet-20241022", max_tokens: 1000, system: buildSystemPrompt(appareilContext), messages: msgs }),
+      });
+      if (!r.ok) return `Erreur serveur: ${r.status}. Veuillez réessayer.`;
+      const d = await r.json();
+      if (d.error) return `Erreur API: ${d.error}`;
+      return d.content?.[0]?.text || "Désolé, une erreur est survenue.";
+    } catch (e) { return `Erreur de connexion: ${e.message}`; }
+    finally { setLoading(false); }
   };
 
   const getContext = (s) => {
