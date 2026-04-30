@@ -233,7 +233,7 @@ export default function ReparoApp() {
           "anthropic-version": "2023-06-01",
           "anthropic-dangerous-direct-browser-access": "true",
         },
-        body: JSON.stringify({ model: "claude-3-5-sonnet-20241022", max_tokens: 1000, system: buildSystemPrompt(appareilContext), messages: msgs }),
+        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, system: buildSystemPrompt(appareilContext), messages: msgs }),
       });
       const d = await r.json();
       if (d.error) return `Erreur: ${d.error.message}`;
