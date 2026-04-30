@@ -258,8 +258,8 @@ export default function ReparoApp() {
     setQuickReplies(getQuickReplies(reply, finalMsgs));
   };
 
-  const sendMessage = async () => {
-    const txt = input.trim();
+  const sendMessage = async (overrideText) => {
+    const txt = (typeof overrideText === "string" ? overrideText : input).trim();
     if ((!txt && !imageB64) || loading) return;
     setInput("");
     const userTxt = txt || "Voici une photo de mon appareil en panne, pouvez-vous analyser ?";
