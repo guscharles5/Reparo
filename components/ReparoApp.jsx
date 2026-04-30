@@ -195,7 +195,7 @@ export default function ReparoApp() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: buildSystemPrompt(appareilContext), messages: msgs }),
+        body: JSON.stringify({ model: "claude-3-5-sonnet-20241022", max_tokens: 1000, system: buildSystemPrompt(appareilContext), messages: msgs }),
       });
       const d = await r.json();
       return d.content?.[0]?.text || "Désolé, une erreur est survenue.";
@@ -348,7 +348,7 @@ export default function ReparoApp() {
           "Content-Type": "application/json",
         },
           body: JSON.stringify({
-            model: "claude-sonnet-4-20250514", max_tokens: 400,
+            model: "claude-3-5-sonnet-20241022", max_tokens: 400,
             system: `Tu es un expert en appareils électroménagers. Analyse la photo et réponds uniquement en JSON valide sans balises markdown :
 {"marque":"marque détectée ou null","modele":"référence détectée ou null","conseil":"instruction précise pour trouver l'étiquette de référence sur CET appareil","endroit":"emplacement exact de l'étiquette"}`,
             messages: [{ role: "user", content: [
