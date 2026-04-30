@@ -1,6 +1,4 @@
-import dynamic from 'next/dynamic'
-
-const ReparoApp = dynamic(() => import('../components/ReparoApp'), { ssr: false })
+import ReparoApp from '../components/ReparoApp'
 
 export default function Home() {
   return <ReparoApp />
