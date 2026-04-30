@@ -225,14 +225,18 @@ export default function ReparoApp() {
   const callAPI = async (msgs, appareilContext) => {
     setLoading(true);
     try {
-      const r = await fetch("/api/chat", {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
         body: JSON.stringify({ model: "claude-3-5-sonnet-20241022", max_tokens: 1000, system: buildSystemPrompt(appareilContext), messages: msgs }),
       });
-      if (!r.ok) return `Erreur serveur: ${r.status}. Veuillez réessayer.`;
       const d = await r.json();
-      if (d.error) return `Erreur API: ${d.error}`;
+      if (d.error) return `Erreur: ${d.error.message}`;
       return d.content?.[0]?.text || "Désolé, une erreur est survenue.";
     } catch (e) { return `Erreur de connexion: ${e.message}`; }
     finally { setLoading(false); }
