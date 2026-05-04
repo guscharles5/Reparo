@@ -775,9 +775,9 @@ export default function ReparoApp() {
 
   // ── CHAT ────────────────────────────────────────
   const Chat = () => (
-    <div className="slide-in" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+    <div className="slide-in" style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
       {/* Header chat */}
-      <div style={{ background: PRIMARY, padding: "16px 20px", display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+      <div style={{ background: PRIMARY, padding: "16px 20px", display: "flex", alignItems: "center", gap: "12px", flexShrink: 0, position: "fixed", top: 0, left: 0, right: 0, maxWidth: "480px", margin: "0 auto", zIndex: 50, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
         <button onClick={() => goHome()}
           style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "8px", width: "34px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -805,7 +805,7 @@ export default function ReparoApp() {
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "12px", paddingBottom: "20px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "86px 16px 16px", display: "flex", flexDirection: "column", gap: "12px", paddingBottom: "20px" }}>
         {messages.map((msg, i) => (
           <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end", gap: "8px" }}>
             {msg.role === "assistant" && (
