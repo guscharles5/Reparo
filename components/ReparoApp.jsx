@@ -248,36 +248,36 @@ export default function ReparoApp() {
   };
   const goTab = (t) => { setTab(t); if (t === "home") goHome(); };
 
-  const callAPI = async (msgs, appareilContext, onStream) => {
+  const typewrite = (text, onUpdate, onDone) => {
+    let i = 0;
+    const speed = 8;
+    const tick = () => {
+      if (i >= text.length) { onDone(text); return; }
+      const step = Math.min(i + Math.ceil(text.length / 120) + 1, text.length);
+      i = step;
+      onUpdate(text.slice(0, i));
+      setTimeout(tick, speed);
+    };
+    tick();
+  };
+
+  const callAPI = async (msgs, appareilContext, onStream, onDone) => {
     setLoading(true);
     try {
       const r = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, stream: true, system: buildSystemPrompt(appareilContext), messages: msgs }),
+        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, system: buildSystemPrompt(appareilContext), messages: msgs }),
       });
       if (!r.ok) return "Erreur serveur. Veuillez réessayer.";
-      const reader = r.body.getReader();
-      const decoder = new TextDecoder();
-      let fullText = "";
+      const d = await r.json();
+      const fullText = d.content?.[0]?.text || "Désolé, une erreur est survenue.";
       setLoading(false);
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n").filter(l => l.startsWith("data: "));
-        for (const line of lines) {
-          try {
-            const json = JSON.parse(line.slice(6));
-            if (json.type === "content_block_delta" && json.delta?.text) {
-              fullText += json.delta.text;
-              if (onStream) onStream(fullText);
-            }
-          } catch {}
-        }
+      if (onStream) {
+        await new Promise(resolve => typewrite(fullText, onStream, (t) => { resolve(t); if (onDone) onDone(t); }));
       }
-      return fullText || "Désolé, une erreur est survenue.";
-    } catch { setLoading(false); return "Erreur de connexion. Veuillez réessayer."; }
+      return fullText;
+    } catch { return "Erreur de connexion. Veuillez réessayer."; }
     finally { setLoading(false); }
   };
 
@@ -294,8 +294,7 @@ export default function ReparoApp() {
     const userMsg = br ? `Mon ${cat} ${br} ${mo} : ${problem}` : problem;
     setTab("home"); setScreen("chat"); setResolved(false);
     const msgs = [{ role: "user", content: userMsg }];
-    setMessages(msgs);
-    setMessages(m => [...m, { role: "assistant", content: "" }]);
+    setMessages([...msgs, { role: "assistant", content: "" }]);
     const reply = await callAPI(msgs, ctx, (partial) => {
       setMessages(m => { const copy = [...m]; copy[copy.length-1] = { role: "assistant", content: partial }; return copy; });
     });
@@ -315,8 +314,7 @@ export default function ReparoApp() {
     const msgs = [...messages, { role: "user", content }];
     setMessages(msgs); setImage(null); setImageB64(null);
     const { ctx } = getContext(sel);
-    const streamMsgs = [...msgs, { role: "assistant", content: "" }];
-    setMessages(streamMsgs);
+    setMessages([...msgs, { role: "assistant", content: "" }]);
     const reply = await callAPI(msgs, ctx, (partial) => {
       setMessages(m => { const copy = [...m]; copy[copy.length-1] = { role: "assistant", content: partial }; return copy; });
     });
