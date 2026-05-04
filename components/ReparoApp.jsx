@@ -795,7 +795,7 @@ export default function ReparoApp() {
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ color: "white", fontWeight: "800", fontSize: "16px" }}>{sel.category || "Reparo"}</div>
-          <div style={{ color: "rgba(255,255,255,.8)", fontSize: "12px" }}>Expert en dépannage électroménager</div>
+          <div style={{ color: "rgba(255,255,255,.8)", fontSize: "12px" }}>Diagnostic en cours...</div>
         </div>
         <button onClick={() => setShowSAV(true)}
           style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "10px", padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
