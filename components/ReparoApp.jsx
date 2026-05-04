@@ -248,19 +248,36 @@ export default function ReparoApp() {
   };
   const goTab = (t) => { setTab(t); if (t === "home") goHome(); };
 
-  const callAPI = async (msgs, appareilContext) => {
+  const callAPI = async (msgs, appareilContext, onStream) => {
     setLoading(true);
     try {
       const r = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, system: buildSystemPrompt(appareilContext), messages: msgs }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, stream: true, system: buildSystemPrompt(appareilContext), messages: msgs }),
       });
-      const d = await r.json();
-      return d.content?.[0]?.text || "Désolé, une erreur est survenue.";
-    } catch { return "Erreur de connexion. Veuillez réessayer."; }
+      if (!r.ok) return "Erreur serveur. Veuillez réessayer.";
+      const reader = r.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+      setLoading(false);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n").filter(l => l.startsWith("data: "));
+        for (const line of lines) {
+          try {
+            const json = JSON.parse(line.slice(6));
+            if (json.type === "content_block_delta" && json.delta?.text) {
+              fullText += json.delta.text;
+              if (onStream) onStream(fullText);
+            }
+          } catch {}
+        }
+      }
+      return fullText || "Désolé, une erreur est survenue.";
+    } catch { setLoading(false); return "Erreur de connexion. Veuillez réessayer."; }
     finally { setLoading(false); }
   };
 
@@ -278,7 +295,10 @@ export default function ReparoApp() {
     setTab("home"); setScreen("chat"); setResolved(false);
     const msgs = [{ role: "user", content: userMsg }];
     setMessages(msgs);
-    const reply = await callAPI(msgs, ctx);
+    setMessages(m => [...m, { role: "assistant", content: "" }]);
+    const reply = await callAPI(msgs, ctx, (partial) => {
+      setMessages(m => { const copy = [...m]; copy[copy.length-1] = { role: "assistant", content: partial }; return copy; });
+    });
     const finalMsgs = [...msgs, { role: "assistant", content: reply }];
     setMessages(finalMsgs);
     setQuickReplies(getQuickReplies(reply, finalMsgs));
@@ -295,8 +315,13 @@ export default function ReparoApp() {
     const msgs = [...messages, { role: "user", content }];
     setMessages(msgs); setImage(null); setImageB64(null);
     const { ctx } = getContext(sel);
-    const reply = await callAPI(msgs, ctx);
-    setMessages([...msgs, { role: "assistant", content: reply }]);
+    const streamMsgs = [...msgs, { role: "assistant", content: "" }];
+    setMessages(streamMsgs);
+    const reply = await callAPI(msgs, ctx, (partial) => {
+      setMessages(m => { const copy = [...m]; copy[copy.length-1] = { role: "assistant", content: partial }; return copy; });
+    });
+    const finalMsgs = [...msgs, { role: "assistant", content: reply }];
+    setMessages(finalMsgs);
   };
 
   const cleanReply = (reply) => {
@@ -356,8 +381,10 @@ export default function ReparoApp() {
     setQuickReplies([]);
     const { ctx } = getContext(sel);
     const msgs = [...messages, { role: "user", content: reply }];
-    setMessages(msgs);
-    const response = await callAPI(msgs, ctx);
+    setMessages([...msgs, { role: "assistant", content: "" }]);
+    const response = await callAPI(msgs, ctx, (partial) => {
+      setMessages(m => { const copy = [...m]; copy[copy.length-1] = { role: "assistant", content: partial }; return copy; });
+    });
     const finalMsgs = [...msgs, { role: "assistant", content: response }];
     setMessages(finalMsgs);
     setQuickReplies(getQuickReplies(response, finalMsgs));
@@ -829,40 +856,50 @@ export default function ReparoApp() {
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "86px 16px 16px", display: "flex", flexDirection: "column", gap: "12px", paddingBottom: "20px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "86px 16px 16px", display: "flex", flexDirection: "column", gap: "10px", paddingBottom: "20px" }}>
         {messages.map((msg, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end", gap: "8px" }}>
+          <div key={i} className={msg.role === "user" ? "msg-user" : "msg-bot"} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end", gap: "8px" }}>
             {msg.role === "assistant" && (
-              <div style={{ width: "28px", height: "28px", background: ACCENT, borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <div style={{ width: "30px", height: "30px", background: `linear-gradient(135deg, ${PRIMARY}, ${ACCENT})`, borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px rgba(37,99,235,.3)" }}>
                 <svg width="16" height="16" viewBox="-16 -16 32 32" style={{display:"block"}}>
                   <g transform="rotate(-45)">
                     <path d="M-5,-11 L-5,-6 L-1.5,-4 L1.5,-4 L5,-6 L5,-11 Q5,-14 0,-14 Q-5,-14 -5,-11 Z" fill="white"/>
-                    <rect x="-2" y="-14" width="4" height="5" rx="1" fill={ACCENT}/>
+                    <rect x="-2" y="-14" width="4" height="5" rx="1" fill="rgba(255,255,255,.3)"/>
                     <rect x="-1.8" y="-4" width="3.6" height="14" rx="1.8" fill="white"/>
                     <path d="M-5,11 L-5,6 L-1.5,4 L1.5,4 L5,6 L5,11 Q5,14 0,14 Q-5,14 -5,11 Z" fill="white"/>
-                    <rect x="-2" y="9" width="4" height="5" rx="1" fill={ACCENT}/>
+                    <rect x="-2" y="9" width="4" height="5" rx="1" fill="rgba(255,255,255,.3)"/>
                   </g>
                 </svg>
               </div>
             )}
-            <div style={{ maxWidth: "80%" }}>
-              <div style={{ background: msg.role === "user" ? ACCENT : "white", color: msg.role === "user" ? "white" : "#333", borderRadius: msg.role === "user" ? "16px 4px 16px 16px" : "4px 16px 16px 16px", padding: "12px 14px", fontSize: "14px", lineHeight: "1.6", boxShadow: "0 1px 4px rgba(0,0,0,.07)", whiteSpace: "pre-wrap" }}>
+            <div style={{ maxWidth: "78%" }}>
+              <div style={{
+                background: msg.role === "user" ? `linear-gradient(135deg, ${ACCENT}, #1d4ed8)` : "white",
+                color: msg.role === "user" ? "white" : "#1a1a2e",
+                borderRadius: msg.role === "user" ? "20px 4px 20px 20px" : "4px 20px 20px 20px",
+                padding: "12px 16px",
+                fontSize: "14px",
+                lineHeight: "1.65",
+                boxShadow: msg.role === "user" ? "0 4px 12px rgba(37,99,235,.3)" : "0 2px 8px rgba(0,0,0,.07)",
+                whiteSpace: "pre-wrap",
+              }}>
                 {Array.isArray(msg.content)
                   ? msg.content.map((c, j) => c.type === "text"
                       ? <span key={j}>{cleanReply(c.text)}</span>
-                      : <img key={j} src={`data:image/jpeg;base64,${c.source.data}`} alt="" style={{ width: "100%", borderRadius: "8px", marginBottom: "6px", display: "block" }} />)
+                      : <img key={j} src={`data:image/jpeg;base64,${c.source.data}`} alt="" style={{ width: "100%", borderRadius: "10px", marginBottom: "6px", display: "block" }} />)
                   : cleanReply(typeof msg.content === "string" ? msg.content : "")}
+                {msg.role === "assistant" && msg.content === "" && <span className="cursor" />}
               </div>
             </div>
           </div>
         ))}
         {loading && (
-          <div style={{ display: "flex", alignItems: "flex-end", gap: "8px" }}>
-            <div style={{ width: "28px", height: "28px", background: ACCENT, borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="msg-bot" style={{ display: "flex", alignItems: "flex-end", gap: "8px" }}>
+            <div style={{ width: "30px", height: "30px", background: `linear-gradient(135deg, ${PRIMARY}, ${ACCENT})`, borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(37,99,235,.3)" }}>
               <svg width="16" height="16" viewBox="-16 -16 32 32" style={{display:"block"}}><g transform="rotate(-45)"><path d="M-5,-11 L-5,-6 L-1.5,-4 L1.5,-4 L5,-6 L5,-11 Q5,-14 0,-14 Q-5,-14 -5,-11 Z" fill="white"/><rect x="-1.8" y="-4" width="3.6" height="14" rx="1.8" fill="white"/><path d="M-5,11 L-5,6 L-1.5,4 L1.5,4 L5,6 L5,11 Q5,14 0,14 Q-5,14 -5,11 Z" fill="white"/></g></svg>
             </div>
-            <div style={{ background: "white", borderRadius: "4px 16px 16px 16px", padding: "12px 16px", boxShadow: "0 1px 4px rgba(0,0,0,.07)" }}>
-              <div style={{ display: "flex", gap: "4px" }}>{[0,1,2].map(i => <div key={i} className="dot" style={{ width: "8px", height: "8px", background: ACCENT, borderRadius: "50%" }} />)}</div>
+            <div style={{ background: "white", borderRadius: "4px 20px 20px 20px", padding: "14px 18px", boxShadow: "0 2px 8px rgba(0,0,0,.07)" }}>
+              <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>{[0,1,2].map(i => <div key={i} className="dot" style={{ width: "7px", height: "7px", background: ACCENT, borderRadius: "50%" }} />)}</div>
             </div>
           </div>
         )}
@@ -891,10 +928,18 @@ export default function ReparoApp() {
 
       {/* Quick replies */}
       {quickReplies.length > 0 && !loading && !resolved && (
-        <div style={{ padding: "8px 16px 4px", display: "flex", gap: "6px", flexWrap: "wrap", background: "#f8fafc" }}>
-          {quickReplies.map(r => (
-            <button key={r} onClick={() => sendQuickReply(r)}
-              style={{ background: r.includes("résolu") || r.includes("fait") ? "#f0fdf4" : r.includes("marche pas") || r.includes("comprends pas") ? "#fff1f2" : "#EFF4FF", border: `1.5px solid ${r.includes("résolu") || r.includes("fait") ? "#86efac" : r.includes("marche pas") || r.includes("comprends pas") ? "#fecdd3" : "#c7d7f8"}`, borderRadius: "20px", padding: "8px 14px", fontSize: "13px", fontWeight: "700", color: r.includes("résolu") || r.includes("fait") ? "#16a34a" : r.includes("marche pas") || r.includes("comprends pas") ? "#e11d48" : ACCENT, cursor: "pointer", fontFamily: "Nunito,sans-serif", whiteSpace: "nowrap" }}>
+        <div style={{ padding: "10px 16px 6px", display: "flex", gap: "8px", flexWrap: "wrap", background: "white", borderTop: "1px solid #f0f0f0" }}>
+          {quickReplies.map((r, idx) => (
+            <button key={r} onClick={() => sendQuickReply(r)} className="quick-btn"
+              style={{
+                animationDelay: `${idx * 0.06}s`,
+                background: r.includes("résolu") || r.includes("fait") ? "#f0fdf4" : r.includes("marche pas") || r.includes("comprends pas") ? "#fff1f2" : "#EFF4FF",
+                border: `1.5px solid ${r.includes("résolu") || r.includes("fait") ? "#86efac" : r.includes("marche pas") || r.includes("comprends pas") ? "#fecdd3" : "#c7d7f8"}`,
+                borderRadius: "22px", padding: "9px 16px", fontSize: "13px", fontWeight: "700",
+                color: r.includes("résolu") || r.includes("fait") ? "#16a34a" : r.includes("marche pas") || r.includes("comprends pas") ? "#e11d48" : ACCENT,
+                cursor: "pointer", fontFamily: "Nunito,sans-serif", whiteSpace: "nowrap",
+                transition: "all .15s", boxShadow: "0 1px 4px rgba(0,0,0,.06)"
+              }}>
               {r}
             </button>
           ))}
