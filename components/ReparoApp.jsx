@@ -130,6 +130,8 @@ const CSS = `
   .card:active { transform: scale(.97); }
   select:focus, input:focus, textarea:focus { outline: none; }
   textarea { resize: none; }
+  input, select, textarea { font-size: 16px !important; }
+  @media screen and (-webkit-min-device-pixel-ratio: 0) { select, textarea, input { font-size: 16px !important; } }
   ::-webkit-scrollbar { width: 3px; }
   ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 2px; }
 `;
@@ -171,7 +173,7 @@ function ChatInput({ onSend, loading, fileRef, handleFile }) {
         onChange={e => setVal(e.target.value)}
         onKeyDown={e => { if (e.key === "Enter") send(); }}
         placeholder="Décrivez votre panne ici..."
-        style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "12px", padding: "10px 14px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none" }}
+        style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "12px", padding: "10px 14px", fontSize: "16px", fontFamily: "Nunito,sans-serif", outline: "none" }}
       />
       <button onClick={send} disabled={loading || !val.trim()}
         style={{ background: "#2563EB", border: "none", borderRadius: "50%", width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: loading || !val.trim() ? 0.5 : 1, flexShrink: 0 }}>
@@ -225,20 +227,16 @@ export default function ReparoApp() {
   const callAPI = async (msgs, appareilContext) => {
     setLoading(true);
     try {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
+      const r = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
         },
         body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, system: buildSystemPrompt(appareilContext), messages: msgs }),
       });
       const d = await r.json();
-      if (d.error) return `Erreur: ${d.error.message}`;
       return d.content?.[0]?.text || "Désolé, une erreur est survenue.";
-    } catch (e) { return `Erreur de connexion: ${e.message}`; }
+    } catch { return "Erreur de connexion. Veuillez réessayer."; }
     finally { setLoading(false); }
   };
 
@@ -387,7 +385,7 @@ export default function ReparoApp() {
           "Content-Type": "application/json",
         },
           body: JSON.stringify({
-            model: "claude-3-5-sonnet-20241022", max_tokens: 400,
+            model: "claude-sonnet-4-5", max_tokens: 400,
             system: `Tu es un expert en appareils électroménagers. Analyse la photo et réponds uniquement en JSON valide sans balises markdown :
 {"marque":"marque détectée ou null","modele":"référence détectée ou null","conseil":"instruction précise pour trouver l'étiquette de référence sur CET appareil","endroit":"emplacement exact de l'étiquette"}`,
             messages: [{ role: "user", content: [
@@ -761,7 +759,7 @@ export default function ReparoApp() {
               <input value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && input.trim()) startChat(input.trim()); }}
                 placeholder="Ex : fait du bruit, ne s'allume pas..."
-                style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none" }} />
+                style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "16px", fontFamily: "Nunito,sans-serif", outline: "none" }} />
               <button onClick={() => { if (input.trim()) startChat(input.trim()); }} disabled={!input.trim()}
                 style={{ background: ACCENT, border: "none", borderRadius: "10px", width: "42px", height: "42px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: input.trim() ? 1 : 0.4, flexShrink: 0 }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -973,11 +971,11 @@ export default function ReparoApp() {
                 <div key={f.key} style={{ marginBottom: "12px" }}>
                   <div style={{ fontSize: "12px", fontWeight: "700", color: "#666", marginBottom: "4px" }}>{f.label}</div>
                   {f.options
-                    ? <select value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: "100%", border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", background: "white" }}>
+                    ? <select value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: "100%", border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "16px", fontFamily: "Nunito,sans-serif", background: "white" }}>
                         <option value="">Sélectionnez...</option>
                         {f.options.map(o => <option key={o} value={o}>{o}</option>)}
                       </select>
-                    : <input value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} style={{ width: "100%", border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none" }} />
+                    : <input value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} style={{ width: "100%", border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "16px", fontFamily: "Nunito,sans-serif", outline: "none" }} />
                   }
                 </div>
               ))}
