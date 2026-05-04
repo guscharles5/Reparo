@@ -186,6 +186,9 @@ function ChatInput({ onSend, loading, fileRef, handleFile }) {
 export default function ReparoApp() {
   const [appState,    setAppState]    = useState("onboarding");
   const [isLoggedIn,  setIsLoggedIn]  = useState(false);
+  const [historique,  setHistorique]  = useState(() => {
+    try { return JSON.parse(localStorage.getItem("reparo_historique") || "[]"); } catch { return []; }
+  });
   const [obStep,      setObStep]      = useState(0);
   const [tab,         setTab]         = useState("home");
   const [screen,      setScreen]      = useState("home");
@@ -217,7 +220,28 @@ export default function ReparoApp() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
 
+  const saveToHistory = (msgs, isResolved) => {
+    if (!msgs || msgs.length < 2) return;
+    const firstUser = msgs.find(m => m.role === "user");
+    const problem = typeof firstUser?.content === "string" ? firstUser.content : (firstUser?.content?.[1]?.text || "Problème inconnu");
+    const steps = msgs.filter(m => m.role === "assistant").map(m => typeof m.content === "string" ? m.content : "").filter(Boolean);
+    const entry = {
+      id: Date.now(),
+      date: new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+      appareil: sel.category || "Appareil inconnu",
+      marque: sel.brand || sel.marque || "",
+      modele: sel.model || sel.modele || "",
+      probleme: problem.slice(0, 120),
+      etapes: steps,
+      resolu: isResolved,
+    };
+    const updated = [entry, ...JSON.parse(localStorage.getItem("reparo_historique") || "[]")].slice(0, 50);
+    localStorage.setItem("reparo_historique", JSON.stringify(updated));
+    setHistorique(updated);
+  };
+
   const goHome = () => {
+    if (messages.length >= 2) saveToHistory(messages, resolved);
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); setShowSAV(false); setResolved(false);
     setQuickReplies([]); setFeedback(null);
@@ -995,36 +1019,87 @@ export default function ReparoApp() {
 
   // ── PROFIL ────────────────────────────────────────
   const Profil = () => {
-    if (!isLoggedIn) return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "70vh", padding: "32px", textAlign: "center" }}>
-        <div style={{ fontSize: "48px", marginBottom: "16px" }}>👤</div>
-        <div style={{ fontWeight: "800", fontSize: "18px", color: "#222", marginBottom: "8px" }}>Connectez-vous</div>
-        <div style={{ fontSize: "14px", color: "#888", marginBottom: "24px", lineHeight: "1.5" }}>Connectez-vous pour accéder à votre profil, votre historique et gérer vos préférences.</div>
-        <button onClick={() => setAppState("auth")} style={{ background: ACCENT, border: "none", borderRadius: "14px", color: "white", padding: "14px 28px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Se connecter</button>
-      </div>
-    );
-    return (
+    const [detail, setDetail] = React.useState(null);
+
+    const deleteEntry = (id) => {
+      const updated = historique.filter(h => h.id !== id);
+      localStorage.setItem("reparo_historique", JSON.stringify(updated));
+      setHistorique(updated);
+      if (detail?.id === id) setDetail(null);
+    };
+
+    if (detail) return (
       <div className="fade-in" style={{ paddingBottom: "80px" }}>
-        <div style={{ background: PRIMARY, padding: "28px 20px 20px", textAlign: "center" }}>
-          <div style={{ width: "72px", height: "72px", background: "rgba(255,255,255,.2)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: "28px" }}>👤</div>
-          <div style={{ color: "white", fontWeight: "800", fontSize: "18px" }}>Mon compte</div>
-          <div style={{ color: "rgba(255,255,255,.7)", fontSize: "13px", marginTop: "4px" }}>Membre Reparo</div>
+        <div style={{ background: PRIMARY, padding: "16px 20px", display: "flex", alignItems: "center", gap: "12px" }}>
+          <button onClick={() => setDetail(null)} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "8px", width: "34px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: "white", fontWeight: "800", fontSize: "16px" }}>{detail.appareil} {detail.marque}</div>
+            <div style={{ color: "rgba(255,255,255,.7)", fontSize: "12px" }}>{detail.date}</div>
+          </div>
+          <div style={{ background: detail.resolu ? "#16a34a" : "#dc2626", borderRadius: "8px", padding: "4px 10px" }}>
+            <span style={{ color: "white", fontSize: "11px", fontWeight: "700" }}>{detail.resolu ? "✓ Résolu" : "✗ Non résolu"}</span>
+          </div>
         </div>
         <div style={{ padding: "16px" }}>
-          {[
-            { label: "Mes appareils", value: `${appareils.length} appareil${appareils.length > 1 ? "s" : ""}`, icon: "🔧" },
-            { label: "Diagnostics effectués", value: "0", icon: "📋" },
-            { label: "Entretiens à prévoir", value: `${appareils.filter(a => a.entretien.includes("conseillé")).length}`, icon: "⚠️" },
-          ].map(s => (
-            <div key={s.label} style={{ background: "white", borderRadius: "14px", padding: "16px", border: "1.5px solid #eee", marginBottom: "10px", display: "flex", alignItems: "center", gap: "12px" }}>
-              <span style={{ fontSize: "24px" }}>{s.icon}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: "13px", color: "#888" }}>{s.label}</div>
-                <div style={{ fontWeight: "800", fontSize: "18px", color: "#222" }}>{s.value}</div>
+          <div style={{ background: "white", borderRadius: "14px", padding: "16px", border: "1.5px solid #eee", marginBottom: "12px" }}>
+            <div style={{ fontSize: "11px", fontWeight: "700", color: "#888", marginBottom: "6px", textTransform: "uppercase" }}>Problème signalé</div>
+            <div style={{ fontSize: "14px", color: "#222", lineHeight: "1.5" }}>{detail.probleme}</div>
+          </div>
+          <div style={{ fontSize: "11px", fontWeight: "700", color: "#888", marginBottom: "8px", textTransform: "uppercase" }}>Étapes du diagnostic</div>
+          {detail.etapes.map((e, i) => (
+            <div key={i} style={{ background: "white", borderRadius: "12px", padding: "14px", border: "1.5px solid #eee", marginBottom: "8px" }}>
+              <div style={{ fontSize: "10px", fontWeight: "700", color: ACCENT, marginBottom: "4px" }}>ÉTAPE {i + 1}</div>
+              <div style={{ fontSize: "13px", color: "#333", lineHeight: "1.6", whiteSpace: "pre-wrap" }}>{e}</div>
+            </div>
+          ))}
+          <button onClick={() => deleteEntry(detail.id)} style={{ width: "100%", background: "white", border: "1.5px solid #fee2e2", borderRadius: "12px", color: "#dc2626", padding: "14px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif", marginTop: "8px" }}>🗑️ Supprimer ce diagnostic</button>
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="fade-in" style={{ paddingBottom: "80px" }}>
+        <div style={{ background: PRIMARY, padding: "20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ color: "white", fontWeight: "800", fontSize: "20px" }}>Historique</div>
+            <div style={{ color: "rgba(255,255,255,.7)", fontSize: "12px", marginTop: "2px" }}>{historique.length} diagnostic{historique.length > 1 ? "s" : ""}</div>
+          </div>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <div style={{ background: "rgba(255,255,255,.15)", borderRadius: "10px", padding: "6px 12px", display: "flex", gap: "8px" }}>
+              <span style={{ color: "white", fontSize: "12px", fontWeight: "700" }}>✓ {historique.filter(h => h.resolu).length} résolus</span>
+              <span style={{ color: "rgba(255,255,255,.5)" }}>|</span>
+              <span style={{ color: "rgba(255,255,255,.7)", fontSize: "12px", fontWeight: "700" }}>✗ {historique.filter(h => !h.resolu).length} non résolus</span>
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: "16px" }}>
+          {historique.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "60px 20px" }}>
+              <div style={{ fontSize: "48px", marginBottom: "16px" }}>📋</div>
+              <div style={{ fontWeight: "800", fontSize: "17px", color: "#222", marginBottom: "8px" }}>Aucun diagnostic</div>
+              <div style={{ fontSize: "14px", color: "#888", lineHeight: "1.5" }}>Vos diagnostics apparaîtront ici après chaque conversation avec Reparo.</div>
+            </div>
+          ) : historique.map(h => (
+            <div key={h.id} className="card fu" onClick={() => setDetail(h)}
+              style={{ background: "white", borderRadius: "14px", padding: "14px 16px", border: "1.5px solid #eee", boxShadow: "0 2px 6px rgba(0,0,0,.04)", marginBottom: "10px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
+              <div style={{ background: CATEGORIES[h.appareil]?.bgColor || "#f1f5f9", borderRadius: "10px", width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "20px" }}>
+                {CATEGORIES[h.appareil] ? <span>{["Lave-linge","Réfrigérateur","Lave-vaisselle","Four","Sèche-linge","Machine à café","Micro-ondes"].indexOf(h.appareil) >= 0 ? ["🫧","🧊","🍽️","🔥","💨","☕","📡","🔧"][["Lave-linge","Réfrigérateur","Lave-vaisselle","Four","Sèche-linge","Machine à café","Micro-ondes"].indexOf(h.appareil)] : "🔧"}</span> : "🔧"}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
+                  <div style={{ fontWeight: "700", fontSize: "14px", color: "#222" }}>{h.appareil} {h.marque}</div>
+                  <div style={{ background: h.resolu ? "#f0fdf4" : "#fef2f2", borderRadius: "6px", padding: "2px 8px", flexShrink: 0 }}>
+                    <span style={{ fontSize: "10px", fontWeight: "700", color: h.resolu ? "#16a34a" : "#dc2626" }}>{h.resolu ? "✓ Résolu" : "✗ Non résolu"}</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: "12px", color: "#aaa", marginBottom: "6px" }}>{h.date}</div>
+                <div style={{ fontSize: "13px", color: "#555", lineHeight: "1.4", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{h.probleme}</div>
+                <div style={{ fontSize: "11px", color: ACCENT, fontWeight: "700", marginTop: "6px" }}>{h.etapes.length} étape{h.etapes.length > 1 ? "s" : ""} · Voir le détail →</div>
               </div>
             </div>
           ))}
-          <button onClick={() => { setIsLoggedIn(false); setAppState("auth"); }} style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "12px", color: "#e11d48", padding: "14px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif", marginTop: "8px" }}>Se déconnecter</button>
         </div>
       </div>
     );
