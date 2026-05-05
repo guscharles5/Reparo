@@ -308,27 +308,32 @@ export default function ReparoApp() {
   }, []);
 
   const loadHistorique = async (userId) => {
-    const { data, error } = await supabase
-      .from("historique")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-    if (!error && data) {
-      const formatted = data.map(h => {
-        let etapes = [];
-        try { etapes = JSON.parse(h.etapes || "[]"); } catch { etapes = [h.etapes].filter(Boolean); }
-        return {
-          id: h.id,
-          date: new Date(h.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
-          appareil: h.appareil || "",
-          marque: h.marque || "",
-          probleme: h.probleme || "",
-          etapes: Array.isArray(etapes) ? etapes : [],
-          resolu: !!h.resolu,
-        };
-      });
-      setHistorique(formatted);
-    }
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from("historique")
+        .select("id, appareil, marque, probleme, etapes, resolu, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) { console.log("Supabase error:", error.message); return; }
+      if (data) {
+        const formatted = data.map(h => {
+          let etapes = [];
+          try { etapes = JSON.parse(h.etapes || "[]"); } catch { etapes = [h.etapes].filter(Boolean); }
+          return {
+            id: h.id,
+            date: new Date(h.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+            appareil: h.appareil || "",
+            marque: h.marque || "",
+            probleme: h.probleme || "",
+            etapes: Array.isArray(etapes) ? etapes : [],
+            resolu: !!h.resolu,
+          };
+        });
+        setHistorique(formatted);
+      }
+    } catch(e) { console.log("Load historique error:", e); }
   };
 
   useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
