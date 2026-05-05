@@ -150,7 +150,7 @@ function SAVCard({ brand, data, highlight }) {
 
 
 // Composant input stable — défini hors de ReparoApp pour éviter les re-renders
-function ChatInput({ onSend, loading, fileRef, handleFile }) {
+function ChatInput({ onSend, loading, fileRef, handleFile, onVoice, isRecording }) {
   const [val, setVal] = React.useState("");
   const inputEl = React.useRef(null);
   
@@ -175,6 +175,25 @@ function ChatInput({ onSend, loading, fileRef, handleFile }) {
         placeholder="Décrivez votre panne ici..."
         style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "12px", padding: "10px 14px", fontSize: "16px", fontFamily: "Nunito,sans-serif", outline: "none" }}
       />
+      {/* Bouton micro */}
+      <button onClick={onVoice} disabled={loading}
+        style={{
+          background: isRecording ? "#fee2e2" : "#f3f4f6",
+          border: isRecording ? "1.5px solid #fca5a5" : "1.5px solid #e5e7eb",
+          borderRadius: "50%", width: "44px", height: "44px",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: "pointer", flexShrink: 0,
+          transition: "all .2s",
+          boxShadow: isRecording ? "0 0 0 4px rgba(239,68,68,.15)" : "none",
+        }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isRecording ? "#ef4444" : "#6b7280"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+      {/* Bouton envoyer */}
       <button onClick={send} disabled={loading || !val.trim()}
         style={{ background: "#2563EB", border: "none", borderRadius: "50%", width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: loading || !val.trim() ? 0.5 : 1, flexShrink: 0 }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -301,6 +320,7 @@ export default function ReparoApp() {
     const finalMsgs = [...msgs, { role: "assistant", content: reply }];
     setMessages(finalMsgs);
     setQuickReplies(getQuickReplies(reply, finalMsgs));
+    if (isRecording === false && voiceMode) speak(reply);
   };
 
   const sendMessage = async (overrideText) => {
@@ -320,6 +340,7 @@ export default function ReparoApp() {
     });
     const finalMsgs = [...msgs, { role: "assistant", content: reply }];
     setMessages(finalMsgs);
+    if (voiceMode) speak(reply);
   };
 
   const cleanReply = (reply) => {
@@ -409,13 +430,18 @@ export default function ReparoApp() {
 
   const startVoice = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert("Reconnaissance vocale non supportée sur ce navigateur."); return; }
+    if (!SR) { showToast("Micro non supporté sur ce navigateur"); return; }
     if (isRecording) { recRef.current?.stop(); setIsRecording(false); return; }
     const rec = new SR();
     rec.lang = "fr-FR"; rec.continuous = false; rec.interimResults = false;
     rec.onstart  = () => setIsRecording(true);
-    rec.onresult = (e) => { const t = e.results[0][0].transcript; setInput(p => p ? p + " " + t : t); };
-    rec.onerror  = () => setIsRecording(false);
+    rec.onresult = (e) => {
+      const t = e.results[0][0].transcript;
+      setIsRecording(false);
+      // Auto-envoie le message vocal
+      if (t.trim()) sendMessage(t.trim());
+    };
+    rec.onerror  = () => { setIsRecording(false); showToast("Micro inaccessible"); };
     rec.onend    = () => setIsRecording(false);
     recRef.current = rec; rec.start();
   };
@@ -953,7 +979,7 @@ export default function ReparoApp() {
               <button onClick={() => { setImage(null); setImageB64(null); }} style={{ position: "absolute", top: "14px", right: "4px", background: "rgba(0,0,0,.5)", border: "none", borderRadius: "50%", width: "22px", height: "22px", color: "white", fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
             </div>
           )}
-          <ChatInput onSend={sendMessage} loading={loading} fileRef={fileRef} handleFile={handleFile} />
+          <ChatInput onSend={sendMessage} loading={loading} fileRef={fileRef} handleFile={handleFile} onVoice={startVoice} isRecording={isRecording} />
         </div>
       )}
 
