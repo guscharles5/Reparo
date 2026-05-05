@@ -1,8 +1,13 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
-// Clé API sécurisée côté serveur via /api/chat
+// Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 const buildSystemPrompt = (appareil) => {
   const context = appareil
@@ -241,6 +246,7 @@ function renderInline(text) {
 export default function ReparoApp() {
   const [appState,    setAppState]    = useState("splash");
   const [isLoggedIn,  setIsLoggedIn]  = useState(false);
+  const [user,        setUser]        = useState(null);
   const [historique,  setHistorique]  = useState(() => {
     try { return JSON.parse(localStorage.getItem("reparo_historique") || "[]"); } catch { return []; }
   });
@@ -271,17 +277,61 @@ export default function ReparoApp() {
   const recRef     = useRef();
   const msgEnd     = useRef();
 
-  // Splash screen
+  // Splash screen + auth check
   useEffect(() => {
-    const timer = setTimeout(() => setAppState("onboarding"), 2000);
-    return () => clearTimeout(timer);
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+        setIsLoggedIn(true);
+        // Load historique from Supabase
+        loadHistorique(session.user.id);
+        setTimeout(() => setAppState("main"), 2000);
+      } else {
+        setTimeout(() => setAppState("onboarding"), 2000);
+      }
+    };
+    init();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        setIsLoggedIn(true);
+        loadHistorique(session.user.id);
+        setAppState("main");
+      } else {
+        setUser(null);
+        setIsLoggedIn(false);
+      }
+    });
+    return () => subscription.unsubscribe();
   }, []);
+
+  const loadHistorique = async (userId) => {
+    const { data, error } = await supabase
+      .from("historique")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (!error && data) {
+      const formatted = data.map(h => ({
+        id: h.id,
+        date: new Date(h.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+        appareil: h.appareil,
+        marque: h.marque || "",
+        probleme: h.probleme,
+        etapes: JSON.parse(h.etapes || "[]"),
+        resolu: h.resolu,
+      }));
+      setHistorique(formatted);
+    }
+  };
 
   useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
 
-  const saveToHistory = (msgs, isResolved) => {
+  const saveToHistory = async (msgs, isResolved) => {
     if (!msgs || msgs.length < 2) return;
     const firstUser = msgs.find(m => m.role === "user");
     const problem = typeof firstUser?.content === "string" ? firstUser.content : (firstUser?.content?.[1]?.text || "Problème inconnu");
@@ -296,9 +346,24 @@ export default function ReparoApp() {
       etapes: steps,
       resolu: isResolved,
     };
-    const updated = [entry, ...JSON.parse(localStorage.getItem("reparo_historique") || "[]")].slice(0, 50);
-    localStorage.setItem("reparo_historique", JSON.stringify(updated));
-    setHistorique(updated);
+
+    if (user) {
+      // Save to Supabase
+      await supabase.from("historique").insert({
+        user_id: user.id,
+        appareil: entry.appareil,
+        marque: entry.marque,
+        probleme: entry.probleme,
+        etapes: JSON.stringify(steps),
+        resolu: isResolved,
+      });
+      loadHistorique(user.id);
+    } else {
+      // Fallback localStorage
+      const updated = [entry, ...JSON.parse(localStorage.getItem("reparo_historique") || "[]")].slice(0, 50);
+      localStorage.setItem("reparo_historique", JSON.stringify(updated));
+      setHistorique(updated);
+    }
   };
 
   const goHome = () => {
@@ -1134,10 +1199,15 @@ export default function ReparoApp() {
   const Profil = () => {
     const [detail, setDetail] = React.useState(null);
 
-    const deleteEntry = (id) => {
-      const updated = historique.filter(h => h.id !== id);
-      localStorage.setItem("reparo_historique", JSON.stringify(updated));
-      setHistorique(updated);
+    const deleteEntry = async (id) => {
+      if (user) {
+        await supabase.from("historique").delete().eq("id", id);
+        loadHistorique(user.id);
+      } else {
+        const updated = historique.filter(h => h.id !== id);
+        localStorage.setItem("reparo_historique", JSON.stringify(updated));
+        setHistorique(updated);
+      }
       if (detail?.id === id) setDetail(null);
     };
 
@@ -1188,6 +1258,21 @@ export default function ReparoApp() {
           </div>
         </div>
         <div style={{ padding: "16px" }}>
+          {user && (
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", background: "#EFF4FF", borderRadius: "12px", padding: "12px 14px" }}>
+              <div style={{ width: "36px", height: "36px", background: ACCENT, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: "800", fontSize: "16px" }}>
+                {user.email?.[0].toUpperCase()}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: "700", fontSize: "13px", color: "#222" }}>{user.email}</div>
+                <div style={{ fontSize: "11px", color: "#888" }}>Compte Reparo</div>
+              </div>
+              <button onClick={async () => { await supabase.auth.signOut(); setUser(null); setIsLoggedIn(false); setHistorique([]); setAppState("auth"); }}
+                style={{ background: "none", border: "none", color: "#e11d48", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                Déconnexion
+              </button>
+            </div>
+          )}
           {historique.length === 0 ? (
             <div style={{ textAlign: "center", padding: "60px 20px" }}>
               <div style={{ fontSize: "48px", marginBottom: "16px" }}>📋</div>
@@ -1275,8 +1360,8 @@ export default function ReparoApp() {
 
       {/* AUTH */}
       {appState === "auth" && (
-        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px" }}>
-          <div style={{ background: "#EFF4FF", borderRadius: "50%", width: "80px", height: "80px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
+        <div className="page-in" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px", background: "white" }}>
+          <div style={{ background: "#EFF4FF", borderRadius: "24px", width: "80px", height: "80px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
             <svg width="44" height="44" viewBox="-16 -16 32 32" style={{display:"block"}}>
               <g transform="rotate(-45)">
                 <path d="M-5,-11 L-5,-6 L-1.5,-4 L1.5,-4 L5,-6 L5,-11 Q5,-14 0,-14 Q-5,-14 -5,-11 Z" fill={ACCENT}/>
@@ -1287,16 +1372,27 @@ export default function ReparoApp() {
               </g>
             </svg>
           </div>
-          <div style={{ fontWeight: "900", fontSize: "26px", color: PRIMARY, marginBottom: "8px" }}>Reparo</div>
-          <div style={{ fontSize: "14px", color: "#888", textAlign: "center", marginBottom: "32px", lineHeight: "1.5" }}>Sauvegardez vos appareils, retrouvez votre historique de pannes et recevez des alertes d'entretien.</div>
-          {[{icon:"G",label:"Continuer avec Google"},{icon:"A",label:"Continuer avec Apple"},{icon:"@",label:"Continuer avec Email"}].map(b => (
-            <button key={b.label} onClick={() => { setIsLoggedIn(true); setAppState("main"); }}
-              style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "14px", padding: "15px", marginBottom: "10px", fontWeight: "700", fontSize: "15px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", fontFamily: "Nunito,sans-serif" }}>
-              <span style={{ background: "#f0f0f0", borderRadius: "6px", width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "800" }}>{b.icon}</span>
-              {b.label}
-            </button>
-          ))}
-          <button onClick={() => setAppState("main")} style={{ background: "none", border: "none", color: "#aaa", fontSize: "14px", cursor: "pointer", marginTop: "8px", fontFamily: "Nunito,sans-serif" }}>Continuer sans compte</button>
+          <div style={{ fontWeight: "900", fontSize: "28px", color: PRIMARY, marginBottom: "8px" }}>Reparo</div>
+          <div style={{ fontSize: "14px", color: "#888", textAlign: "center", marginBottom: "32px", lineHeight: "1.6", maxWidth: "280px" }}>Sauvegardez votre historique et accédez à vos diagnostics depuis n'importe quel appareil.</div>
+
+          {/* Google */}
+          <button onClick={async () => {
+            await supabase.auth.signInWithOAuth({
+              provider: "google",
+              options: { redirectTo: window.location.origin }
+            });
+          }} style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "14px", padding: "15px", marginBottom: "10px", fontWeight: "700", fontSize: "15px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", fontFamily: "Nunito,sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            Continuer avec Google
+          </button>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", margin: "8px 0 16px" }}>
+            <div style={{ flex: 1, height: "1px", background: "#eee" }} />
+            <span style={{ fontSize: "13px", color: "#aaa" }}>ou</span>
+            <div style={{ flex: 1, height: "1px", background: "#eee" }} />
+          </div>
+
+          <button onClick={() => setAppState("main")} style={{ background: "none", border: "none", color: "#aaa", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Continuer sans compte</button>
         </div>
       )}
 
