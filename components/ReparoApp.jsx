@@ -142,6 +142,7 @@ const CSS = `
   @keyframes splashIn  { from { opacity:0; transform:scale(.85); } to { opacity:1; transform:scale(1); } }
   @keyframes splashOut { from { opacity:1; transform:scale(1); } to { opacity:0; transform:scale(1.1); } }
   @keyframes pageIn    { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes spin      { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
   .page-in   { animation: pageIn .4s cubic-bezier(.2,.8,.3,1) both; }
   .splash-in { animation: splashIn .5s cubic-bezier(.2,.8,.3,1) both; }
 `;
@@ -910,6 +911,44 @@ export default function ReparoApp() {
   // ── APPAREIL ────────────────────────────────────────
   const AppareilScreen = () => {
     const cat = CATEGORIES[sel.category] || {};
+    const photoRef = React.useRef();
+    const [scanning, setScanning] = React.useState(false);
+    const [scanResult, setScanResult] = React.useState(null);
+
+    const handlePhotoScan = async (file) => {
+      if (!file?.type.startsWith("image/")) return;
+      setScanning(true);
+      setScanResult(null);
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const b64 = e.target.result.split(",")[1];
+        try {
+          const r = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "claude-sonnet-4-5", max_tokens: 400,
+              system: `Tu es un expert en appareils électroménagers. Analyse la photo et réponds UNIQUEMENT en JSON valide sans markdown :
+{"marque":"marque détectée ou null","modele":"référence/modèle détecté ou null","trouve":true/false}`,
+              messages: [{ role: "user", content: [
+                { type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64 } },
+                { type: "text", text: "Identifie la marque et le modèle de cet appareil électroménager." }
+              ]}],
+            }),
+          });
+          const d = await r.json();
+          const text = d.content?.[0]?.text || "{}";
+          const result = JSON.parse(text.replace(/```json|```/g, "").trim());
+          setScanResult(result);
+          if (result.marque) setSel(s => ({ ...s, brand: result.marque }));
+          if (result.modele) setSel(s => ({ ...s, model: result.modele }));
+        } catch {
+          setScanResult({ marque: null, modele: null, trouve: false });
+        } finally { setScanning(false); }
+      };
+      reader.readAsDataURL(file);
+    };
+
     return (
       <div className="slide-in" style={{ paddingBottom: "80px" }}>
         <div style={{ background: PRIMARY, padding: "16px 20px", display: "flex", alignItems: "center", gap: "12px" }}>
@@ -920,13 +959,60 @@ export default function ReparoApp() {
           <div style={{ background: cat.bgColor || "#EFF4FF", borderRadius: "10px", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             {ILLUSTRATIONS[sel.category]}
           </div>
-          <div>
+          <div style={{ flex: 1 }}>
             <div style={{ color: "white", fontWeight: "800", fontSize: "17px" }}>{sel.category}</div>
-            <div style={{ color: "rgba(255,255,255,.75)", fontSize: "12px" }}>Choisissez votre panne</div>
+            <div style={{ color: "rgba(255,255,255,.75)", fontSize: "12px" }}>
+              {sel.brand ? `${sel.brand}${sel.model ? ` · ${sel.model}` : ""}` : "Choisissez votre panne"}
+            </div>
           </div>
         </div>
 
         <div style={{ padding: "20px 16px" }}>
+
+          {/* Bouton identification par photo */}
+          <input ref={photoRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => handlePhotoScan(e.target.files[0])} />
+
+          <div onClick={() => photoRef.current.click()}
+            style={{ background: scanning ? "#EFF4FF" : "white", borderRadius: "14px", padding: "14px 18px", border: `1.5px solid ${ACCENT}`, marginBottom: "16px", display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }}>
+            <div style={{ background: ACCENT, borderRadius: "10px", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              {scanning
+                ? <div style={{ width: "18px", height: "18px", border: "2px solid white", borderTop: "2px solid transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+                : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              }
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: "800", fontSize: "14px", color: ACCENT }}>
+                {scanning ? "Analyse en cours..." : scanResult?.trouve ? "✓ Appareil identifié !" : "📸 Identifier mon appareil"}
+              </div>
+              <div style={{ fontSize: "12px", color: "#888", marginTop: "2px" }}>
+                {scanResult?.marque
+                  ? `${scanResult.marque}${scanResult.modele ? ` · ${scanResult.modele}` : ""}`
+                  : "Photographiez l'étiquette ou l'appareil"}
+              </div>
+            </div>
+          </div>
+
+          {/* Où trouver la référence */}
+          <div style={{ background: "#FFFBEB", borderRadius: "12px", padding: "12px 14px", marginBottom: "16px", border: "1.5px solid #FDE68A", display: "flex", gap: "10px", alignItems: "flex-start" }}>
+            <span style={{ fontSize: "18px", flexShrink: 0 }}>💡</span>
+            <div>
+              <div style={{ fontWeight: "700", fontSize: "13px", color: "#92400E", marginBottom: "4px" }}>Où trouver la référence ?</div>
+              <div style={{ fontSize: "12px", color: "#78350F", lineHeight: "1.5" }}>
+                {sel.category === "Lave-linge" || sel.category === "Lave-vaisselle"
+                  ? "Sur l'étiquette à l'intérieur de la porte ou sur le côté de l'appareil"
+                  : sel.category === "Réfrigérateur"
+                  ? "Sur l'étiquette à l'intérieur du compartiment, sur la paroi latérale"
+                  : sel.category === "Four"
+                  ? "Sur le bord de la porte ou à l'intérieur de la cavité"
+                  : sel.category === "Micro-ondes"
+                  ? "Sur l'étiquette au dos ou sous l'appareil"
+                  : sel.category === "Machine à café"
+                  ? "Sur l'étiquette sous l'appareil ou au dos"
+                  : "Sur l'étiquette au dos, sous l'appareil ou à l'intérieur d'un compartiment"}
+              </div>
+            </div>
+          </div>
+
           <div style={{ fontWeight: "800", fontSize: "15px", color: "#222", marginBottom: "12px" }}>Pannes courantes</div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
             {(cat.suggestions || []).map(s => (
