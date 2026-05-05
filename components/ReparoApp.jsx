@@ -210,8 +210,7 @@ function ChatInput({ onSend, loading, fileRef, handleFile, onVoice, isRecording 
 // Simple markdown renderer
 function Markdown({ text }) {
   if (!text) return null;
-  const lines = text.split('
-');
+  const lines = text.split("\n");
   const elements = [];
   let key = 0;
   for (let i = 0; i < lines.length; i++) {
