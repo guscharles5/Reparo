@@ -314,15 +314,19 @@ export default function ReparoApp() {
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
     if (!error && data) {
-      const formatted = data.map(h => ({
-        id: h.id,
-        date: new Date(h.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
-        appareil: h.appareil,
-        marque: h.marque || "",
-        probleme: h.probleme,
-        etapes: JSON.parse(h.etapes || "[]"),
-        resolu: h.resolu,
-      }));
+      const formatted = data.map(h => {
+        let etapes = [];
+        try { etapes = JSON.parse(h.etapes || "[]"); } catch { etapes = [h.etapes].filter(Boolean); }
+        return {
+          id: h.id,
+          date: new Date(h.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+          appareil: h.appareil || "",
+          marque: h.marque || "",
+          probleme: h.probleme || "",
+          etapes: Array.isArray(etapes) ? etapes : [],
+          resolu: !!h.resolu,
+        };
+      });
       setHistorique(formatted);
     }
   };
