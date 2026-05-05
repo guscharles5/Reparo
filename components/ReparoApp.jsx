@@ -297,7 +297,7 @@ export default function ReparoApp() {
       if (session?.user) {
         setUser(session.user);
         setIsLoggedIn(true);
-        loadHistorique(session.user.id);
+        setTimeout(() => loadHistorique(session.user.id), 500);
         setAppState("main");
       } else {
         setUser(null);
@@ -646,7 +646,7 @@ export default function ReparoApp() {
   };
 
   const brands   = sel.category ? Object.keys(CATEGORIES[sel.category]?.marques || {}) : [];
-  const models   = sel.brand && sel.category ? (CATEGORIES[sel.category]?.marques[sel.brand] || []) : [];
+  const models   = sel.brand && sel.category ? (CATEGORIES[sel.category]?.marques?.[sel.brand] || []) : [];
   const detailApp = appareils.find(a => a.id === showDetail);
 
   // ── SHARED COMPONENTS ───────────────────────
