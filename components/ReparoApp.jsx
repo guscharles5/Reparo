@@ -134,6 +134,11 @@ const CSS = `
   @media screen and (-webkit-min-device-pixel-ratio: 0) { select, textarea, input { font-size: 16px !important; } }
   ::-webkit-scrollbar { width: 3px; }
   ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 2px; }
+  @keyframes splashIn  { from { opacity:0; transform:scale(.85); } to { opacity:1; transform:scale(1); } }
+  @keyframes splashOut { from { opacity:1; transform:scale(1); } to { opacity:0; transform:scale(1.1); } }
+  @keyframes pageIn    { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+  .page-in   { animation: pageIn .4s cubic-bezier(.2,.8,.3,1) both; }
+  .splash-in { animation: splashIn .5s cubic-bezier(.2,.8,.3,1) both; }
 `;
 
 function SAVCard({ brand, data, highlight }) {
@@ -202,8 +207,40 @@ function ChatInput({ onSend, loading, fileRef, handleFile, onVoice, isRecording 
   );
 }
 
+// Simple markdown renderer
+function Markdown({ text }) {
+  if (!text) return null;
+  const lines = text.split('
+');
+  const elements = [];
+  let key = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) { elements.push(<div key={key++} style={{height:'8px'}}/>); continue; }
+    // Headers
+    if (line.startsWith('### ')) { elements.push(<div key={key++} style={{fontWeight:'800',fontSize:'14px',color:'#1B3A6B',marginTop:'10px',marginBottom:'2px'}}>{renderInline(line.slice(4))}</div>); continue; }
+    if (line.startsWith('## '))  { elements.push(<div key={key++} style={{fontWeight:'800',fontSize:'15px',color:'#1B3A6B',marginTop:'12px',marginBottom:'4px'}}>{renderInline(line.slice(3))}</div>); continue; }
+    if (line.startsWith('# '))   { elements.push(<div key={key++} style={{fontWeight:'900',fontSize:'16px',color:'#1B3A6B',marginTop:'12px',marginBottom:'4px'}}>{renderInline(line.slice(2))}</div>); continue; }
+    // Lists
+    if (/^[-*•]\s/.test(line)) { elements.push(<div key={key++} style={{display:'flex',gap:'8px',marginTop:'3px'}}><span style={{color:'#2563EB',fontWeight:'800',flexShrink:0}}>•</span><span>{renderInline(line.slice(2))}</span></div>); continue; }
+    if (/^\d+\.\s/.test(line))  { const m=line.match(/^(\d+)\.\s(.*)/); elements.push(<div key={key++} style={{display:'flex',gap:'8px',marginTop:'3px'}}><span style={{color:'#2563EB',fontWeight:'800',flexShrink:0,minWidth:'16px'}}>{m[1]}.</span><span>{renderInline(m[2])}</span></div>); continue; }
+    elements.push(<div key={key++} style={{marginTop:'2px'}}>{renderInline(line)}</div>);
+  }
+  return <div style={{lineHeight:'1.65'}}>{elements}</div>;
+}
+
+function renderInline(text) {
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
+  return parts.map((p, i) => {
+    if (p.startsWith('**') && p.endsWith('**')) return <strong key={i} style={{fontWeight:'800'}}>{p.slice(2,-2)}</strong>;
+    if (p.startsWith('*')  && p.endsWith('*'))  return <em key={i} style={{fontStyle:'italic'}}>{p.slice(1,-1)}</em>;
+    if (p.startsWith('`')  && p.endsWith('`'))  return <code key={i} style={{background:'#f1f5f9',borderRadius:'4px',padding:'1px 5px',fontSize:'12px',fontFamily:'monospace'}}>{p.slice(1,-1)}</code>;
+    return p;
+  });
+}
+
 export default function ReparoApp() {
-  const [appState,    setAppState]    = useState("onboarding");
+  const [appState,    setAppState]    = useState("splash");
   const [isLoggedIn,  setIsLoggedIn]  = useState(false);
   const [historique,  setHistorique]  = useState(() => {
     try { return JSON.parse(localStorage.getItem("reparo_historique") || "[]"); } catch { return []; }
@@ -234,6 +271,12 @@ export default function ReparoApp() {
   const fileRef    = useRef();
   const recRef     = useRef();
   const msgEnd     = useRef();
+
+  // Splash screen
+  useEffect(() => {
+    const timer = setTimeout(() => setAppState("onboarding"), 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
@@ -850,7 +893,7 @@ export default function ReparoApp() {
 
   // ── CHAT ────────────────────────────────────────
   const Chat = () => (
-    <div className="slide-in" style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+    <div className="slide-in page-in" style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
       {/* Header chat */}
       <div style={{ background: PRIMARY, padding: "16px 20px", display: "flex", alignItems: "center", gap: "12px", flexShrink: 0, position: "fixed", top: 0, left: 0, right: 0, maxWidth: "480px", margin: "0 auto", zIndex: 50, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
         <button onClick={() => goHome()}
@@ -909,9 +952,11 @@ export default function ReparoApp() {
               }}>
                 {Array.isArray(msg.content)
                   ? msg.content.map((c, j) => c.type === "text"
-                      ? <span key={j}>{cleanReply(c.text)}</span>
+                      ? <span key={j}>{msg.role === "assistant" ? <Markdown text={cleanReply(c.text)} /> : cleanReply(c.text)}</span>
                       : <img key={j} src={`data:image/jpeg;base64,${c.source.data}`} alt="" style={{ width: "100%", borderRadius: "10px", marginBottom: "6px", display: "block" }} />)
-                  : cleanReply(typeof msg.content === "string" ? msg.content : "")}
+                  : msg.role === "assistant"
+                    ? <Markdown text={cleanReply(typeof msg.content === "string" ? msg.content : "")} />
+                    : cleanReply(typeof msg.content === "string" ? msg.content : "")}
                 {msg.role === "assistant" && msg.content === "" && <span className="cursor" />}
               </div>
             </div>
@@ -1027,7 +1072,7 @@ export default function ReparoApp() {
       </div>
     );
     return (
-      <div className="fade-in" style={{ paddingBottom: "80px" }}>
+      <div className="fade-in page-in" style={{ paddingBottom: "80px" }}>
         <div style={{ background: PRIMARY, padding: "20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ color: "white", fontWeight: "800", fontSize: "20px" }}>Mes appareils</div>
           <button onClick={() => setShowAdd(true)} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "10px", color: "white", padding: "8px 14px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>+ Enregistrer</button>
@@ -1181,6 +1226,28 @@ export default function ReparoApp() {
       {/* TOAST */}
       {toast && (
         <div style={{ position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)", background: "#222", color: "white", padding: "12px 20px", borderRadius: "22px", fontSize: "14px", fontWeight: "700", zIndex: 200, whiteSpace: "nowrap", boxShadow: "0 4px 20px rgba(0,0,0,.2)", animation: "fadeUp .3s ease" }}>{toast}</div>
+      )}
+
+      {/* SPLASH */}
+      {appState === "splash" && (
+        <div className="splash-in" style={{ position: "fixed", inset: 0, background: "#1B3A6B", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
+          <div style={{ background: "rgba(255,255,255,.15)", borderRadius: "28px", width: "90px", height: "90px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "24px", boxShadow: "0 8px 32px rgba(0,0,0,.3)" }}>
+            <svg width="52" height="52" viewBox="-16 -16 32 32" style={{display:"block"}}>
+              <g transform="rotate(-45)">
+                <path d="M-5,-11 L-5,-6 L-1.5,-4 L1.5,-4 L5,-6 L5,-11 Q5,-14 0,-14 Q-5,-14 -5,-11 Z" fill="white"/>
+                <rect x="-2" y="-14" width="4" height="5" rx="1" fill="rgba(255,255,255,.3)"/>
+                <rect x="-1.8" y="-4" width="3.6" height="14" rx="1.8" fill="white"/>
+                <path d="M-5,11 L-5,6 L-1.5,4 L1.5,4 L5,6 L5,11 Q5,14 0,14 Q-5,14 -5,11 Z" fill="white"/>
+                <rect x="-2" y="9" width="4" height="5" rx="1" fill="rgba(255,255,255,.3)"/>
+              </g>
+            </svg>
+          </div>
+          <div style={{ color: "white", fontWeight: "900", fontSize: "36px", letterSpacing: "-1px", marginBottom: "8px" }}>Reparo</div>
+          <div style={{ color: "rgba(255,255,255,.6)", fontSize: "15px", fontWeight: "600" }}>Dépannage électroménager IA</div>
+          <div style={{ marginTop: "48px", display: "flex", gap: "8px" }}>
+            {[0,1,2].map(i => <div key={i} className="dot" style={{ width: "8px", height: "8px", background: "white", borderRadius: "50%", opacity: .5 }} />)}
+          </div>
+        </div>
       )}
 
       {/* ONBOARDING */}
