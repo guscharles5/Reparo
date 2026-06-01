@@ -430,12 +430,31 @@ export default function ReparoApp() {
     setQuickReplies(getQuickReplies(reply, finalMsgs));
   };
 
-  const handleFile = (file) => {
+  // Compression image : max 800px, qualité 0.75
+  const compressImage = (file) => new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 800;
+      let { width, height } = img;
+      if (width > MAX || height > MAX) {
+        if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
+        else { width = Math.round(width * MAX / height); height = MAX; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.75).split(",")[1]);
+    };
+    img.src = url;
+  });
+
+  const handleFile = async (file) => {
     if (!file?.type.startsWith("image/")) return;
     setImage(URL.createObjectURL(file));
-    const reader = new FileReader();
-    reader.onload = (e) => setImageB64(e.target.result.split(",")[1]);
-    reader.readAsDataURL(file);
+    const b64 = await compressImage(file);
+    setImageB64(b64);
   };
 
   const startVoice = () => {
@@ -455,10 +474,8 @@ export default function ReparoApp() {
     if (!file?.type.startsWith("image/")) return;
     setRefImage(URL.createObjectURL(file));
     setRefResult(null); setRefLoading(true);
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const b64 = e.target.result.split(",")[1];
-      try {
+    const b64 = await compressImage(file);
+    try {
         const r = await fetch("/api/chat", {
           method: "POST",
           headers: {
@@ -480,11 +497,9 @@ export default function ReparoApp() {
         setRefResult(result);
         if (result.marque) setSel(s => ({ ...s, brand: result.marque }));
         if (result.modele) setSel(s => ({ ...s, model: result.modele }));
-      } catch {
-        setRefResult({ conseil: "Impossible d'analyser cette photo. Essayez sous un meilleur éclairage.", endroit: null, marque: null, modele: null });
-      } finally { setRefLoading(false); }
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      setRefResult({ conseil: "Impossible d'analyser cette photo. Essayez sous un meilleur éclairage.", endroit: null, marque: null, modele: null });
+    } finally { setRefLoading(false); }
   };
 
 
