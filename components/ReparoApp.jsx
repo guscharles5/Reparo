@@ -261,24 +261,16 @@ export default function ReparoApp() {
   const callAPI = async (msgs, appareilContext) => {
     setLoading(true);
     try {
-      const apiKey = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
+      const r = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-5",
-          max_tokens: 1000,
           system: buildSystemPrompt(appareilContext),
           messages: msgs,
         }),
       });
       const d = await r.json();
-      if (!r.ok) return `Erreur ${r.status} : ${d?.error?.message || "Réessayez."}`;
+      if (!r.ok) return `Erreur ${r.status} : ${d?.error || "Réessayez."}`;
       return d.content?.[0]?.text || "Désolé, une erreur est survenue.";
     } catch (e) {
       return "Erreur de connexion. Veuillez réessayer.";
