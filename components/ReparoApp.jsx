@@ -1,30 +1,61 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 
-// Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+// Clé API sécurisée côté serveur via /api/chat
 
 const buildSystemPrompt = (appareil) => {
   const context = appareil
     ? `L'utilisateur a un problème avec : ${appareil}.`
     : "L'utilisateur n'a pas encore précisé son appareil.";
-  return `Tu es REPARO, un expert en réparation d'appareils électroménagers. Tu aides les particuliers à diagnostiquer et résoudre eux-mêmes les pannes simples.
+  return `Tu es Reparo, un expert en réparation d'appareils électroménagers. Tu aides les particuliers à diagnostiquer et résoudre eux-mêmes leurs pannes, simplement et efficacement.
 
 ${context}
 
-Tes règles :
-- Commence directement par diagnostiquer le problème signalé, sans redemander ce que l'utilisateur vient d'indiquer
-- Si l'appareil n'est pas précisé, demande-le gentiment en premier
-- Sois chaleureux, rassurant et encourageant
-- Utilise des emojis pour illustrer tes réponses
-- Donne des instructions numérotées et claires, maximum 5-6 étapes
-- Si la réparation est dangereuse, dis-le avec ⚠️ et conseille un technicien
-- Réponds toujours en français, reste concis et accessible`;
+--- PÉRIMÈTRE STRICT ---
+Tu es exclusivement spécialisé dans le dépannage d'appareils électroménagers domestiques. Si l'utilisateur pose une question qui ne concerne pas un appareil électroménager (informatique, voiture, plomberie, jardinage, cuisine générale, questions personnelles, conversation générale, etc.), réponds uniquement : "Je suis uniquement spécialisé dans le dépannage d'appareils électroménagers. Je ne peux pas vous aider sur ce sujet, mais je suis là si vous avez une panne sur un de vos appareils." Ne fais aucune exception.
+
+--- PRINCIPE FONDAMENTAL : MINIMISER LA FRAPPE ---
+L'utilisateur est debout devant son appareil, souvent les mains occupées. Il doit écrire le moins possible. Dès que tu poses une question avec plusieurs réponses possibles, termine TOUJOURS ton message par un bloc [OPTIONS] avec les choix possibles. Format obligatoire : [OPTIONS: choix1 | choix2 | choix3]
+
+--- PRÉSENTATION ---
+Au tout premier message uniquement, présente-toi en une seule phrase : "Bonjour, je suis Reparo, votre assistant de dépannage électroménager." Ensuite enchaîne directement. Ne te représente jamais dans les échanges suivants.
+
+--- SÉCURITÉ OBLIGATOIRE AVANT TOUTE MANIPULATION ---
+Avant la première étape de manipulation, rappelle des précautions adaptées à l'appareil :
+- Lave-linge, lave-vaisselle, sèche-linge, four : "Avant toute manipulation : éteignez l'appareil et débranchez-le."
+- Réfrigérateur : "Avant toute manipulation : éteignez l'appareil."
+- Petit électroménager : "Avant toute manipulation : éteignez et débranchez l'appareil."
+Après les précautions, termine par : [OPTIONS: C'est fait, je continue]
+
+--- URGENCE ET CAS DANGEREUX ---
+Si la panne implique odeur de brûlé, fumée, étincelles, choc électrique ou fuite de gaz : "Cette panne présente un risque réel. Je vous déconseille fortement d'intervenir vous-même. Contactez un technicien qualifié." puis oriente vers le bouton SAV sans proposer d'étapes.
+Pour une fuite d'eau active : "Débranchez immédiatement l'appareil et coupez l'arrivée d'eau." puis [OPTIONS: C'est fait, je continue]
+
+--- DIAGNOSTIC ---
+Adapte ton niveau de langage à celui de l'utilisateur. Vise 4 à 5 lignes maximum par message.
+Pose UNE SEULE question à la fois. Dès le début, pose : "Ce problème est-il apparu soudainement, ou s'est-il installé progressivement ?" suivi de [OPTIONS: Soudainement | Progressivement | Je ne sais pas]
+Si l'utilisateur répond "Je ne sais pas" à une question sur un symptôme, propose des descriptions concrètes.
+Avant les étapes, reformule ce que tu as compris et attends confirmation.
+Si l'appareil a plus de 10 ans et la réparation semble complexe, mentionne honnêtement que le remplacement peut être plus judicieux.
+
+--- RÉFÉRENCE APPAREIL ---
+Au début, suggère en une phrase : "Si vous avez la référence de votre appareil, elle me permettra de vous aider encore plus précisément." Une seule fois.
+
+--- SOLUTIONS ---
+Envoie les étapes UNE PAR UNE. Donne une seule étape à la fois avec un verbe d'action. Indique le résultat attendu. Termine par [OPTIONS: C'est fait ✓ | Ça ne marche pas | Je ne comprends pas cette étape]
+
+--- GESTION DE L'ÉCHEC ---
+Si ça ne fonctionne pas : ne répète jamais les mêmes étapes. Propose une nouvelle hypothèse. Après 3 tentatives, demande : "Savez-vous si votre appareil est encore sous garantie ?" suivi de [OPTIONS: Oui, encore sous garantie | Non, plus de garantie | Je ne sais pas] puis oriente vers le SAV.
+
+--- FIN DE DIAGNOSTIC ---
+Quand résolu : phrase de confirmation + conseil d'entretien préventif adapté + "N'hésitez pas à revenir si vous avez d'autres questions."
+
+--- RÈGLES GÉNÉRALES ---
+- Pas d'emojis — un langage clair, direct et rassurant
+- Vouvoie toujours l'utilisateur, sans exception
+- Réponds toujours en français sauf si l'utilisateur écrit dans une autre langue
+- Si la réparation dépasse les compétences d'un particulier, dis-le franchement`;
 };
 
 const ONBOARDING = [
@@ -135,16 +166,8 @@ const CSS = `
   .card:active { transform: scale(.97); }
   select:focus, input:focus, textarea:focus { outline: none; }
   textarea { resize: none; }
-  input, select, textarea { font-size: 16px !important; }
-  @media screen and (-webkit-min-device-pixel-ratio: 0) { select, textarea, input { font-size: 16px !important; } }
   ::-webkit-scrollbar { width: 3px; }
   ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 2px; }
-  @keyframes splashIn  { from { opacity:0; transform:scale(.85); } to { opacity:1; transform:scale(1); } }
-  @keyframes splashOut { from { opacity:1; transform:scale(1); } to { opacity:0; transform:scale(1.1); } }
-  @keyframes pageIn    { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-  @keyframes spin      { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
-  .page-in   { animation: pageIn .4s cubic-bezier(.2,.8,.3,1) both; }
-  .splash-in { animation: splashIn .5s cubic-bezier(.2,.8,.3,1) both; }
 `;
 
 function SAVCard({ brand, data, highlight }) {
@@ -161,7 +184,7 @@ function SAVCard({ brand, data, highlight }) {
 
 
 // Composant input stable — défini hors de ReparoApp pour éviter les re-renders
-function ChatInput({ onSend, loading, fileRef, handleFile, onVoice, isRecording }) {
+function ChatInput({ onSend, loading, fileRef, handleFile }) {
   const [val, setVal] = React.useState("");
   const inputEl = React.useRef(null);
   
@@ -184,27 +207,8 @@ function ChatInput({ onSend, loading, fileRef, handleFile, onVoice, isRecording 
         onChange={e => setVal(e.target.value)}
         onKeyDown={e => { if (e.key === "Enter") send(); }}
         placeholder="Décrivez votre panne ici..."
-        style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "12px", padding: "10px 14px", fontSize: "16px", fontFamily: "Nunito,sans-serif", outline: "none" }}
+        style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "12px", padding: "10px 14px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none" }}
       />
-      {/* Bouton micro */}
-      <button onClick={onVoice} disabled={loading}
-        style={{
-          background: isRecording ? "#fee2e2" : "#f3f4f6",
-          border: isRecording ? "1.5px solid #fca5a5" : "1.5px solid #e5e7eb",
-          borderRadius: "50%", width: "44px", height: "44px",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer", flexShrink: 0,
-          transition: "all .2s",
-          boxShadow: isRecording ? "0 0 0 4px rgba(239,68,68,.15)" : "none",
-        }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isRecording ? "#ef4444" : "#6b7280"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-          <line x1="12" y1="19" x2="12" y2="23"/>
-          <line x1="8" y1="23" x2="16" y2="23"/>
-        </svg>
-      </button>
-      {/* Bouton envoyer */}
       <button onClick={send} disabled={loading || !val.trim()}
         style={{ background: "#2563EB", border: "none", borderRadius: "50%", width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: loading || !val.trim() ? 0.5 : 1, flexShrink: 0 }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -213,44 +217,9 @@ function ChatInput({ onSend, loading, fileRef, handleFile, onVoice, isRecording 
   );
 }
 
-// Simple markdown renderer
-function Markdown({ text }) {
-  if (!text) return null;
-  const lines = text.split("\n");
-  const elements = [];
-  let key = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line.trim()) { elements.push(<div key={key++} style={{height:'8px'}}/>); continue; }
-    // Headers
-    if (line.startsWith('### ')) { elements.push(<div key={key++} style={{fontWeight:'800',fontSize:'14px',color:'#1B3A6B',marginTop:'10px',marginBottom:'2px'}}>{renderInline(line.slice(4))}</div>); continue; }
-    if (line.startsWith('## '))  { elements.push(<div key={key++} style={{fontWeight:'800',fontSize:'15px',color:'#1B3A6B',marginTop:'12px',marginBottom:'4px'}}>{renderInline(line.slice(3))}</div>); continue; }
-    if (line.startsWith('# '))   { elements.push(<div key={key++} style={{fontWeight:'900',fontSize:'16px',color:'#1B3A6B',marginTop:'12px',marginBottom:'4px'}}>{renderInline(line.slice(2))}</div>); continue; }
-    // Lists
-    if (/^[-*•]\s/.test(line)) { elements.push(<div key={key++} style={{display:'flex',gap:'8px',marginTop:'3px'}}><span style={{color:'#2563EB',fontWeight:'800',flexShrink:0}}>•</span><span>{renderInline(line.slice(2))}</span></div>); continue; }
-    if (/^\d+\.\s/.test(line))  { const m=line.match(/^(\d+)\.\s(.*)/); elements.push(<div key={key++} style={{display:'flex',gap:'8px',marginTop:'3px'}}><span style={{color:'#2563EB',fontWeight:'800',flexShrink:0,minWidth:'16px'}}>{m[1]}.</span><span>{renderInline(m[2])}</span></div>); continue; }
-    elements.push(<div key={key++} style={{marginTop:'2px'}}>{renderInline(line)}</div>);
-  }
-  return <div style={{lineHeight:'1.65'}}>{elements}</div>;
-}
-
-function renderInline(text) {
-  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
-  return parts.map((p, i) => {
-    if (p.startsWith('**') && p.endsWith('**')) return <strong key={i} style={{fontWeight:'800'}}>{p.slice(2,-2)}</strong>;
-    if (p.startsWith('*')  && p.endsWith('*'))  return <em key={i} style={{fontStyle:'italic'}}>{p.slice(1,-1)}</em>;
-    if (p.startsWith('`')  && p.endsWith('`'))  return <code key={i} style={{background:'#f1f5f9',borderRadius:'4px',padding:'1px 5px',fontSize:'12px',fontFamily:'monospace'}}>{p.slice(1,-1)}</code>;
-    return p;
-  });
-}
-
 export default function ReparoApp() {
-  const [appState,    setAppState]    = useState("splash");
+  const [appState,    setAppState]    = useState("onboarding");
   const [isLoggedIn,  setIsLoggedIn]  = useState(false);
-  const [user,        setUser]        = useState(null);
-  const [historique,  setHistorique]  = useState(() => {
-    try { return JSON.parse(localStorage.getItem("reparo_historique") || "[]"); } catch { return []; }
-  });
   const [obStep,      setObStep]      = useState(0);
   const [tab,         setTab]         = useState("home");
   const [screen,      setScreen]      = useState("home");
@@ -278,143 +247,44 @@ export default function ReparoApp() {
   const recRef     = useRef();
   const msgEnd     = useRef();
 
-  // Splash screen + auth check
-  useEffect(() => {
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        setIsLoggedIn(true);
-        // Load historique from Supabase
-        loadHistorique(session.user.id);
-        setTimeout(() => setAppState("main"), 2000);
-      } else {
-        setTimeout(() => setAppState("onboarding"), 2000);
-      }
-    };
-    init();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        setIsLoggedIn(true);
-        setTimeout(() => loadHistorique(session.user.id), 500);
-        setAppState("main");
-      } else {
-        setUser(null);
-        setIsLoggedIn(false);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const loadHistorique = async (userId) => {
-    if (!userId) return;
-    try {
-      const { data, error } = await supabase
-        .from("historique")
-        .select("id, appareil, marque, probleme, etapes, resolu, created_at")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) { console.log("Supabase error:", error.message); return; }
-      if (data) {
-        const formatted = data.map(h => {
-          let etapes = [];
-          try { etapes = JSON.parse(h.etapes || "[]"); } catch { etapes = [h.etapes].filter(Boolean); }
-          return {
-            id: h.id,
-            date: new Date(h.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
-            appareil: h.appareil || "",
-            marque: h.marque || "",
-            probleme: h.probleme || "",
-            etapes: Array.isArray(etapes) ? etapes : [],
-            resolu: !!h.resolu,
-          };
-        });
-        setHistorique(formatted);
-      }
-    } catch(e) { console.log("Load historique error:", e); }
-  };
-
   useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
 
-  const saveToHistory = async (msgs, isResolved) => {
-    if (!msgs || msgs.length < 2) return;
-    const firstUser = msgs.find(m => m.role === "user");
-    const problem = typeof firstUser?.content === "string" ? firstUser.content : (firstUser?.content?.[1]?.text || "Problème inconnu");
-    const steps = msgs.filter(m => m.role === "assistant").map(m => typeof m.content === "string" ? m.content : "").filter(Boolean);
-    const entry = {
-      id: Date.now(),
-      date: new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
-      appareil: sel.category || "Appareil inconnu",
-      marque: sel.brand || sel.marque || "",
-      modele: sel.model || sel.modele || "",
-      probleme: problem.slice(0, 120),
-      etapes: steps,
-      resolu: isResolved,
-    };
-
-    if (user) {
-      // Save to Supabase
-      await supabase.from("historique").insert({
-        user_id: user.id,
-        appareil: entry.appareil,
-        marque: entry.marque,
-        probleme: entry.probleme,
-        etapes: JSON.stringify(steps),
-        resolu: isResolved,
-      });
-      loadHistorique(user.id);
-    } else {
-      // Fallback localStorage
-      const updated = [entry, ...JSON.parse(localStorage.getItem("reparo_historique") || "[]")].slice(0, 50);
-      localStorage.setItem("reparo_historique", JSON.stringify(updated));
-      setHistorique(updated);
-    }
-  };
-
   const goHome = () => {
-    if (messages.length >= 2) saveToHistory(messages, resolved);
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); setShowSAV(false); setResolved(false);
     setQuickReplies([]); setFeedback(null);
   };
   const goTab = (t) => { setTab(t); if (t === "home") goHome(); };
 
-  const typewrite = (text, onUpdate, onDone) => {
-    let i = 0;
-    const speed = 8;
-    const tick = () => {
-      if (i >= text.length) { onDone(text); return; }
-      const step = Math.min(i + Math.ceil(text.length / 120) + 1, text.length);
-      i = step;
-      onUpdate(text.slice(0, i));
-      setTimeout(tick, speed);
-    };
-    tick();
-  };
-
-  const callAPI = async (msgs, appareilContext, onStream, onDone) => {
+  const callAPI = async (msgs, appareilContext) => {
     setLoading(true);
     try {
-      const r = await fetch("/api/chat", {
+      const apiKey = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, system: buildSystemPrompt(appareilContext), messages: msgs }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5",
+          max_tokens: 1000,
+          system: buildSystemPrompt(appareilContext),
+          messages: msgs,
+        }),
       });
-      if (!r.ok) return "Erreur serveur. Veuillez réessayer.";
       const d = await r.json();
-      const fullText = d.content?.[0]?.text || "Désolé, une erreur est survenue.";
+      if (!r.ok) return `Erreur ${r.status} : ${d?.error?.message || "Réessayez."}`;
+      return d.content?.[0]?.text || "Désolé, une erreur est survenue.";
+    } catch (e) {
+      return "Erreur de connexion. Veuillez réessayer.";
+    } finally {
       setLoading(false);
-      if (onStream) {
-        await new Promise(resolve => typewrite(fullText, onStream, (t) => { resolve(t); if (onDone) onDone(t); }));
-      }
-      return fullText;
-    } catch { return "Erreur de connexion. Veuillez réessayer."; }
-    finally { setLoading(false); }
+    }
   };
 
   const getContext = (s) => {
@@ -430,14 +300,11 @@ export default function ReparoApp() {
     const userMsg = br ? `Mon ${cat} ${br} ${mo} : ${problem}` : problem;
     setTab("home"); setScreen("chat"); setResolved(false);
     const msgs = [{ role: "user", content: userMsg }];
-    setMessages([...msgs, { role: "assistant", content: "" }]);
-    const reply = await callAPI(msgs, ctx, (partial) => {
-      setMessages(m => { const copy = [...m]; copy[copy.length-1] = { role: "assistant", content: partial }; return copy; });
-    });
+    setMessages(msgs);
+    const reply = await callAPI(msgs, ctx);
     const finalMsgs = [...msgs, { role: "assistant", content: reply }];
     setMessages(finalMsgs);
     setQuickReplies(getQuickReplies(reply, finalMsgs));
-    if (isRecording === false && voiceMode) speak(reply);
   };
 
   const sendMessage = async (overrideText) => {
@@ -451,13 +318,8 @@ export default function ReparoApp() {
     const msgs = [...messages, { role: "user", content }];
     setMessages(msgs); setImage(null); setImageB64(null);
     const { ctx } = getContext(sel);
-    setMessages([...msgs, { role: "assistant", content: "" }]);
-    const reply = await callAPI(msgs, ctx, (partial) => {
-      setMessages(m => { const copy = [...m]; copy[copy.length-1] = { role: "assistant", content: partial }; return copy; });
-    });
-    const finalMsgs = [...msgs, { role: "assistant", content: reply }];
-    setMessages(finalMsgs);
-    if (voiceMode) speak(reply);
+    const reply = await callAPI(msgs, ctx);
+    setMessages([...msgs, { role: "assistant", content: reply }]);
   };
 
   const cleanReply = (reply) => {
@@ -517,10 +379,8 @@ export default function ReparoApp() {
     setQuickReplies([]);
     const { ctx } = getContext(sel);
     const msgs = [...messages, { role: "user", content: reply }];
-    setMessages([...msgs, { role: "assistant", content: "" }]);
-    const response = await callAPI(msgs, ctx, (partial) => {
-      setMessages(m => { const copy = [...m]; copy[copy.length-1] = { role: "assistant", content: partial }; return copy; });
-    });
+    setMessages(msgs);
+    const response = await callAPI(msgs, ctx);
     const finalMsgs = [...msgs, { role: "assistant", content: response }];
     setMessages(finalMsgs);
     setQuickReplies(getQuickReplies(response, finalMsgs));
@@ -547,18 +407,13 @@ export default function ReparoApp() {
 
   const startVoice = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { showToast("Micro non supporté sur ce navigateur"); return; }
+    if (!SR) { alert("Reconnaissance vocale non supportée sur ce navigateur."); return; }
     if (isRecording) { recRef.current?.stop(); setIsRecording(false); return; }
     const rec = new SR();
     rec.lang = "fr-FR"; rec.continuous = false; rec.interimResults = false;
     rec.onstart  = () => setIsRecording(true);
-    rec.onresult = (e) => {
-      const t = e.results[0][0].transcript;
-      setIsRecording(false);
-      // Auto-envoie le message vocal
-      if (t.trim()) sendMessage(t.trim());
-    };
-    rec.onerror  = () => { setIsRecording(false); showToast("Micro inaccessible"); };
+    rec.onresult = (e) => { const t = e.results[0][0].transcript; setInput(p => p ? p + " " + t : t); };
+    rec.onerror  = () => setIsRecording(false);
     rec.onend    = () => setIsRecording(false);
     recRef.current = rec; rec.start();
   };
@@ -577,7 +432,7 @@ export default function ReparoApp() {
           "Content-Type": "application/json",
         },
           body: JSON.stringify({
-            model: "claude-sonnet-4-5", max_tokens: 400,
+            model: "claude-3-5-sonnet-20241022", max_tokens: 400,
             system: `Tu es un expert en appareils électroménagers. Analyse la photo et réponds uniquement en JSON valide sans balises markdown :
 {"marque":"marque détectée ou null","modele":"référence détectée ou null","conseil":"instruction précise pour trouver l'étiquette de référence sur CET appareil","endroit":"emplacement exact de l'étiquette"}`,
             messages: [{ role: "user", content: [
@@ -652,7 +507,7 @@ export default function ReparoApp() {
   };
 
   const brands   = sel.category ? Object.keys(CATEGORIES[sel.category]?.marques || {}) : [];
-  const models   = sel.brand && sel.category ? (CATEGORIES[sel.category]?.marques?.[sel.brand] || []) : [];
+  const models   = sel.brand && sel.category ? (CATEGORIES[sel.category]?.marques[sel.brand] || []) : [];
   const detailApp = appareils.find(a => a.id === showDetail);
 
   // ── SHARED COMPONENTS ───────────────────────
@@ -911,44 +766,6 @@ export default function ReparoApp() {
   // ── APPAREIL ────────────────────────────────────────
   const AppareilScreen = () => {
     const cat = CATEGORIES[sel.category] || {};
-    const photoRef = React.useRef();
-    const [scanning, setScanning] = React.useState(false);
-    const [scanResult, setScanResult] = React.useState(null);
-
-    const handlePhotoScan = async (file) => {
-      if (!file?.type.startsWith("image/")) return;
-      setScanning(true);
-      setScanResult(null);
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const b64 = e.target.result.split(",")[1];
-        try {
-          const r = await fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: "claude-sonnet-4-5", max_tokens: 400,
-              system: `Tu es un expert en appareils électroménagers. Analyse la photo et réponds UNIQUEMENT en JSON valide sans markdown :
-{"marque":"marque détectée ou null","modele":"référence/modèle détecté ou null","trouve":true/false}`,
-              messages: [{ role: "user", content: [
-                { type: "image", source: { type: "base64", media_type: "image/jpeg", data: b64 } },
-                { type: "text", text: "Identifie la marque et le modèle de cet appareil électroménager." }
-              ]}],
-            }),
-          });
-          const d = await r.json();
-          const text = d.content?.[0]?.text || "{}";
-          const result = JSON.parse(text.replace(/```json|```/g, "").trim());
-          setScanResult(result);
-          if (result.marque) setSel(s => ({ ...s, brand: result.marque }));
-          if (result.modele) setSel(s => ({ ...s, model: result.modele }));
-        } catch {
-          setScanResult({ marque: null, modele: null, trouve: false });
-        } finally { setScanning(false); }
-      };
-      reader.readAsDataURL(file);
-    };
-
     return (
       <div className="slide-in" style={{ paddingBottom: "80px" }}>
         <div style={{ background: PRIMARY, padding: "16px 20px", display: "flex", alignItems: "center", gap: "12px" }}>
@@ -959,60 +776,13 @@ export default function ReparoApp() {
           <div style={{ background: cat.bgColor || "#EFF4FF", borderRadius: "10px", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             {ILLUSTRATIONS[sel.category]}
           </div>
-          <div style={{ flex: 1 }}>
+          <div>
             <div style={{ color: "white", fontWeight: "800", fontSize: "17px" }}>{sel.category}</div>
-            <div style={{ color: "rgba(255,255,255,.75)", fontSize: "12px" }}>
-              {sel.brand ? `${sel.brand}${sel.model ? ` · ${sel.model}` : ""}` : "Choisissez votre panne"}
-            </div>
+            <div style={{ color: "rgba(255,255,255,.75)", fontSize: "12px" }}>Choisissez votre panne</div>
           </div>
         </div>
 
         <div style={{ padding: "20px 16px" }}>
-
-          {/* Bouton identification par photo */}
-          <input ref={photoRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => handlePhotoScan(e.target.files[0])} />
-
-          <div onClick={() => photoRef.current.click()}
-            style={{ background: scanning ? "#EFF4FF" : "white", borderRadius: "14px", padding: "14px 18px", border: `1.5px solid ${ACCENT}`, marginBottom: "16px", display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }}>
-            <div style={{ background: ACCENT, borderRadius: "10px", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              {scanning
-                ? <div style={{ width: "18px", height: "18px", border: "2px solid white", borderTop: "2px solid transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
-                : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              }
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: "800", fontSize: "14px", color: ACCENT }}>
-                {scanning ? "Analyse en cours..." : scanResult?.trouve ? "✓ Appareil identifié !" : "📸 Identifier mon appareil"}
-              </div>
-              <div style={{ fontSize: "12px", color: "#888", marginTop: "2px" }}>
-                {scanResult?.marque
-                  ? `${scanResult.marque}${scanResult.modele ? ` · ${scanResult.modele}` : ""}`
-                  : "Photographiez l'étiquette ou l'appareil"}
-              </div>
-            </div>
-          </div>
-
-          {/* Où trouver la référence */}
-          <div style={{ background: "#FFFBEB", borderRadius: "12px", padding: "12px 14px", marginBottom: "16px", border: "1.5px solid #FDE68A", display: "flex", gap: "10px", alignItems: "flex-start" }}>
-            <span style={{ fontSize: "18px", flexShrink: 0 }}>💡</span>
-            <div>
-              <div style={{ fontWeight: "700", fontSize: "13px", color: "#92400E", marginBottom: "4px" }}>Où trouver la référence ?</div>
-              <div style={{ fontSize: "12px", color: "#78350F", lineHeight: "1.5" }}>
-                {sel.category === "Lave-linge" || sel.category === "Lave-vaisselle"
-                  ? "Sur l'étiquette à l'intérieur de la porte ou sur le côté de l'appareil"
-                  : sel.category === "Réfrigérateur"
-                  ? "Sur l'étiquette à l'intérieur du compartiment, sur la paroi latérale"
-                  : sel.category === "Four"
-                  ? "Sur le bord de la porte ou à l'intérieur de la cavité"
-                  : sel.category === "Micro-ondes"
-                  ? "Sur l'étiquette au dos ou sous l'appareil"
-                  : sel.category === "Machine à café"
-                  ? "Sur l'étiquette sous l'appareil ou au dos"
-                  : "Sur l'étiquette au dos, sous l'appareil ou à l'intérieur d'un compartiment"}
-              </div>
-            </div>
-          </div>
-
           <div style={{ fontWeight: "800", fontSize: "15px", color: "#222", marginBottom: "12px" }}>Pannes courantes</div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
             {(cat.suggestions || []).map(s => (
@@ -1036,7 +806,7 @@ export default function ReparoApp() {
               <input value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && input.trim()) startChat(input.trim()); }}
                 placeholder="Ex : fait du bruit, ne s'allume pas..."
-                style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "16px", fontFamily: "Nunito,sans-serif", outline: "none" }} />
+                style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none" }} />
               <button onClick={() => { if (input.trim()) startChat(input.trim()); }} disabled={!input.trim()}
                 style={{ background: ACCENT, border: "none", borderRadius: "10px", width: "42px", height: "42px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: input.trim() ? 1 : 0.4, flexShrink: 0 }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -1052,9 +822,9 @@ export default function ReparoApp() {
 
   // ── CHAT ────────────────────────────────────────
   const Chat = () => (
-    <div className="slide-in page-in" style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+    <div className="slide-in" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       {/* Header chat */}
-      <div style={{ background: PRIMARY, padding: "16px 20px", display: "flex", alignItems: "center", gap: "12px", flexShrink: 0, position: "fixed", top: 0, left: 0, right: 0, maxWidth: "480px", margin: "0 auto", zIndex: 50, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
+      <div style={{ background: PRIMARY, padding: "16px 20px", display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
         <button onClick={() => goHome()}
           style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "8px", width: "34px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -1072,7 +842,7 @@ export default function ReparoApp() {
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ color: "white", fontWeight: "800", fontSize: "16px" }}>{sel.category || "Reparo"}</div>
-          <div style={{ color: "rgba(255,255,255,.8)", fontSize: "12px" }}>Diagnostic en cours...</div>
+          <div style={{ color: "rgba(255,255,255,.8)", fontSize: "12px" }}>Expert en dépannage électroménager</div>
         </div>
         <button onClick={() => setShowSAV(true)}
           style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "10px", padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
@@ -1082,52 +852,40 @@ export default function ReparoApp() {
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "86px 16px 16px", display: "flex", flexDirection: "column", gap: "10px", paddingBottom: "20px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "12px", paddingBottom: "20px" }}>
         {messages.map((msg, i) => (
-          <div key={i} className={msg.role === "user" ? "msg-user" : "msg-bot"} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end", gap: "8px" }}>
+          <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end", gap: "8px" }}>
             {msg.role === "assistant" && (
-              <div style={{ width: "30px", height: "30px", background: `linear-gradient(135deg, ${PRIMARY}, ${ACCENT})`, borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 8px rgba(37,99,235,.3)" }}>
+              <div style={{ width: "28px", height: "28px", background: ACCENT, borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <svg width="16" height="16" viewBox="-16 -16 32 32" style={{display:"block"}}>
                   <g transform="rotate(-45)">
                     <path d="M-5,-11 L-5,-6 L-1.5,-4 L1.5,-4 L5,-6 L5,-11 Q5,-14 0,-14 Q-5,-14 -5,-11 Z" fill="white"/>
-                    <rect x="-2" y="-14" width="4" height="5" rx="1" fill="rgba(255,255,255,.3)"/>
+                    <rect x="-2" y="-14" width="4" height="5" rx="1" fill={ACCENT}/>
                     <rect x="-1.8" y="-4" width="3.6" height="14" rx="1.8" fill="white"/>
                     <path d="M-5,11 L-5,6 L-1.5,4 L1.5,4 L5,6 L5,11 Q5,14 0,14 Q-5,14 -5,11 Z" fill="white"/>
-                    <rect x="-2" y="9" width="4" height="5" rx="1" fill="rgba(255,255,255,.3)"/>
+                    <rect x="-2" y="9" width="4" height="5" rx="1" fill={ACCENT}/>
                   </g>
                 </svg>
               </div>
             )}
-            <div style={{ maxWidth: "78%" }}>
-              <div style={{
-                background: msg.role === "user" ? `linear-gradient(135deg, ${ACCENT}, #1d4ed8)` : "white",
-                color: msg.role === "user" ? "white" : "#1a1a2e",
-                borderRadius: msg.role === "user" ? "20px 4px 20px 20px" : "4px 20px 20px 20px",
-                padding: "12px 16px",
-                fontSize: "14px",
-                lineHeight: "1.65",
-                boxShadow: msg.role === "user" ? "0 4px 12px rgba(37,99,235,.3)" : "0 2px 8px rgba(0,0,0,.07)",
-                whiteSpace: "pre-wrap",
-              }}>
+            <div style={{ maxWidth: "80%" }}>
+              <div style={{ background: msg.role === "user" ? ACCENT : "white", color: msg.role === "user" ? "white" : "#333", borderRadius: msg.role === "user" ? "16px 4px 16px 16px" : "4px 16px 16px 16px", padding: "12px 14px", fontSize: "14px", lineHeight: "1.6", boxShadow: "0 1px 4px rgba(0,0,0,.07)", whiteSpace: "pre-wrap" }}>
                 {Array.isArray(msg.content)
                   ? msg.content.map((c, j) => c.type === "text"
-                      ? <span key={j}>{msg.role === "assistant" ? <Markdown text={cleanReply(c.text)} /> : cleanReply(c.text)}</span>
-                      : <img key={j} src={`data:image/jpeg;base64,${c.source.data}`} alt="" style={{ width: "100%", borderRadius: "10px", marginBottom: "6px", display: "block" }} />)
-                  : msg.role === "assistant"
-                    ? <Markdown text={cleanReply(typeof msg.content === "string" ? msg.content : "")} />
-                    : cleanReply(typeof msg.content === "string" ? msg.content : "")}
-                {msg.role === "assistant" && msg.content === "" && <span className="cursor" />}
+                      ? <span key={j}>{cleanReply(c.text)}</span>
+                      : <img key={j} src={`data:image/jpeg;base64,${c.source.data}`} alt="" style={{ width: "100%", borderRadius: "8px", marginBottom: "6px", display: "block" }} />)
+                  : cleanReply(typeof msg.content === "string" ? msg.content : "")}
               </div>
             </div>
           </div>
         ))}
         {loading && (
-          <div className="msg-bot" style={{ display: "flex", alignItems: "flex-end", gap: "8px" }}>
-            <div style={{ width: "30px", height: "30px", background: `linear-gradient(135deg, ${PRIMARY}, ${ACCENT})`, borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(37,99,235,.3)" }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: "8px" }}>
+            <div style={{ width: "28px", height: "28px", background: ACCENT, borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <svg width="16" height="16" viewBox="-16 -16 32 32" style={{display:"block"}}><g transform="rotate(-45)"><path d="M-5,-11 L-5,-6 L-1.5,-4 L1.5,-4 L5,-6 L5,-11 Q5,-14 0,-14 Q-5,-14 -5,-11 Z" fill="white"/><rect x="-1.8" y="-4" width="3.6" height="14" rx="1.8" fill="white"/><path d="M-5,11 L-5,6 L-1.5,4 L1.5,4 L5,6 L5,11 Q5,14 0,14 Q-5,14 -5,11 Z" fill="white"/></g></svg>
             </div>
-            <div style={{ background: "white", borderRadius: "4px 20px 20px 20px", padding: "14px 18px", boxShadow: "0 2px 8px rgba(0,0,0,.07)" }}>
-              <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>{[0,1,2].map(i => <div key={i} className="dot" style={{ width: "7px", height: "7px", background: ACCENT, borderRadius: "50%" }} />)}</div>
+            <div style={{ background: "white", borderRadius: "4px 16px 16px 16px", padding: "12px 16px", boxShadow: "0 1px 4px rgba(0,0,0,.07)" }}>
+              <div style={{ display: "flex", gap: "4px" }}>{[0,1,2].map(i => <div key={i} className="dot" style={{ width: "8px", height: "8px", background: ACCENT, borderRadius: "50%" }} />)}</div>
             </div>
           </div>
         )}
@@ -1156,18 +914,10 @@ export default function ReparoApp() {
 
       {/* Quick replies */}
       {quickReplies.length > 0 && !loading && !resolved && (
-        <div style={{ padding: "10px 16px 6px", display: "flex", gap: "8px", flexWrap: "wrap", background: "white", borderTop: "1px solid #f0f0f0" }}>
-          {quickReplies.map((r, idx) => (
-            <button key={r} onClick={() => sendQuickReply(r)} className="quick-btn"
-              style={{
-                animationDelay: `${idx * 0.06}s`,
-                background: r.includes("résolu") || r.includes("fait") ? "#f0fdf4" : r.includes("marche pas") || r.includes("comprends pas") ? "#fff1f2" : "#EFF4FF",
-                border: `1.5px solid ${r.includes("résolu") || r.includes("fait") ? "#86efac" : r.includes("marche pas") || r.includes("comprends pas") ? "#fecdd3" : "#c7d7f8"}`,
-                borderRadius: "22px", padding: "9px 16px", fontSize: "13px", fontWeight: "700",
-                color: r.includes("résolu") || r.includes("fait") ? "#16a34a" : r.includes("marche pas") || r.includes("comprends pas") ? "#e11d48" : ACCENT,
-                cursor: "pointer", fontFamily: "Nunito,sans-serif", whiteSpace: "nowrap",
-                transition: "all .15s", boxShadow: "0 1px 4px rgba(0,0,0,.06)"
-              }}>
+        <div style={{ padding: "8px 16px 4px", display: "flex", gap: "6px", flexWrap: "wrap", background: "#f8fafc" }}>
+          {quickReplies.map(r => (
+            <button key={r} onClick={() => sendQuickReply(r)}
+              style={{ background: r.includes("résolu") || r.includes("fait") ? "#f0fdf4" : r.includes("marche pas") || r.includes("comprends pas") ? "#fff1f2" : "#EFF4FF", border: `1.5px solid ${r.includes("résolu") || r.includes("fait") ? "#86efac" : r.includes("marche pas") || r.includes("comprends pas") ? "#fecdd3" : "#c7d7f8"}`, borderRadius: "20px", padding: "8px 14px", fontSize: "13px", fontWeight: "700", color: r.includes("résolu") || r.includes("fait") ? "#16a34a" : r.includes("marche pas") || r.includes("comprends pas") ? "#e11d48" : ACCENT, cursor: "pointer", fontFamily: "Nunito,sans-serif", whiteSpace: "nowrap" }}>
               {r}
             </button>
           ))}
@@ -1183,7 +933,7 @@ export default function ReparoApp() {
               <button onClick={() => { setImage(null); setImageB64(null); }} style={{ position: "absolute", top: "14px", right: "4px", background: "rgba(0,0,0,.5)", border: "none", borderRadius: "50%", width: "22px", height: "22px", color: "white", fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
             </div>
           )}
-          <ChatInput onSend={sendMessage} loading={loading} fileRef={fileRef} handleFile={handleFile} onVoice={startVoice} isRecording={isRecording} />
+          <ChatInput onSend={sendMessage} loading={loading} fileRef={fileRef} handleFile={handleFile} />
         </div>
       )}
 
@@ -1231,7 +981,7 @@ export default function ReparoApp() {
       </div>
     );
     return (
-      <div className="fade-in page-in" style={{ paddingBottom: "80px" }}>
+      <div className="fade-in" style={{ paddingBottom: "80px" }}>
         <div style={{ background: PRIMARY, padding: "20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ color: "white", fontWeight: "800", fontSize: "20px" }}>Mes appareils</div>
           <button onClick={() => setShowAdd(true)} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "10px", color: "white", padding: "8px 14px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>+ Enregistrer</button>
@@ -1268,11 +1018,11 @@ export default function ReparoApp() {
                 <div key={f.key} style={{ marginBottom: "12px" }}>
                   <div style={{ fontSize: "12px", fontWeight: "700", color: "#666", marginBottom: "4px" }}>{f.label}</div>
                   {f.options
-                    ? <select value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: "100%", border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "16px", fontFamily: "Nunito,sans-serif", background: "white" }}>
+                    ? <select value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: "100%", border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", background: "white" }}>
                         <option value="">Sélectionnez...</option>
                         {f.options.map(o => <option key={o} value={o}>{o}</option>)}
                       </select>
-                    : <input value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} style={{ width: "100%", border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "16px", fontFamily: "Nunito,sans-serif", outline: "none" }} />
+                    : <input value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} style={{ width: "100%", border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none" }} />
                   }
                 </div>
               ))}
@@ -1292,107 +1042,36 @@ export default function ReparoApp() {
 
   // ── PROFIL ────────────────────────────────────────
   const Profil = () => {
-    const [detail, setDetail] = React.useState(null);
-
-    const deleteEntry = async (id) => {
-      if (user) {
-        await supabase.from("historique").delete().eq("id", id);
-        loadHistorique(user.id);
-      } else {
-        const updated = historique.filter(h => h.id !== id);
-        localStorage.setItem("reparo_historique", JSON.stringify(updated));
-        setHistorique(updated);
-      }
-      if (detail?.id === id) setDetail(null);
-    };
-
-    if (detail) return (
-      <div className="fade-in" style={{ paddingBottom: "80px" }}>
-        <div style={{ background: PRIMARY, padding: "16px 20px", display: "flex", alignItems: "center", gap: "12px" }}>
-          <button onClick={() => setDetail(null)} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "8px", width: "34px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-          </button>
-          <div style={{ flex: 1 }}>
-            <div style={{ color: "white", fontWeight: "800", fontSize: "16px" }}>{detail.appareil} {detail.marque}</div>
-            <div style={{ color: "rgba(255,255,255,.7)", fontSize: "12px" }}>{detail.date}</div>
-          </div>
-          <div style={{ background: detail.resolu ? "#16a34a" : "#dc2626", borderRadius: "8px", padding: "4px 10px" }}>
-            <span style={{ color: "white", fontSize: "11px", fontWeight: "700" }}>{detail.resolu ? "✓ Résolu" : "✗ Non résolu"}</span>
-          </div>
-        </div>
-        <div style={{ padding: "16px" }}>
-          <div style={{ background: "white", borderRadius: "14px", padding: "16px", border: "1.5px solid #eee", marginBottom: "12px" }}>
-            <div style={{ fontSize: "11px", fontWeight: "700", color: "#888", marginBottom: "6px", textTransform: "uppercase" }}>Problème signalé</div>
-            <div style={{ fontSize: "14px", color: "#222", lineHeight: "1.5" }}>{detail.probleme}</div>
-          </div>
-          <div style={{ fontSize: "11px", fontWeight: "700", color: "#888", marginBottom: "8px", textTransform: "uppercase" }}>Étapes du diagnostic</div>
-          {detail.etapes.map((e, i) => (
-            <div key={i} style={{ background: "white", borderRadius: "12px", padding: "14px", border: "1.5px solid #eee", marginBottom: "8px" }}>
-              <div style={{ fontSize: "10px", fontWeight: "700", color: ACCENT, marginBottom: "4px" }}>ÉTAPE {i + 1}</div>
-              <div style={{ fontSize: "13px", color: "#333", lineHeight: "1.6", whiteSpace: "pre-wrap" }}>{e}</div>
-            </div>
-          ))}
-          <button onClick={() => deleteEntry(detail.id)} style={{ width: "100%", background: "white", border: "1.5px solid #fee2e2", borderRadius: "12px", color: "#dc2626", padding: "14px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif", marginTop: "8px" }}>🗑️ Supprimer ce diagnostic</button>
-        </div>
+    if (!isLoggedIn) return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "70vh", padding: "32px", textAlign: "center" }}>
+        <div style={{ fontSize: "48px", marginBottom: "16px" }}>👤</div>
+        <div style={{ fontWeight: "800", fontSize: "18px", color: "#222", marginBottom: "8px" }}>Connectez-vous</div>
+        <div style={{ fontSize: "14px", color: "#888", marginBottom: "24px", lineHeight: "1.5" }}>Connectez-vous pour accéder à votre profil, votre historique et gérer vos préférences.</div>
+        <button onClick={() => setAppState("auth")} style={{ background: ACCENT, border: "none", borderRadius: "14px", color: "white", padding: "14px 28px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Se connecter</button>
       </div>
     );
-
     return (
       <div className="fade-in" style={{ paddingBottom: "80px" }}>
-        <div style={{ background: PRIMARY, padding: "20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ color: "white", fontWeight: "800", fontSize: "20px" }}>Historique</div>
-            <div style={{ color: "rgba(255,255,255,.7)", fontSize: "12px", marginTop: "2px" }}>{historique.length} diagnostic{historique.length > 1 ? "s" : ""}</div>
-          </div>
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <div style={{ background: "rgba(255,255,255,.15)", borderRadius: "10px", padding: "6px 12px", display: "flex", gap: "8px" }}>
-              <span style={{ color: "white", fontSize: "12px", fontWeight: "700" }}>✓ {historique.filter(h => h.resolu).length} résolus</span>
-              <span style={{ color: "rgba(255,255,255,.5)" }}>|</span>
-              <span style={{ color: "rgba(255,255,255,.7)", fontSize: "12px", fontWeight: "700" }}>✗ {historique.filter(h => !h.resolu).length} non résolus</span>
-            </div>
-          </div>
+        <div style={{ background: PRIMARY, padding: "28px 20px 20px", textAlign: "center" }}>
+          <div style={{ width: "72px", height: "72px", background: "rgba(255,255,255,.2)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: "28px" }}>👤</div>
+          <div style={{ color: "white", fontWeight: "800", fontSize: "18px" }}>Mon compte</div>
+          <div style={{ color: "rgba(255,255,255,.7)", fontSize: "13px", marginTop: "4px" }}>Membre Reparo</div>
         </div>
         <div style={{ padding: "16px" }}>
-          {user && (
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", background: "#EFF4FF", borderRadius: "12px", padding: "12px 14px" }}>
-              <div style={{ width: "36px", height: "36px", background: ACCENT, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: "800", fontSize: "16px" }}>
-                {user.email?.[0].toUpperCase()}
-              </div>
+          {[
+            { label: "Mes appareils", value: `${appareils.length} appareil${appareils.length > 1 ? "s" : ""}`, icon: "🔧" },
+            { label: "Diagnostics effectués", value: "0", icon: "📋" },
+            { label: "Entretiens à prévoir", value: `${appareils.filter(a => a.entretien.includes("conseillé")).length}`, icon: "⚠️" },
+          ].map(s => (
+            <div key={s.label} style={{ background: "white", borderRadius: "14px", padding: "16px", border: "1.5px solid #eee", marginBottom: "10px", display: "flex", alignItems: "center", gap: "12px" }}>
+              <span style={{ fontSize: "24px" }}>{s.icon}</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: "700", fontSize: "13px", color: "#222" }}>{user.email}</div>
-                <div style={{ fontSize: "11px", color: "#888" }}>Compte Reparo</div>
-              </div>
-              <button onClick={async () => { await supabase.auth.signOut(); setUser(null); setIsLoggedIn(false); setHistorique([]); setAppState("auth"); }}
-                style={{ background: "none", border: "none", color: "#e11d48", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
-                Déconnexion
-              </button>
-            </div>
-          )}
-          {historique.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "60px 20px" }}>
-              <div style={{ fontSize: "48px", marginBottom: "16px" }}>📋</div>
-              <div style={{ fontWeight: "800", fontSize: "17px", color: "#222", marginBottom: "8px" }}>Aucun diagnostic</div>
-              <div style={{ fontSize: "14px", color: "#888", lineHeight: "1.5" }}>Vos diagnostics apparaîtront ici après chaque conversation avec Reparo.</div>
-            </div>
-          ) : historique.map(h => (
-            <div key={h.id} className="card fu" onClick={() => setDetail(h)}
-              style={{ background: "white", borderRadius: "14px", padding: "14px 16px", border: "1.5px solid #eee", boxShadow: "0 2px 6px rgba(0,0,0,.04)", marginBottom: "10px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
-              <div style={{ background: CATEGORIES[h.appareil]?.bgColor || "#f1f5f9", borderRadius: "10px", width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "20px" }}>
-                {CATEGORIES[h.appareil] ? <span>{["Lave-linge","Réfrigérateur","Lave-vaisselle","Four","Sèche-linge","Machine à café","Micro-ondes"].indexOf(h.appareil) >= 0 ? ["🫧","🧊","🍽️","🔥","💨","☕","📡","🔧"][["Lave-linge","Réfrigérateur","Lave-vaisselle","Four","Sèche-linge","Machine à café","Micro-ondes"].indexOf(h.appareil)] : "🔧"}</span> : "🔧"}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
-                  <div style={{ fontWeight: "700", fontSize: "14px", color: "#222" }}>{h.appareil} {h.marque}</div>
-                  <div style={{ background: h.resolu ? "#f0fdf4" : "#fef2f2", borderRadius: "6px", padding: "2px 8px", flexShrink: 0 }}>
-                    <span style={{ fontSize: "10px", fontWeight: "700", color: h.resolu ? "#16a34a" : "#dc2626" }}>{h.resolu ? "✓ Résolu" : "✗ Non résolu"}</span>
-                  </div>
-                </div>
-                <div style={{ fontSize: "12px", color: "#aaa", marginBottom: "6px" }}>{h.date}</div>
-                <div style={{ fontSize: "13px", color: "#555", lineHeight: "1.4", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{h.probleme}</div>
-                <div style={{ fontSize: "11px", color: ACCENT, fontWeight: "700", marginTop: "6px" }}>{h.etapes.length} étape{h.etapes.length > 1 ? "s" : ""} · Voir le détail →</div>
+                <div style={{ fontSize: "13px", color: "#888" }}>{s.label}</div>
+                <div style={{ fontWeight: "800", fontSize: "18px", color: "#222" }}>{s.value}</div>
               </div>
             </div>
           ))}
+          <button onClick={() => { setIsLoggedIn(false); setAppState("auth"); }} style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "12px", color: "#e11d48", padding: "14px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif", marginTop: "8px" }}>Se déconnecter</button>
         </div>
       </div>
     );
@@ -1407,35 +1086,39 @@ export default function ReparoApp() {
         <div style={{ position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)", background: "#222", color: "white", padding: "12px 20px", borderRadius: "22px", fontSize: "14px", fontWeight: "700", zIndex: 200, whiteSpace: "nowrap", boxShadow: "0 4px 20px rgba(0,0,0,.2)", animation: "fadeUp .3s ease" }}>{toast}</div>
       )}
 
-      {/* SPLASH */}
-      {appState === "splash" && (
-        <div className="splash-in" style={{ position: "fixed", inset: 0, background: "#1B3A6B", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
-          <div style={{ background: "rgba(255,255,255,.15)", borderRadius: "28px", width: "90px", height: "90px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "24px", boxShadow: "0 8px 32px rgba(0,0,0,.3)" }}>
-            <svg width="52" height="52" viewBox="-16 -16 32 32" style={{display:"block"}}>
-              <g transform="rotate(-45)">
-                <path d="M-5,-11 L-5,-6 L-1.5,-4 L1.5,-4 L5,-6 L5,-11 Q5,-14 0,-14 Q-5,-14 -5,-11 Z" fill="white"/>
-                <rect x="-2" y="-14" width="4" height="5" rx="1" fill="rgba(255,255,255,.3)"/>
-                <rect x="-1.8" y="-4" width="3.6" height="14" rx="1.8" fill="white"/>
-                <path d="M-5,11 L-5,6 L-1.5,4 L1.5,4 L5,6 L5,11 Q5,14 0,14 Q-5,14 -5,11 Z" fill="white"/>
-                <rect x="-2" y="9" width="4" height="5" rx="1" fill="rgba(255,255,255,.3)"/>
-              </g>
-            </svg>
-          </div>
-          <div style={{ color: "white", fontWeight: "900", fontSize: "36px", letterSpacing: "-1px", marginBottom: "8px" }}>Reparo</div>
-          <div style={{ color: "rgba(255,255,255,.6)", fontSize: "15px", fontWeight: "600" }}>Dépannage électroménager IA</div>
-          <div style={{ marginTop: "48px", display: "flex", gap: "8px" }}>
-            {[0,1,2].map(i => <div key={i} className="dot" style={{ width: "8px", height: "8px", background: "white", borderRadius: "50%", opacity: .5 }} />)}
-          </div>
-        </div>
-      )}
-
       {/* ONBOARDING */}
       {appState === "onboarding" && (() => {
         const s = ONBOARDING[obStep];
         return (
           <div style={{ minHeight: "100vh", background: s.bg, display: "flex", flexDirection: "column", padding: "48px 24px 32px", transition: "background .4s ease" }}>
             <div style={{ width: "220px", height: "220px", borderRadius: "28px", overflow: "hidden", margin: "0 auto", boxShadow: "0 20px 60px rgba(0,0,0,.2)" }}>
-              <img src={["https://images.unsplash.com/photo-1517677129300-07b130802f46?w=400&q=85","https://images.unsplash.com/photo-1571175443880-49e1d25b2bc5?w=400&q=85","https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&q=85"][obStep]} alt="Appareil électroménager" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              {[
+                <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:"100%",height:"100%"}}>
+                  <rect width="200" height="200" fill="#1B3A6B"/>
+                  <rect x="50" y="30" width="100" height="130" rx="10" fill="#2563EB"/>
+                  <circle cx="100" cy="110" r="35" fill="#1B3A6B"/>
+                  <circle cx="100" cy="110" r="25" fill="#DBEAFE"/>
+                  <circle cx="100" cy="110" r="12" fill="#2563EB"/>
+                  <rect x="60" y="45" width="20" height="8" rx="4" fill="#DBEAFE"/>
+                  <circle cx="110" cy="49" r="5" fill="#DBEAFE"/>
+                </svg>,
+                <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:"100%",height:"100%"}}>
+                  <rect width="200" height="200" fill="#1B3A6B"/>
+                  <rect x="40" y="20" width="120" height="160" rx="10" fill="#166534"/>
+                  <rect x="40" y="20" width="120" height="70" rx="10" fill="#14532D"/>
+                  <rect x="150" y="40" width="10" height="20" rx="5" fill="#DCFCE7"/>
+                  <rect x="150" y="110" width="10" height="30" rx="5" fill="#DCFCE7"/>
+                  <rect x="55" y="110" width="40" height="5" rx="2" fill="#DCFCE7" opacity="0.4"/>
+                  <rect x="55" y="125" width="55" height="5" rx="2" fill="#DCFCE7" opacity="0.4"/>
+                </svg>,
+                <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:"100%",height:"100%"}}>
+                  <rect width="200" height="200" fill="#1B3A6B"/>
+                  <circle cx="100" cy="100" r="60" fill="#2563EB" opacity="0.3"/>
+                  <circle cx="100" cy="100" r="40" fill="#2563EB" opacity="0.5"/>
+                  <circle cx="100" cy="100" r="20" fill="white"/>
+                  <path d="M90 100 L97 107 L112 92" stroke="#1B3A6B" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              ][obStep]}
             </div>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", marginTop: "32px" }}>
               <div style={{ fontSize: "26px", fontWeight: "900", color: s.light ? "white" : PRIMARY, lineHeight: "1.25", marginBottom: "16px", whiteSpace: "pre-line" }}>{s.title}</div>
@@ -1455,8 +1138,8 @@ export default function ReparoApp() {
 
       {/* AUTH */}
       {appState === "auth" && (
-        <div className="page-in" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px", background: "white" }}>
-          <div style={{ background: "#EFF4FF", borderRadius: "24px", width: "80px", height: "80px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px" }}>
+          <div style={{ background: "#EFF4FF", borderRadius: "50%", width: "80px", height: "80px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
             <svg width="44" height="44" viewBox="-16 -16 32 32" style={{display:"block"}}>
               <g transform="rotate(-45)">
                 <path d="M-5,-11 L-5,-6 L-1.5,-4 L1.5,-4 L5,-6 L5,-11 Q5,-14 0,-14 Q-5,-14 -5,-11 Z" fill={ACCENT}/>
@@ -1467,27 +1150,16 @@ export default function ReparoApp() {
               </g>
             </svg>
           </div>
-          <div style={{ fontWeight: "900", fontSize: "28px", color: PRIMARY, marginBottom: "8px" }}>Reparo</div>
-          <div style={{ fontSize: "14px", color: "#888", textAlign: "center", marginBottom: "32px", lineHeight: "1.6", maxWidth: "280px" }}>Sauvegardez votre historique et accédez à vos diagnostics depuis n'importe quel appareil.</div>
-
-          {/* Google */}
-          <button onClick={async () => {
-            await supabase.auth.signInWithOAuth({
-              provider: "google",
-              options: { redirectTo: window.location.origin }
-            });
-          }} style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "14px", padding: "15px", marginBottom: "10px", fontWeight: "700", fontSize: "15px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", fontFamily: "Nunito,sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-            Continuer avec Google
-          </button>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", margin: "8px 0 16px" }}>
-            <div style={{ flex: 1, height: "1px", background: "#eee" }} />
-            <span style={{ fontSize: "13px", color: "#aaa" }}>ou</span>
-            <div style={{ flex: 1, height: "1px", background: "#eee" }} />
-          </div>
-
-          <button onClick={() => setAppState("main")} style={{ background: "none", border: "none", color: "#aaa", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Continuer sans compte</button>
+          <div style={{ fontWeight: "900", fontSize: "26px", color: PRIMARY, marginBottom: "8px" }}>Reparo</div>
+          <div style={{ fontSize: "14px", color: "#888", textAlign: "center", marginBottom: "32px", lineHeight: "1.5" }}>Sauvegardez vos appareils, retrouvez votre historique de pannes et recevez des alertes d'entretien.</div>
+          {[{icon:"G",label:"Continuer avec Google"},{icon:"A",label:"Continuer avec Apple"},{icon:"@",label:"Continuer avec Email"}].map(b => (
+            <button key={b.label} onClick={() => { setIsLoggedIn(true); setAppState("main"); }}
+              style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "14px", padding: "15px", marginBottom: "10px", fontWeight: "700", fontSize: "15px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", fontFamily: "Nunito,sans-serif" }}>
+              <span style={{ background: "#f0f0f0", borderRadius: "6px", width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "800" }}>{b.icon}</span>
+              {b.label}
+            </button>
+          ))}
+          <button onClick={() => setAppState("main")} style={{ background: "none", border: "none", color: "#aaa", fontSize: "14px", cursor: "pointer", marginTop: "8px", fontFamily: "Nunito,sans-serif" }}>Continuer sans compte</button>
         </div>
       )}
 
