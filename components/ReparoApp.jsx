@@ -145,10 +145,7 @@ const SAV_ENSEIGNES = [
   { name: "Boulanger", tel: "09 69 36 36 36" },
 ];
 
-const INIT_APPAREILS = [
-  { id: 1, type: "Lave-linge",    marque: "Samsung", modele: "WW90T534DAW", achat: "2021", pannes: 2, entretien: "Entretien conseillé" },
-  { id: 2, type: "Réfrigérateur", marque: "Bosch",   modele: "KGN39AIAT",   achat: "2019", pannes: 0, entretien: "Entretien à jour" },
-];
+const INIT_APPAREILS = [];
 
 const PRIMARY = "#1B3A6B";
 const ACCENT  = "#2563EB";
@@ -258,6 +255,9 @@ export default function ReparoApp() {
   const [isListening,  setIsListening]  = useState(false);
   const [apiError,     setApiError]     = useState(null);
   const [lastCallArgs, setLastCallArgs] = useState(null);
+  const [refImage,     setRefImage]     = useState(null);
+  const [refResult,    setRefResult]    = useState(null);
+  const [refLoading,   setRefLoading]   = useState(false);
   const synthRef    = useRef(null);
   const voiceRecRef = useRef(null);
   const fileRef    = useRef();
@@ -584,7 +584,7 @@ export default function ReparoApp() {
   };
 
   const brands   = sel.category ? Object.keys(CATEGORIES[sel.category]?.marques || {}) : [];
-  const models   = sel.brand && sel.category ? (CATEGORIES[sel.category]?.marques[sel.brand] || []) : [];
+  const models   = sel.brand && sel.category ? (CATEGORIES[sel.category]?.marques?.[sel.brand] || []) : [];
   const detailApp = appareils.find(a => a.id === showDetail);
 
   // ── SHARED COMPONENTS ───────────────────────
