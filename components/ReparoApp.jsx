@@ -232,6 +232,7 @@ export default function ReparoApp() {
   const [isLoggedIn,  setIsLoggedIn]  = useState(false);
   const [user,        setUser]        = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const userRef = useRef(null);
   const [obStep,      setObStep]      = useState(0);
   const [tab,         setTab]         = useState("home");
   const [screen,      setScreen]      = useState("home");
@@ -264,13 +265,14 @@ export default function ReparoApp() {
   const fileRef    = useRef();
   const recRef     = useRef();
   const msgEnd     = useRef();
+  const msgTop     = useRef();
 
   // Auth Supabase — écoute la session au chargement
   useEffect(() => {
     if (!getSupabase()) { setAuthLoading(false); return; }
     getSupabase()?.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        setUser(session.user); setIsLoggedIn(true); setAppState("main");
+        setUser(session.user); userRef.current = session.user; setIsLoggedIn(true); setAppState("main");
         loadAppareils(session.user.id);
         loadConversationCount(session.user.id);
       }
@@ -278,10 +280,10 @@ export default function ReparoApp() {
     });
     const { data: { subscription } } = getSupabase()?.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        setUser(session.user); setIsLoggedIn(true); setAppState("main");
+        setUser(session.user); userRef.current = session.user; setIsLoggedIn(true); setAppState("main");
         loadAppareils(session.user.id);
         loadConversationCount(session.user.id);
-      } else { setUser(null); setIsLoggedIn(false); setAppareils([]); setConversationCount(0); }
+      } else { setUser(null); userRef.current = null; setIsLoggedIn(false); setAppareils([]); setConversationCount(0); }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -319,9 +321,11 @@ export default function ReparoApp() {
   };
 
   const saveConversation = async (msgs, category, brand) => {
-    const sb = getSupabase(); if (!sb || !user || msgs.length < 2) return;
+    const sb = getSupabase();
+    const currentUser = userRef.current;
+    if (!sb || !currentUser || msgs.length < 2) return;
     const { error } = await sb.from("conversations").insert({
-      user_id: user.id,
+      user_id: currentUser.id,
       appareil_type: category || null,
       appareil_marque: brand || null,
       messages: msgs.filter(m => typeof m.content === "string"),
@@ -941,8 +945,8 @@ export default function ReparoApp() {
   // ── CHAT ────────────────────────────────────────
   const Chat = () => (
     <div className="slide-in" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      {/* Header chat */}
-      <div style={{ background: PRIMARY, padding: "16px 20px", display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+      {/* Header chat — sticky */}
+      <div style={{ background: PRIMARY, padding: "16px 20px", display: "flex", alignItems: "center", gap: "12px", flexShrink: 0, position: "sticky", top: 0, zIndex: 20 }}>
         <button onClick={() => goHome()}
           style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "8px", width: "34px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -970,7 +974,15 @@ export default function ReparoApp() {
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "12px", paddingBottom: "20px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "12px", paddingBottom: "20px", position: "relative" }} id="chat-scroll">
+        <div ref={msgTop} />
+        {messages.length > 4 && (
+          <button onClick={() => msgTop.current?.scrollIntoView({ behavior: "smooth" })}
+            style={{ position: "sticky", top: "8px", alignSelf: "center", zIndex: 10, background: "rgba(37,99,235,0.9)", border: "none", borderRadius: "20px", color: "white", padding: "6px 14px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif", display: "flex", alignItems: "center", gap: "6px", backdropFilter: "blur(4px)", boxShadow: "0 2px 8px rgba(0,0,0,.2)" }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+            Remonter
+          </button>
+        )}
         {messages.map((msg, i) => (
           <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end", gap: "8px" }}>
             {msg.role === "assistant" && (
