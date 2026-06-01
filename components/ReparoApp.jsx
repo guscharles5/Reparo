@@ -268,59 +268,32 @@ export default function ReparoApp() {
   useEffect(() => {
     if (!getSupabase()) { setAuthLoading(false); return; }
     getSupabase()?.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user); setIsLoggedIn(true); setAppState("main");
-        loadAppareils(session.user.id);
-      }
+      if (session?.user) { setUser(session.user); setIsLoggedIn(true); setAppState("main"); }
       setAuthLoading(false);
     });
     const { data: { subscription } } = getSupabase()?.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser(session.user); setIsLoggedIn(true); setAppState("main");
-        loadAppareils(session.user.id);
-      } else { setUser(null); setIsLoggedIn(false); setAppareils([]); }
+      if (session?.user) { setUser(session.user); setIsLoggedIn(true); setAppState("main"); }
+      else { setUser(null); setIsLoggedIn(false); }
     });
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
-  // Historique sauvegardé dans Supabase à la fin du chat (via goHome)
+  // Sauvegarde historique dans localStorage
+  useEffect(() => {
+    if (messages.length > 0 && sel.category) {
+      try {
+        const key = `reparo_hist_${sel.category}`;
+        const entry = { sel, messages: messages.filter(m => typeof m.content === "string"), date: new Date().toISOString() };
+        localStorage.setItem(key, JSON.stringify(entry));
+      } catch(e) {}
+    }
+  }, [messages]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
 
-
-
-  // ── SUPABASE HELPERS ────────────────────────────────
-  const loadAppareils = async (uid) => {
-    const sb = getSupabase(); if (!sb) return;
-    const { data } = await sb.from("appareils").select("*").eq("user_id", uid).order("created_at", { ascending: false });
-    if (data) setAppareils(data);
-  };
-
-  const saveAppareil = async (app) => {
-    const sb = getSupabase(); if (!sb || !user) return null;
-    const { data, error } = await sb.from("appareils").insert({
-      user_id: user.id, type: app.type, marque: app.marque,
-      modele: app.modele || "Non renseigné", achat: app.achat || "—",
-      entretien: "Entretien à jour", pannes: 0,
-    }).select().single();
-    if (!error && data) return data;
-    return null;
-  };
-
-  const saveConversation = async (msgs) => {
-    const sb = getSupabase(); if (!sb || !user || msgs.length < 2) return;
-    await sb.from("conversations").insert({
-      user_id: user.id,
-      appareil_type: sel.category || null,
-      appareil_marque: sel.brand || null,
-      messages: msgs.filter(m => typeof m.content === "string"),
-    });
-  };
-
   const goHome = () => {
-    if (messages.length >= 2) saveConversation(messages);
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); setShowSAV(false); setResolved(false);
     setQuickReplies([]); setFeedback(null);
@@ -605,16 +578,9 @@ export default function ReparoApp() {
 
   const addAppareil = () => {
     if (!form.type || !form.marque) return;
-    const saved = await saveAppareil(form);
-    if (saved) {
-      setAppareils(prev => [saved, ...prev]);
-      showToast("Appareil enregistré !");
-    } else {
-      // fallback local
-      setAppareils(prev => [...prev, { id: Date.now(), ...form, pannes: 0, entretien: "Entretien à jour" }]);
-      showToast("Appareil enregistré localement");
-    }
+    setAppareils([...appareils, { id: Date.now(), type: form.type, marque: form.marque, modele: form.modele || "Non renseigné", achat: form.achat || "—", pannes: 0, entretien: "Entretien à jour" }]);
     setForm({ type: "", marque: "", modele: "", achat: "" }); setShowAdd(false);
+    showToast("Appareil enregistré !");
   };
 
   const brands   = sel.category ? Object.keys(CATEGORIES[sel.category]?.marques || {}) : [];
