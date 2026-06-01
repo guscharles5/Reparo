@@ -603,7 +603,7 @@ export default function ReparoApp() {
     else { setVoiceMode(true); speak("Bonjour, je suis Reparo. Décrivez-moi votre panne, je vous aide."); }
   };
 
-  const addAppareil = () => {
+  const addAppareil = async () => {
     if (!form.type || !form.marque) return;
     const saved = await saveAppareil(form);
     if (saved) {
