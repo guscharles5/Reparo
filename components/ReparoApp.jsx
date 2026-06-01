@@ -241,6 +241,8 @@ export default function ReparoApp() {
   const [voiceMode,    setVoiceMode]    = useState(false);
   const [isSpeaking,   setIsSpeaking]   = useState(false);
   const [isListening,  setIsListening]  = useState(false);
+  const [apiError,     setApiError]     = useState(null);
+  const [lastCallArgs, setLastCallArgs] = useState(null);
   const synthRef    = useRef(null);
   const voiceRecRef = useRef(null);
   const fileRef    = useRef();
@@ -248,6 +250,17 @@ export default function ReparoApp() {
   const msgEnd     = useRef();
 
   useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+
+  // Sauvegarde historique dans localStorage
+  useEffect(() => {
+    if (messages.length > 0 && sel.category) {
+      try {
+        const key = `reparo_hist_${sel.category}`;
+        const entry = { sel, messages: messages.filter(m => typeof m.content === "string"), date: new Date().toISOString() };
+        localStorage.setItem(key, JSON.stringify(entry));
+      } catch(e) {}
+    }
+  }, [messages]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
 
@@ -260,6 +273,10 @@ export default function ReparoApp() {
 
   const callAPI = async (msgs, appareilContext) => {
     setLoading(true);
+    setApiError(null);
+    setLastCallArgs({ msgs, appareilContext });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
     try {
       const r = await fetch("/api/chat", {
         method: "POST",
@@ -268,14 +285,36 @@ export default function ReparoApp() {
           system: buildSystemPrompt(appareilContext),
           messages: msgs,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       const d = await r.json();
-      if (!r.ok) return `Erreur ${r.status} : ${d?.error || "Réessayez."}`;
+      if (!r.ok) {
+        const msg = `Erreur ${r.status} : ${d?.error || "Réessayez."}`;
+        setApiError(msg);
+        return null;
+      }
       return d.content?.[0]?.text || "Désolé, une erreur est survenue.";
     } catch (e) {
-      return "Erreur de connexion. Veuillez réessayer.";
+      clearTimeout(timeout);
+      const msg = e.name === "AbortError"
+        ? "La réponse a pris trop longtemps. Vérifiez votre connexion et réessayez."
+        : "Erreur de connexion. Vérifiez votre réseau et réessayez.";
+      setApiError(msg);
+      return null;
     } finally {
       setLoading(false);
+    }
+  };
+
+  const retryLastCall = async () => {
+    if (!lastCallArgs) return;
+    const { msgs, appareilContext } = lastCallArgs;
+    const reply = await callAPI(msgs, appareilContext);
+    if (reply) {
+      const finalMsgs = [...msgs, { role: "assistant", content: reply }];
+      setMessages(finalMsgs);
+      setQuickReplies(getQuickReplies(reply, finalMsgs));
     }
   };
 
@@ -294,9 +333,11 @@ export default function ReparoApp() {
     const msgs = [{ role: "user", content: userMsg }];
     setMessages(msgs);
     const reply = await callAPI(msgs, ctx);
-    const finalMsgs = [...msgs, { role: "assistant", content: reply }];
-    setMessages(finalMsgs);
-    setQuickReplies(getQuickReplies(reply, finalMsgs));
+    if (reply) {
+      const finalMsgs = [...msgs, { role: "assistant", content: reply }];
+      setMessages(finalMsgs);
+      setQuickReplies(getQuickReplies(reply, finalMsgs));
+    }
   };
 
   const sendMessage = async (overrideText) => {
@@ -311,7 +352,7 @@ export default function ReparoApp() {
     setMessages(msgs); setImage(null); setImageB64(null);
     const { ctx } = getContext(sel);
     const reply = await callAPI(msgs, ctx);
-    setMessages([...msgs, { role: "assistant", content: reply }]);
+    if (reply) setMessages([...msgs, { role: "assistant", content: reply }]);
   };
 
   const cleanReply = (reply) => {
@@ -879,6 +920,15 @@ export default function ReparoApp() {
             <div style={{ background: "white", borderRadius: "4px 16px 16px 16px", padding: "12px 16px", boxShadow: "0 1px 4px rgba(0,0,0,.07)" }}>
               <div style={{ display: "flex", gap: "4px" }}>{[0,1,2].map(i => <div key={i} className="dot" style={{ width: "8px", height: "8px", background: ACCENT, borderRadius: "50%" }} />)}</div>
             </div>
+          </div>
+        )}
+        {apiError && !loading && (
+          <div style={{ background: "#fff1f2", border: "1.5px solid #fecdd3", borderRadius: "12px", padding: "14px 16px", display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div style={{ fontSize: "13px", color: "#be123c", fontWeight: "600", lineHeight: "1.5" }}>{apiError}</div>
+            <button onClick={retryLastCall}
+              style={{ background: PRIMARY, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+              Réessayer
+            </button>
           </div>
         )}
         {resolved && (
