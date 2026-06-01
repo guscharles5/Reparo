@@ -260,6 +260,9 @@ export default function ReparoApp() {
   const [refResult,    setRefResult]    = useState(null);
   const [refLoading,   setRefLoading]   = useState(false);
   const [conversationCount, setConversationCount] = useState(0);
+  const [conversations,   setConversations]   = useState([]);
+  const [profilTab,       setProfilTab]       = useState("stats");  // stats | history
+  const [convLoading,     setConvLoading]     = useState(false);
   const synthRef    = useRef(null);
   const voiceRecRef = useRef(null);
   const fileRef    = useRef();
@@ -275,6 +278,7 @@ export default function ReparoApp() {
         setUser(session.user); userRef.current = session.user; setIsLoggedIn(true); setAppState("main");
         loadAppareils(session.user.id);
         loadConversationCount(session.user.id);
+        loadConversations(session.user.id);
       }
       setAuthLoading(false);
     });
@@ -283,7 +287,8 @@ export default function ReparoApp() {
         setUser(session.user); userRef.current = session.user; setIsLoggedIn(true); setAppState("main");
         loadAppareils(session.user.id);
         loadConversationCount(session.user.id);
-      } else { setUser(null); userRef.current = null; setIsLoggedIn(false); setAppareils([]); setConversationCount(0); }
+        loadConversations(session.user.id);
+      } else { setUser(null); userRef.current = null; setIsLoggedIn(false); setAppareils([]); setConversationCount(0); setConversations([]); }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -309,6 +314,28 @@ export default function ReparoApp() {
     if (count !== null) setConversationCount(count);
   };
 
+  const loadConversations = async (uid) => {
+    const sb = getSupabase(); if (!sb) return;
+    setConvLoading(true);
+    const { data } = await sb.from("conversations").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(30);
+    if (data) setConversations(data);
+    setConvLoading(false);
+  };
+
+  const saveAppareilFromChat = async (type, marque) => {
+    const sb = getSupabase();
+    const currentUser = userRef.current;
+    if (!sb || !currentUser || !type || !marque) return;
+    // Check if already exists
+    const { data: existing } = await sb.from("appareils").select("id").eq("user_id", currentUser.id).eq("type", type).eq("marque", marque).maybeSingle();
+    if (existing) return;
+    const { data } = await sb.from("appareils").insert({
+      user_id: currentUser.id, type, marque, modele: "Détecté automatiquement",
+      achat: "—", entretien: "Entretien à jour", pannes: 0,
+    }).select().single();
+    if (data) setAppareils(prev => [data, ...prev]);
+  };
+
   const saveAppareil = async (app) => {
     const sb = getSupabase(); if (!sb || !user) return null;
     const { data, error } = await sb.from("appareils").insert({
@@ -324,13 +351,30 @@ export default function ReparoApp() {
     const sb = getSupabase();
     const currentUser = userRef.current;
     if (!sb || !currentUser || msgs.length < 2) return;
-    const { error } = await sb.from("conversations").insert({
+    // Auto-detect appareil from first messages if not set
+    let detectedType = category;
+    let detectedBrand = brand;
+    if (!detectedType || !detectedBrand) {
+      const text = msgs.slice(0, 4).map(m => typeof m.content === "string" ? m.content : "").join(" ").toLowerCase();
+      const types = ["lave-linge","réfrigérateur","lave-vaisselle","four","sèche-linge","machine à café","micro-ondes","congélateur","hotte","cuisinière"];
+      const brands = ["samsung","bosch","lg","whirlpool","miele","siemens","electrolux","hotpoint","indesit","beko","candy","fagor","arthur martin","brandt"];
+      if (!detectedType) detectedType = types.find(t => text.includes(t)) || category;
+      if (!detectedBrand) {
+        const found = brands.find(b => text.includes(b));
+        if (found) detectedBrand = found.charAt(0).toUpperCase() + found.slice(1);
+      }
+    }
+    const { data, error } = await sb.from("conversations").insert({
       user_id: currentUser.id,
-      appareil_type: category || null,
-      appareil_marque: brand || null,
+      appareil_type: detectedType || null,
+      appareil_marque: detectedBrand || null,
       messages: msgs.filter(m => typeof m.content === "string"),
-    });
-    if (!error) setConversationCount(c => c + 1);
+    }).select().single();
+    if (!error && data) {
+      setConversationCount(c => c + 1);
+      setConversations(prev => [data, ...prev]);
+      if (detectedType && detectedBrand) saveAppareilFromChat(detectedType, detectedBrand);
+    }
   };
 
   const goHome = () => {
@@ -344,6 +388,13 @@ export default function ReparoApp() {
     setQuickReplies([]); setFeedback(null);
   };
   const goTab = (t) => { setTab(t); if (t === "home") goHome(); };
+
+  const resumeConversation = (conv) => {
+    setSel({ category: conv.appareil_type || "", brand: conv.appareil_marque || "" });
+    setMessages(conv.messages || []);
+    setResolved(false); setQuickReplies([]); setFeedback(null);
+    setTab("home"); setScreen("chat");
+  };
 
   const callAPI = async (msgs, appareilContext) => {
     setLoading(true);
@@ -1189,28 +1240,104 @@ export default function ReparoApp() {
         <button onClick={() => setAppState("auth")} style={{ background: ACCENT, border: "none", borderRadius: "14px", color: "white", padding: "14px 28px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Se connecter</button>
       </div>
     );
+
+    const formatDate = (iso) => {
+      const d = new Date(iso);
+      return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    };
+
+    const getConvTitle = (conv) => {
+      const parts = [conv.appareil_type, conv.appareil_marque].filter(Boolean);
+      if (parts.length) return parts.join(" · ");
+      const first = conv.messages?.[0]?.content;
+      if (typeof first === "string") return first.slice(0, 40) + (first.length > 40 ? "…" : "");
+      return "Diagnostic sans titre";
+    };
+
     return (
       <div className="fade-in" style={{ paddingBottom: "80px" }}>
-        <div style={{ background: PRIMARY, padding: "28px 20px 20px", textAlign: "center" }}>
+        {/* Header */}
+        <div style={{ background: PRIMARY, padding: "28px 20px 16px", textAlign: "center" }}>
           <div style={{ width: "72px", height: "72px", background: "rgba(255,255,255,.2)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: "28px" }}>👤</div>
           <div style={{ color: "white", fontWeight: "800", fontSize: "18px" }}>Mon compte</div>
           <div style={{ color: "rgba(255,255,255,.7)", fontSize: "13px", marginTop: "4px" }}>Membre Reparo</div>
+          {/* Tabs */}
+          <div style={{ display: "flex", background: "rgba(255,255,255,.15)", borderRadius: "10px", padding: "3px", marginTop: "16px" }}>
+            {[{ id: "stats", label: "Résumé" }, { id: "history", label: "Conversations" }].map(t => (
+              <button key={t.id} onClick={() => setProfilTab(t.id)}
+                style={{ flex: 1, background: profilTab === t.id ? "white" : "transparent", border: "none", borderRadius: "8px", padding: "8px", fontWeight: "700", fontSize: "13px", color: profilTab === t.id ? PRIMARY : "rgba(255,255,255,.8)", cursor: "pointer", fontFamily: "Nunito,sans-serif", transition: "all .2s" }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
+
         <div style={{ padding: "16px" }}>
-          {[
-            { label: "Mes appareils", value: `${appareils.length} appareil${appareils.length > 1 ? "s" : ""}`, icon: "🔧" },
-            { label: "Diagnostics effectués", value: `${conversationCount}`, icon: "📋" },
-            { label: "Entretiens à prévoir", value: `${appareils.filter(a => a.entretien.includes("conseillé")).length}`, icon: "⚠️" },
-          ].map(s => (
-            <div key={s.label} style={{ background: "white", borderRadius: "14px", padding: "16px", border: "1.5px solid #eee", marginBottom: "10px", display: "flex", alignItems: "center", gap: "12px" }}>
-              <span style={{ fontSize: "24px" }}>{s.icon}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: "13px", color: "#888" }}>{s.label}</div>
-                <div style={{ fontWeight: "800", fontSize: "18px", color: "#222" }}>{s.value}</div>
+          {profilTab === "stats" && (
+            <>
+              {[
+                { label: "Mes appareils", value: `${appareils.length} appareil${appareils.length > 1 ? "s" : ""}`, icon: "🔧" },
+                { label: "Diagnostics effectués", value: `${conversationCount}`, icon: "📋" },
+                { label: "Entretiens à prévoir", value: `${appareils.filter(a => a.entretien.includes("conseillé")).length}`, icon: "⚠️" },
+              ].map(s => (
+                <div key={s.label} style={{ background: "white", borderRadius: "14px", padding: "16px", border: "1.5px solid #eee", marginBottom: "10px", display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ fontSize: "24px" }}>{s.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "13px", color: "#888" }}>{s.label}</div>
+                    <div style={{ fontWeight: "800", fontSize: "18px", color: "#222" }}>{s.value}</div>
+                  </div>
+                </div>
+              ))}
+              <button onClick={async () => { await getSupabase()?.auth.signOut(); setIsLoggedIn(false); setUser(null); userRef.current = null; setAppState("auth"); }}
+                style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "12px", color: "#e11d48", padding: "14px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif", marginTop: "8px" }}>
+                Se déconnecter
+              </button>
+            </>
+          )}
+
+          {profilTab === "history" && (
+            <>
+              <div style={{ fontWeight: "800", fontSize: "15px", color: "#222", marginBottom: "12px" }}>
+                Mes conversations ({conversations.length})
               </div>
-            </div>
-          ))}
-          <button onClick={async () => { await getSupabase()?.auth.signOut(); setIsLoggedIn(false); setUser(null); setAppState("auth"); }} style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "12px", color: "#e11d48", padding: "14px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif", marginTop: "8px" }}>Se déconnecter</button>
+              {convLoading && (
+                <div style={{ textAlign: "center", padding: "32px", color: "#888", fontSize: "14px" }}>Chargement…</div>
+              )}
+              {!convLoading && conversations.length === 0 && (
+                <div style={{ textAlign: "center", padding: "40px 20px", color: "#aaa" }}>
+                  <div style={{ fontSize: "40px", marginBottom: "12px" }}>💬</div>
+                  <div style={{ fontSize: "14px" }}>Aucune conversation enregistrée</div>
+                </div>
+              )}
+              {!convLoading && conversations.map(conv => (
+                <div key={conv.id} className="card"
+                  style={{ background: "white", borderRadius: "14px", padding: "14px 16px", border: "1.5px solid #eee", marginBottom: "10px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", marginBottom: "10px" }}>
+                    <div style={{ background: "#EFF4FF", borderRadius: "10px", width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "18px" }}>
+                      {conv.appareil_type === "Lave-linge" ? "🫧" : conv.appareil_type === "Réfrigérateur" ? "🧊" : conv.appareil_type === "Four" ? "🔥" : conv.appareil_type === "Lave-vaisselle" ? "🍽️" : "🔧"}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: "700", fontSize: "14px", color: "#222", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {getConvTitle(conv)}
+                      </div>
+                      <div style={{ fontSize: "11px", color: "#aaa" }}>{formatDate(conv.created_at)} · {conv.messages?.length || 0} messages</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#666", marginBottom: "10px", lineHeight: "1.5",
+                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                    {typeof conv.messages?.[conv.messages.length - 1]?.content === "string"
+                      ? conv.messages[conv.messages.length - 1].content.slice(0, 100)
+                      : ""}
+                  </div>
+                  <button onClick={() => resumeConversation(conv)}
+                    style={{ width: "100%", background: ACCENT, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    Reprendre la conversation
+                  </button>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       </div>
     );
