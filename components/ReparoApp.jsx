@@ -258,6 +258,7 @@ export default function ReparoApp() {
   const [refImage,     setRefImage]     = useState(null);
   const [refResult,    setRefResult]    = useState(null);
   const [refLoading,   setRefLoading]   = useState(false);
+  const [conversationCount, setConversationCount] = useState(0);
   const synthRef    = useRef(null);
   const voiceRecRef = useRef(null);
   const fileRef    = useRef();
@@ -271,6 +272,7 @@ export default function ReparoApp() {
       if (session?.user) {
         setUser(session.user); setIsLoggedIn(true); setAppState("main");
         loadAppareils(session.user.id);
+        loadConversationCount(session.user.id);
       }
       setAuthLoading(false);
     });
@@ -278,7 +280,8 @@ export default function ReparoApp() {
       if (session?.user) {
         setUser(session.user); setIsLoggedIn(true); setAppState("main");
         loadAppareils(session.user.id);
-      } else { setUser(null); setIsLoggedIn(false); setAppareils([]); }
+        loadConversationCount(session.user.id);
+      } else { setUser(null); setIsLoggedIn(false); setAppareils([]); setConversationCount(0); }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -298,6 +301,12 @@ export default function ReparoApp() {
     if (data) setAppareils(data);
   };
 
+  const loadConversationCount = async (uid) => {
+    const sb = getSupabase(); if (!sb) return;
+    const { count } = await sb.from("conversations").select("*", { count: "exact", head: true }).eq("user_id", uid);
+    if (count !== null) setConversationCount(count);
+  };
+
   const saveAppareil = async (app) => {
     const sb = getSupabase(); if (!sb || !user) return null;
     const { data, error } = await sb.from("appareils").insert({
@@ -309,18 +318,23 @@ export default function ReparoApp() {
     return null;
   };
 
-  const saveConversation = async (msgs) => {
+  const saveConversation = async (msgs, category, brand) => {
     const sb = getSupabase(); if (!sb || !user || msgs.length < 2) return;
-    await sb.from("conversations").insert({
+    const { error } = await sb.from("conversations").insert({
       user_id: user.id,
-      appareil_type: sel.category || null,
-      appareil_marque: sel.brand || null,
+      appareil_type: category || null,
+      appareil_marque: brand || null,
       messages: msgs.filter(m => typeof m.content === "string"),
     });
+    if (!error) setConversationCount(c => c + 1);
   };
 
   const goHome = () => {
-    if (messages.length >= 2) saveConversation(messages);
+    // Capture sel before reset
+    const category = sel.category;
+    const brand = sel.brand;
+    const msgs = messages;
+    if (msgs.length >= 2) saveConversation(msgs, category, brand);
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); setShowSAV(false); setResolved(false);
     setQuickReplies([]); setFeedback(null);
@@ -1173,7 +1187,7 @@ export default function ReparoApp() {
         <div style={{ padding: "16px" }}>
           {[
             { label: "Mes appareils", value: `${appareils.length} appareil${appareils.length > 1 ? "s" : ""}`, icon: "🔧" },
-            { label: "Diagnostics effectués", value: "0", icon: "📋" },
+            { label: "Diagnostics effectués", value: `${conversationCount}`, icon: "📋" },
             { label: "Entretiens à prévoir", value: `${appareils.filter(a => a.entretien.includes("conseillé")).length}`, icon: "⚠️" },
           ].map(s => (
             <div key={s.label} style={{ background: "white", borderRadius: "14px", padding: "16px", border: "1.5px solid #eee", marginBottom: "10px", display: "flex", alignItems: "center", gap: "12px" }}>
