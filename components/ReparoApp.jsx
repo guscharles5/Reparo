@@ -1,19 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 
-// Initialisation Supabase — uniquement côté client
-const getSupabase = (() => {
-  let client = null;
-  return () => {
-    if (client) return client;
-    const url  = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (url && anon) client = createClient(url, anon);
-    return client;
-  };
-})();
 
 // Clé API sécurisée côté serveur via /api/chat
 
@@ -230,9 +218,6 @@ function ChatInput({ onSend, loading, fileRef, handleFile }) {
 export default function ReparoApp() {
   const [appState,    setAppState]    = useState("onboarding");
   const [isLoggedIn,  setIsLoggedIn]  = useState(false);
-  const [user,        setUser]        = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const userRef = useRef(null);
   const [obStep,      setObStep]      = useState(0);
   const [tab,         setTab]         = useState("home");
   const [screen,      setScreen]      = useState("home");
@@ -259,10 +244,6 @@ export default function ReparoApp() {
   const [refImage,     setRefImage]     = useState(null);
   const [refResult,    setRefResult]    = useState(null);
   const [refLoading,   setRefLoading]   = useState(false);
-  const [conversationCount, setConversationCount] = useState(0);
-  const [conversations,   setConversations]   = useState([]);
-  const [profilTab,       setProfilTab]       = useState("stats");  // stats | history
-  const [convLoading,     setConvLoading]     = useState(false);
   const synthRef    = useRef(null);
   const voiceRecRef = useRef(null);
   const fileRef    = useRef();
@@ -270,26 +251,7 @@ export default function ReparoApp() {
   const msgEnd     = useRef();
   const msgTop     = useRef();
 
-  // Auth Supabase — écoute la session au chargement
-  useEffect(() => {
-    if (!getSupabase()) { setAuthLoading(false); return; }
-    getSupabase()?.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user); userRef.current = session.user; setIsLoggedIn(true); setAppState("main");
-        loadAppareils(session.user.id);
-        loadConversations(session.user.id);
-      }
-      setAuthLoading(false);
-    });
-    const { data: { subscription } } = getSupabase()?.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser(session.user); userRef.current = session.user; setIsLoggedIn(true); setAppState("main");
-        loadAppareils(session.user.id);
-        loadConversations(session.user.id);
-      } else { setUser(null); userRef.current = null; setIsLoggedIn(false); setAppareils([]); setConversationCount(0); setConversations([]); }
-    });
-    return () => subscription.unsubscribe();
-  }, []);
+
 
   useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
@@ -299,108 +261,13 @@ export default function ReparoApp() {
 
 
 
-  // ── SUPABASE HELPERS ────────────────────────────────
-
-  // Récupère le client Supabase et l'utilisateur courant — toujours via ref pour éviter les stale closures
-  const getSbAndUser = () => {
-    const sb = getSupabase();
-    const u = userRef.current;
-    return { sb, u, ok: !!(sb && u) };
-  };
-
-  const loadAppareils = async (uid) => {
-    const { sb } = getSbAndUser(); if (!sb) return;
-    const { data, error } = await sb.from("appareils").select("*").eq("user_id", uid).order("created_at", { ascending: false });
-    if (error) { console.error("[Reparo] loadAppareils:", error.message); return; }
-    setAppareils(data || []);
-  };
-
-  const loadConversations = async (uid) => {
-    const { sb } = getSbAndUser(); if (!sb) return;
-    setConvLoading(true);
-    const { data, error } = await sb.from("conversations").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(50);
-    if (error) { console.error("[Reparo] loadConversations:", error.message); }
-    else { setConversations(data || []); setConversationCount((data || []).length); }
-    setConvLoading(false);
-  };
-
-  // Détection automatique type/marque dans les messages
-  const detectAppareil = (msgs) => {
-    const text = msgs.slice(0, 6).map(m => typeof m.content === "string" ? m.content : "").join(" ").toLowerCase();
-    const TYPES = ["lave-linge","réfrigérateur","lave-vaisselle","four","sèche-linge","machine à café","micro-ondes","congélateur","hotte","cuisinière","robot","aspirateur"];
-    const BRANDS = ["samsung","bosch","lg","whirlpool","miele","siemens","electrolux","hotpoint","indesit","beko","candy","fagor","arthur martin","brandt","liebherr","smeg","aeg","neff","zanussi","vedette"];
-    const type = TYPES.find(t => text.includes(t)) || null;
-    const brandRaw = BRANDS.find(b => text.includes(b)) || null;
-    const brand = brandRaw ? brandRaw.charAt(0).toUpperCase() + brandRaw.slice(1) : null;
-    return { type, brand };
-  };
-
-  // Sauvegarde appareil (manuel via formulaire)
-  const saveAppareil = async (app) => {
-    const { sb, u, ok } = getSbAndUser();
-    if (!ok) { console.error("[Reparo] saveAppareil: pas d'utilisateur connecté"); return null; }
-    const payload = { user_id: u.id, type: app.type, marque: app.marque, modele: app.modele || "Non renseigné", achat: app.achat || "—", entretien: "Entretien à jour", pannes: 0 };
-    const { data, error } = await sb.from("appareils").insert(payload).select().single();
-    if (error) { console.error("[Reparo] saveAppareil:", error.message); return null; }
-    return data;
-  };
-
-  // Sauvegarde appareil détecté depuis le chat (sans doublon)
-  const saveAppareilAuto = async (type, marque) => {
-    const { sb, u, ok } = getSbAndUser();
-    if (!ok || !type || !marque) return;
-    const { data: existing } = await sb.from("appareils").select("id").eq("user_id", u.id).eq("type", type).eq("marque", marque).maybeSingle();
-    if (existing) return; // déjà enregistré
-    const { data, error } = await sb.from("appareils").insert({ user_id: u.id, type, marque, modele: "Détecté via diagnostic", achat: "—", entretien: "Entretien à jour", pannes: 0 }).select().single();
-    if (error) { console.error("[Reparo] saveAppareilAuto:", error.message); return; }
-    if (data) { setAppareils(prev => [data, ...prev]); showToast(`${marque} ${type} ajouté à vos appareils`); }
-  };
-
-  // Sauvegarde conversation + détection appareil automatique
-  const saveConversation = async (msgs, category, brand) => {
-    const { sb, u, ok } = getSbAndUser();
-    if (!ok) { console.error("[Reparo] saveConversation: pas d'utilisateur"); return; }
-    if (!msgs || msgs.length < 2) { console.warn("[Reparo] saveConversation: trop peu de messages", msgs?.length); return; }
-
-    // Détection auto si infos manquantes
-    const detected = detectAppareil(msgs);
-    const finalType = category || detected.type || null;
-    const finalBrand = brand || detected.brand || null;
-
-    const cleanMsgs = msgs.filter(m => typeof m.content === "string");
-    const payload = { user_id: u.id, appareil_type: finalType, appareil_marque: finalBrand, messages: cleanMsgs };
-
-    const { data, error } = await sb.from("conversations").insert(payload).select().single();
-    if (error) {
-      console.error("[Reparo] saveConversation ERREUR:", error.message, error.details, error.hint);
-      return;
-    }
-    console.log("[Reparo] Conversation sauvegardée:", data.id);
-    setConversations(prev => [data, ...prev]);
-    setConversationCount(c => c + 1);
-    if (finalType && finalBrand) saveAppareilAuto(finalType, finalBrand);
-  };
-
   const goHome = () => {
-    // Snapshot AVANT reset — critique pour éviter stale closures
-    const snapMsgs = [...messages];
-    const snapCategory = sel.category || null;
-    const snapBrand = sel.brand || null;
-    // Reset immédiat de l'UI
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); setShowSAV(false); setResolved(false);
     setQuickReplies([]); setFeedback(null);
-    // Sauvegarde async APRÈS le reset (snapshots garantissent les bonnes valeurs)
-    if (snapMsgs.length >= 2) saveConversation(snapMsgs, snapCategory, snapBrand);
   };
-  const goTab = (t) => { setTab(t); if (t !== "home" && screen === "chat") goHome(); else if (t === "home") { setScreen("home"); setSel({}); } };
+  const goTab = (t) => { setTab(t); if (t === "home") goHome(); };
 
-  const resumeConversation = (conv) => {
-    setSel({ category: conv.appareil_type || "", brand: conv.appareil_marque || "" });
-    setMessages(conv.messages || []);
-    setResolved(false); setQuickReplies([]); setFeedback(null);
-    setTab("home"); setScreen("chat");
-  };
 
   const callAPI = async (msgs, appareilContext) => {
     setLoading(true);
@@ -537,6 +404,7 @@ export default function ReparoApp() {
 
   const [quickReplies, setQuickReplies] = useState([]);
   const [feedback,     setFeedback]     = useState(null);
+  const [profilTab,    setProfilTab]    = useState("stats");
 
   const sendQuickReply = async (reply) => {
     if (reply === "Oui c'est résolu ✓") { setResolved(true); return; }
@@ -678,17 +546,10 @@ export default function ReparoApp() {
     else { setVoiceMode(true); speak("Bonjour, je suis Reparo. Décrivez-moi votre panne, je vous aide."); }
   };
 
-  const addAppareil = async () => {
+  const addAppareil = () => {
     if (!form.type || !form.marque) return;
-    const saved = await saveAppareil(form);
-    if (saved) {
-      setAppareils(prev => [saved, ...prev]);
-      showToast("Appareil enregistré !");
-    } else {
-      // fallback local
-      setAppareils(prev => [...prev, { id: Date.now(), ...form, pannes: 0, entretien: "Entretien à jour" }]);
-      showToast("Appareil enregistré localement");
-    }
+    setAppareils(prev => [...prev, { id: Date.now(), ...form, pannes: 0, entretien: "Entretien à jour" }]);
+    showToast("Appareil enregistré !");
     setForm({ type: "", marque: "", modele: "", achat: "" }); setShowAdd(false);
   };
 
@@ -837,11 +698,17 @@ export default function ReparoApp() {
         <div style={{ fontSize: "14px", color: "#888", marginTop: "8px", lineHeight: "1.5" }}>Créez un compte pour sauvegarder vos appareils et votre historique de dépannages.</div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }}>
-        <button onClick={async () => { await getSupabase()?.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin + "/auth/callback" } }); }}
-          style={{ background: "white", border: "1.5px solid #eee", borderRadius: "14px", padding: "15px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Nunito,sans-serif", color: "#333", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", boxShadow: "0 2px 8px rgba(0,0,0,.06)", width: "100%" }}>
-          <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-          Continuer avec Google
-        </button>
+        {[
+          { label: "Continuer avec Google", icon: "G" },
+          { label: "Continuer avec Apple", icon: "" },
+          { label: "Continuer avec Email", icon: "@" },
+        ].map(b => (
+          <button key={b.label} onClick={() => { setIsLoggedIn(true); setAppState("main"); }}
+            style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "14px", padding: "15px", marginBottom: "10px", fontWeight: "700", fontSize: "15px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", fontFamily: "Nunito,sans-serif" }}>
+            <span style={{ background: "#f0f0f0", borderRadius: "6px", width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "800" }}>{b.icon}</span>
+            {b.label}
+          </button>
+        ))}
       </div>
       <button onClick={() => setAppState("main")} style={{ background: "transparent", border: "none", color: "#aaa", padding: "12px", fontWeight: "600", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif", textAlign: "center" }}>Continuer sans compte</button>
       <div style={{ textAlign: "center", marginTop: "16px", fontSize: "11px", color: "#ccc", lineHeight: "1.5" }}>En continuant, vous acceptez nos Conditions d'utilisation et notre Politique de confidentialité</div>
@@ -1283,7 +1150,7 @@ export default function ReparoApp() {
             <>
               {[
                 { label: "Mes appareils", value: `${appareils.length} appareil${appareils.length > 1 ? "s" : ""}`, icon: "🔧" },
-                { label: "Diagnostics effectués", value: `${conversationCount}`, icon: "📋" },
+                { label: "Diagnostics effectués", value: "0", icon: "📋" },
                 { label: "Entretiens à prévoir", value: `${appareils.filter(a => a.entretien.includes("conseillé")).length}`, icon: "⚠️" },
               ].map(s => (
                 <div key={s.label} style={{ background: "white", borderRadius: "14px", padding: "16px", border: "1.5px solid #eee", marginBottom: "10px", display: "flex", alignItems: "center", gap: "12px" }}>
@@ -1294,7 +1161,7 @@ export default function ReparoApp() {
                   </div>
                 </div>
               ))}
-              <button onClick={async () => { await getSupabase()?.auth.signOut(); setIsLoggedIn(false); setUser(null); userRef.current = null; setAppState("auth"); }}
+              <button onClick={() => { setIsLoggedIn(false); setAppState("auth"); }}
                 style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "12px", color: "#e11d48", padding: "14px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif", marginTop: "8px" }}>
                 Se déconnecter
               </button>
@@ -1304,18 +1171,16 @@ export default function ReparoApp() {
           {profilTab === "history" && (
             <>
               <div style={{ fontWeight: "800", fontSize: "15px", color: "#222", marginBottom: "12px" }}>
-                Mes conversations ({conversations.length})
+                Mes conversations
               </div>
-              {convLoading && (
-                <div style={{ textAlign: "center", padding: "32px", color: "#888", fontSize: "14px" }}>Chargement…</div>
-              )}
-              {!convLoading && conversations.length === 0 && (
+              
+              {true && (
                 <div style={{ textAlign: "center", padding: "40px 20px", color: "#aaa" }}>
                   <div style={{ fontSize: "40px", marginBottom: "12px" }}>💬</div>
                   <div style={{ fontSize: "14px" }}>Aucune conversation enregistrée</div>
                 </div>
               )}
-              {!convLoading && conversations.map(conv => (
+              {[].map(conv => (
                 <div key={conv.id} className="card"
                   style={{ background: "white", borderRadius: "14px", padding: "14px 16px", border: "1.5px solid #eee", marginBottom: "10px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", marginBottom: "10px" }}>
@@ -1348,17 +1213,6 @@ export default function ReparoApp() {
       </div>
     );
   };
-
-  if (authLoading) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f6f6f6" }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
-        <div style={{ background: PRIMARY, borderRadius: "16px", width: "56px", height: "56px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <svg width="32" height="32" viewBox="-16 -16 32 32"><g transform="rotate(-45)"><path d="M-5,-11 L-5,-6 L-1.5,-4 L1.5,-4 L5,-6 L5,-11 Q5,-14 0,-14 Q-5,-14 -5,-11 Z" fill="white"/><rect x="-1.8" y="-4" width="3.6" height="14" rx="1.8" fill="white"/><path d="M-5,11 L-5,6 L-1.5,4 L1.5,4 L5,6 L5,11 Q5,14 0,14 Q-5,14 -5,11 Z" fill="white"/></g></svg>
-        </div>
-        <div style={{ display: "flex", gap: "4px" }}>{[0,1,2].map(i => <div key={i} className="dot" style={{ width: "8px", height: "8px", background: PRIMARY, borderRadius: "50%" }} />)}</div>
-      </div>
-    </div>
-  );
 
   return (
     <div style={{ minHeight: "100vh", background: "#f6f6f6", fontFamily: "Nunito, sans-serif", maxWidth: "480px", margin: "0 auto", boxShadow: "0 0 40px rgba(0,0,0,.12)", position: "relative", overflowX: "hidden" }}>
