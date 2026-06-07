@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react';
-import { getSupabase } from '../lib/supabase';
 
 
 // Clé API sécurisée côté serveur via /api/chat
@@ -220,9 +219,6 @@ export default function ReparoApp() {
 
   const [appState,    setAppState]    = useState("onboarding");
   const [isLoggedIn,  setIsLoggedIn]  = useState(false);
-  const [user,        setUser]        = useState(null);
-  const [conversations, setConversations] = useState([]);
-  const [sessionReady,  setSessionReady]  = useState(false);
   const [obStep,      setObStep]      = useState(0);
   const [tab,         setTab]         = useState("home");
   const [screen,      setScreen]      = useState("home");
@@ -258,117 +254,10 @@ export default function ReparoApp() {
 
 
 
-  // ── AUTH & DATA ─────────────────────────────────────
-  useEffect(() => {
-    const sb = getSupabase()
-
-    // Check existing session
-    sb.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user)
-        setIsLoggedIn(true)
-        loadData(session.user.id)
-      }
-      setSessionReady(true)
-    })
-
-    // Listen for auth changes
-    const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        setUser(session.user)
-        setIsLoggedIn(true)
-        if (event === 'SIGNED_IN') loadData(session.user.id)
-      } else {
-        setUser(null)
-        setIsLoggedIn(false)
-        setAppareils([])
-        setConversations([])
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  const loadData = async (uid) => {
-    const sb = getSupabase()
-    // Load appareils
-    const { data: apps } = await sb.from('appareils').select('*').eq('user_id', uid).order('created_at', { ascending: false })
-    if (apps) setAppareils(apps)
-    // Load conversations
-    const { data: convs } = await sb.from('conversations').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(50)
-    if (convs) setConversations(convs)
-  }
-
-  const dbSaveAppareil = async (app) => {
-    if (!user) return null
-    const sb = getSupabase()
-    const { data, error } = await sb.from('appareils').insert({
-      user_id: user.id,
-      type: app.type,
-      marque: app.marque,
-      modele: app.modele || 'Non renseigné',
-      achat: app.achat || '—',
-      entretien: 'Entretien à jour',
-      pannes: 0
-    }).select().single()
-    if (error) { console.error('[Reparo] saveAppareil:', error.message); return null }
-    return data
-  }
-
-  const dbSaveConversation = async (msgs, category, brand) => {
-    if (!user || !msgs || msgs.length < 2) return
-    const sb = getSupabase()
-    // Auto-detect if missing
-    if (!category || !brand) {
-      const text = msgs.slice(0, 6).map(m => typeof m.content === 'string' ? m.content : '').join(' ').toLowerCase()
-      const TYPES = ['lave-linge','réfrigérateur','lave-vaisselle','four','sèche-linge','machine à café','micro-ondes','congélateur','hotte','cuisinière']
-      const BRANDS = ['samsung','bosch','lg','whirlpool','miele','siemens','electrolux','hotpoint','indesit','beko','candy','brandt','liebherr','smeg','aeg','neff','zanussi']
-      if (!category) category = TYPES.find(t => text.includes(t)) || null
-      if (!brand) {
-        const b = BRANDS.find(b => text.includes(b))
-        if (b) brand = b.charAt(0).toUpperCase() + b.slice(1)
-      }
-    }
-    const { data, error } = await sb.from('conversations').insert({
-      user_id: user.id,
-      appareil_type: category || null,
-      appareil_marque: brand || null,
-      messages: msgs.filter(m => typeof m.content === 'string')
-    }).select().single()
-    if (error) { console.error('[Reparo] saveConversation:', error.message); return }
-    setConversations(prev => [data, ...prev])
-    // Auto-save appareil if detected
-    if (category && brand && user) {
-      const sb2 = getSupabase()
-      const { data: existing } = await sb2.from('appareils').select('id').eq('user_id', user.id).eq('type', category).eq('marque', brand).maybeSingle()
-      if (!existing) {
-        const { data: newApp } = await sb2.from('appareils').insert({
-          user_id: user.id, type: category, marque: brand,
-          modele: 'Détecté via diagnostic', achat: '—',
-          entretien: 'Entretien à jour', pannes: 0
-        }).select().single()
-        if (newApp) setAppareils(prev => [newApp, ...prev])
-      }
-    }
-  }
-
-  useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
-
-  // Historique sauvegardé dans Supabase à la fin du chat (via goHome)
-
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
-
-
-
   const goHome = () => {
-    // Snapshot before reset
-    const snapMsgs = [...messages]
-    const snapCat = sel.category || null
-    const snapBrand = sel.brand || null
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); setShowSAV(false); setResolved(false);
     setQuickReplies([]); setFeedback(null);
-    if (snapMsgs.length >= 2) dbSaveConversation(snapMsgs, snapCat, snapBrand)
   };
   const goTab = (t) => { setTab(t); if (t === "home") goHome(); };
 
@@ -650,14 +539,9 @@ export default function ReparoApp() {
     else { setVoiceMode(true); speak("Bonjour, je suis Reparo. Décrivez-moi votre panne, je vous aide."); }
   };
 
-  const addAppareil = async () => {
+  const addAppareil = () => {
     if (!form.type || !form.marque) return;
-    if (user) {
-      const saved = await dbSaveAppareil(form)
-      if (saved) setAppareils(prev => [saved, ...prev])
-    } else {
-      setAppareils(prev => [...prev, { id: Date.now(), ...form, pannes: 0, entretien: "Entretien à jour" }])
-    }
+    setAppareils(prev => [...prev, { id: Date.now(), ...form, pannes: 0, entretien: "Entretien à jour" }]);
     showToast("Appareil enregistré !");
     setForm({ type: "", marque: "", modele: "", achat: "" }); setShowAdd(false);
   };
@@ -1392,11 +1276,17 @@ export default function ReparoApp() {
           </div>
           <div style={{ fontWeight: "900", fontSize: "26px", color: PRIMARY, marginBottom: "8px" }}>Reparo</div>
           <div style={{ fontSize: "14px", color: "#888", textAlign: "center", marginBottom: "32px", lineHeight: "1.5" }}>Sauvegardez vos appareils, retrouvez votre historique de pannes et recevez des alertes d'entretien.</div>
-          <button onClick={() => { window.location.href = "/auth/login"; }}
-            style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "14px", padding: "15px", marginBottom: "10px", fontWeight: "700", fontSize: "15px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", fontFamily: "Nunito,sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-            Continuer avec Google
-          </button>
+          {[
+            { label: "Continuer avec Google", icon: "🇬" },
+            { label: "Continuer avec Apple", icon: "" },
+            { label: "Continuer avec Email", icon: "@" },
+          ].map(b => (
+            <button key={b.label} onClick={() => { setIsLoggedIn(true); setAppState("main"); }}
+              style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "14px", padding: "15px", marginBottom: "10px", fontWeight: "700", fontSize: "15px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", fontFamily: "Nunito,sans-serif" }}>
+              <span style={{ background: "#f0f0f0", borderRadius: "6px", width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "800" }}>{b.icon}</span>
+              {b.label}
+            </button>
+          ))}
           <button onClick={() => setAppState("main")} style={{ background: "none", border: "none", color: "#aaa", fontSize: "14px", cursor: "pointer", marginTop: "8px", fontFamily: "Nunito,sans-serif" }}>Continuer sans compte</button>
         </div>
       )}
