@@ -1,12 +1,25 @@
 'use client'
 // app/auth/login/page.js
-import { createClient } from '@supabase/supabase-js'
 import { useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
 
 const PRIMARY = '#1B3A6B'
-const ACCENT  = '#2563EB'
 
 export default function LoginPage() {
+  // Handle implicit token in URL hash (Supabase returns #access_token=...)
+  useEffect(() => {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+    // If there's a hash with access_token, Supabase handles it automatically
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        window.location.href = '/'
+      }
+    })
+  }, [])
+
   const handleGoogle = async () => {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -15,7 +28,7 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+        redirectTo: `${window.location.origin}/auth/login`
       }
     })
   }
@@ -27,7 +40,6 @@ export default function LoginPage() {
       background: '#f6f6f6', fontFamily: 'Nunito, sans-serif',
       padding: '32px 24px'
     }}>
-      {/* Logo */}
       <div style={{
         background: PRIMARY, borderRadius: '20px',
         width: '80px', height: '80px',
@@ -43,12 +55,11 @@ export default function LoginPage() {
         </svg>
       </div>
 
-      <h1 style={{ fontWeight: 900, fontSize: '28px', color: PRIMARY, marginBottom: '8px', margin: '0 0 8px' }}>Reparo</h1>
+      <h1 style={{ fontWeight: 900, fontSize: '28px', color: PRIMARY, margin: '0 0 8px' }}>Reparo</h1>
       <p style={{ fontSize: '15px', color: '#888', textAlign: 'center', marginBottom: '40px', lineHeight: '1.5', maxWidth: '300px' }}>
-        Votre expert en dépannage électroménager. Sauvegardez vos appareils et retrouvez votre historique.
+        Votre expert en dépannage électroménager.
       </p>
 
-      {/* Google Button */}
       <button onClick={handleGoogle} style={{
         width: '100%', maxWidth: '360px',
         background: 'white', border: '1.5px solid #ddd',
