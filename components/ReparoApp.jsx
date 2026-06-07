@@ -1261,32 +1261,10 @@ export default function ReparoApp() {
       })()}
 
       {/* AUTH */}
-      {appState === "auth" && (
-        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px" }}>
-          <div style={{ background: "#EFF4FF", borderRadius: "50%", width: "80px", height: "80px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
-            <svg width="44" height="44" viewBox="-16 -16 32 32" style={{display:"block"}}>
-              <g transform="rotate(-45)">
-                <path d="M-5,-11 L-5,-6 L-1.5,-4 L1.5,-4 L5,-6 L5,-11 Q5,-14 0,-14 Q-5,-14 -5,-11 Z" fill={ACCENT}/>
-                <rect x="-2" y="-14" width="4" height="5" rx="1" fill="#EFF4FF"/>
-                <rect x="-1.8" y="-4" width="3.6" height="14" rx="1.8" fill={ACCENT}/>
-                <path d="M-5,11 L-5,6 L-1.5,4 L1.5,4 L5,6 L5,11 Q5,14 0,14 Q-5,14 -5,11 Z" fill={ACCENT}/>
-                <rect x="-2" y="9" width="4" height="5" rx="1" fill="#EFF4FF"/>
-              </g>
-            </svg>
-          </div>
-          <div style={{ fontWeight: "900", fontSize: "26px", color: PRIMARY, marginBottom: "8px" }}>Reparo</div>
-          <div style={{ fontSize: "14px", color: "#888", textAlign: "center", marginBottom: "32px", lineHeight: "1.5" }}>Sauvegardez vos appareils, retrouvez votre historique de pannes et recevez des alertes d'entretien.</div>
-          {[
-            { label: "Continuer avec Google", icon: "🇬" },
-            { label: "Continuer avec Apple", icon: "" },
-            { label: "Continuer avec Email", icon: "@" },
-          ].map(b => (
-            <button key={b.label} onClick={() => { setIsLoggedIn(true); setAppState("main"); }}
-              style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "14px", padding: "15px", marginBottom: "10px", fontWeight: "700", fontSize: "15px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", fontFamily: "Nunito,sans-serif" }}>
-              <span style={{ background: "#f0f0f0", borderRadius: "6px", width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "800" }}>{b.icon}</span>
-              {b.label}
-            </button>
-          ))}
+      {appState === "auth" && (() => {
+        if (typeof window !== "undefined") window.location.href = "/auth/login"
+        return null
+      })()}
           <button onClick={() => setAppState("main")} style={{ background: "none", border: "none", color: "#aaa", fontSize: "14px", cursor: "pointer", marginTop: "8px", fontFamily: "Nunito,sans-serif" }}>Continuer sans compte</button>
         </div>
       )}
