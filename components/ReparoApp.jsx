@@ -275,7 +275,7 @@ export default function ReparoApp() {
         setUser(session.user);
         setIsLoggedIn(true);
         setAppState("main");
-        loadConversations(session.user.id, sb);
+        loadConversations();
       }
     });
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
@@ -304,11 +304,13 @@ export default function ReparoApp() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
 
-  const loadConversations = async (uid, sb) => {
-    const client = sb || getSb();
-    const { data } = await client.from("conversations").select("*")
-      .eq("user_id", uid).order("created_at", { ascending: false }).limit(50);
-    if (data) setConversations(data);
+  const loadConversations = async () => {
+    try {
+      const res = await fetch("/api/conversations");
+      if (!res.ok) return;
+      const { conversations: data } = await res.json();
+      if (data) setConversations(data);
+    } catch(e) { console.error("[Reparo] loadConversations:", e.message); }
   };
 
   const detectAppareil = (msgs, category, brand) => {
@@ -326,46 +328,30 @@ export default function ReparoApp() {
   };
 
   const persistConversation = async (msgs) => {
-    if (!msgs || msgs.length < 1) return;
-    const sb = getSb();
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session?.user) return; // pas connecté — on ne sauvegarde pas
-    const uid = session.user.id;
+    if (!msgs || msgs.length < 1 || !isLoggedIn) return;
     const { category, brand } = detectAppareil(msgs, sel.category, sel.brand);
     const cleanMsgs = msgs.filter(m => typeof m.content === "string");
-
-    if (convIdRef.current) {
-      // Mettre à jour la conversation existante
-      await sb.from("conversations").update({
-        messages: cleanMsgs,
-        appareil_type: category || null,
-        appareil_marque: brand || null,
-      }).eq("id", convIdRef.current);
-    } else {
-      // Créer la conversation
-      const { data, error } = await sb.from("conversations").insert({
-        user_id: uid,
-        appareil_type: category || null,
-        appareil_marque: brand || null,
-        messages: cleanMsgs,
-      }).select().single();
-      if (error) { console.error("[Reparo] persistConversation:", error.message); return; }
-      convIdRef.current = data.id;
-      setConversations(prev => [data, ...prev.filter(c => c.id !== data.id)]);
-      // Auto-save appareil si détecté
-      if (category && brand) {
-        const { data: existing } = await sb.from("appareils").select("id")
-          .eq("user_id", uid).eq("type", category).eq("marque", brand).maybeSingle();
-        if (!existing) {
-          const { data: newApp } = await sb.from("appareils").insert({
-            user_id: uid, type: category, marque: brand,
-            modele: "Détecté via diagnostic", achat: "—",
-            entretien: "Entretien à jour", pannes: 0
-          }).select().single();
-          if (newApp) setAppareils(prev => [newApp, ...prev]);
-        }
+    try {
+      const res = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: convIdRef.current || undefined,
+          messages: cleanMsgs,
+          appareil_type: category || null,
+          appareil_marque: brand || null,
+        })
+      });
+      if (!res.ok) return;
+      const { conversation } = await res.json();
+      if (conversation) {
+        convIdRef.current = conversation.id;
+        setConversations(prev => {
+          const filtered = prev.filter(c => c.id !== conversation.id);
+          return [conversation, ...filtered];
+        });
       }
-    }
+    } catch(e) { console.error("[Reparo] persistConversation:", e.message); }
   };
 
   const goHome = () => {
@@ -1247,11 +1233,7 @@ export default function ReparoApp() {
             {[{ id: "stats", label: "Résumé" }, { id: "history", label: "Conversations" }].map(t => (
               <button key={t.id} onClick={() => {
                 setProfilTab(t.id);
-                if (t.id === "history") {
-                  getSb().auth.getSession().then(({ data: { session } }) => {
-                    if (session?.user) loadConversations(session.user.id);
-                  });
-                }
+                if (t.id === "history") loadConversations();
               }}
                 style={{ flex: 1, background: profilTab === t.id ? "white" : "transparent", border: "none", borderRadius: "8px", padding: "8px", fontWeight: "700", fontSize: "13px", color: profilTab === t.id ? PRIMARY : "rgba(255,255,255,.8)", cursor: "pointer", fontFamily: "Nunito,sans-serif", transition: "all .2s" }}>
                 {t.label}
