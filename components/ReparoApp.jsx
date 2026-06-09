@@ -254,6 +254,7 @@ export default function ReparoApp() {
   const recRef     = useRef();
   const msgEnd     = useRef();
   const msgTop     = useRef();
+  const convIdRef  = useRef(null);  // ID de la conversation en cours dans Supabase
 
   // Détection session Supabase — bypass onboarding si déjà connecté
   useEffect(() => {
@@ -310,59 +311,68 @@ export default function ReparoApp() {
     if (data) setConversations(data);
   };
 
-  const saveConversation = async (msgs, category, brand) => {
-    if (!msgs || msgs.length < 2) return;
-    // Get current user from Supabase directly (avoids stale closure)
+  const detectAppareil = (msgs, category, brand) => {
+    if (category && brand) return { category, brand };
+    const text = msgs.slice(0, 6).map(m => typeof m.content === "string" ? m.content : "").join(" ").toLowerCase();
+    const TYPES = ["lave-linge","réfrigérateur","lave-vaisselle","four","sèche-linge","machine à café","micro-ondes","congélateur","hotte","cuisinière"];
+    const BRANDS = ["samsung","bosch","lg","whirlpool","miele","siemens","electrolux","hotpoint","indesit","beko","candy","brandt","liebherr","smeg","aeg","neff","zanussi"];
+    const detectedType = category || TYPES.find(t => text.includes(t)) || null;
+    let detectedBrand = brand;
+    if (!detectedBrand) {
+      const b = BRANDS.find(b => text.includes(b));
+      if (b) detectedBrand = b.charAt(0).toUpperCase() + b.slice(1);
+    }
+    return { category: detectedType, brand: detectedBrand };
+  };
+
+  const persistConversation = async (msgs) => {
+    if (!msgs || msgs.length < 1) return;
     const sb = getSb();
     const { data: { session } } = await sb.auth.getSession();
-    if (!session?.user) return;
+    if (!session?.user) return; // pas connecté — on ne sauvegarde pas
     const uid = session.user.id;
+    const { category, brand } = detectAppareil(msgs, sel.category, sel.brand);
+    const cleanMsgs = msgs.filter(m => typeof m.content === "string");
 
-    // Auto-detect appareil if missing
-    if (!category || !brand) {
-      const text = msgs.slice(0, 6).map(m => typeof m.content === "string" ? m.content : "").join(" ").toLowerCase();
-      const TYPES = ["lave-linge","réfrigérateur","lave-vaisselle","four","sèche-linge","machine à café","micro-ondes","congélateur","hotte","cuisinière"];
-      const BRANDS = ["samsung","bosch","lg","whirlpool","miele","siemens","electrolux","hotpoint","indesit","beko","candy","brandt","liebherr","smeg","aeg","neff","zanussi"];
-      if (!category) category = TYPES.find(t => text.includes(t)) || null;
-      if (!brand) {
-        const b = BRANDS.find(b => text.includes(b));
-        if (b) brand = b.charAt(0).toUpperCase() + b.slice(1);
-      }
-    }
-
-    const { data, error } = await sb.from("conversations").insert({
-      user_id: uid,
-      appareil_type: category || null,
-      appareil_marque: brand || null,
-      messages: msgs.filter(m => typeof m.content === "string"),
-    }).select().single();
-
-    if (error) { console.error("[Reparo] saveConversation:", error.message); return; }
-    console.log("[Reparo] Conversation sauvegardée ✅", data.id);
-    setConversations(prev => [data, ...prev]);
-
-    // Auto-save appareil if detected
-    if (category && brand) {
-      const { data: existing } = await sb.from("appareils").select("id")
-        .eq("user_id", uid).eq("type", category).eq("marque", brand).maybeSingle();
-      if (!existing) {
-        await sb.from("appareils").insert({
-          user_id: uid, type: category, marque: brand,
-          modele: "Détecté via diagnostic", achat: "—",
-          entretien: "Entretien à jour", pannes: 0
-        });
+    if (convIdRef.current) {
+      // Mettre à jour la conversation existante
+      await sb.from("conversations").update({
+        messages: cleanMsgs,
+        appareil_type: category || null,
+        appareil_marque: brand || null,
+      }).eq("id", convIdRef.current);
+    } else {
+      // Créer la conversation
+      const { data, error } = await sb.from("conversations").insert({
+        user_id: uid,
+        appareil_type: category || null,
+        appareil_marque: brand || null,
+        messages: cleanMsgs,
+      }).select().single();
+      if (error) { console.error("[Reparo] persistConversation:", error.message); return; }
+      convIdRef.current = data.id;
+      setConversations(prev => [data, ...prev.filter(c => c.id !== data.id)]);
+      // Auto-save appareil si détecté
+      if (category && brand) {
+        const { data: existing } = await sb.from("appareils").select("id")
+          .eq("user_id", uid).eq("type", category).eq("marque", brand).maybeSingle();
+        if (!existing) {
+          const { data: newApp } = await sb.from("appareils").insert({
+            user_id: uid, type: category, marque: brand,
+            modele: "Détecté via diagnostic", achat: "—",
+            entretien: "Entretien à jour", pannes: 0
+          }).select().single();
+          if (newApp) setAppareils(prev => [newApp, ...prev]);
+        }
       }
     }
   };
 
   const goHome = () => {
-    const snapMsgs = [...messages];
-    const snapCat = sel.category || null;
-    const snapBrand = sel.brand || null;
+    convIdRef.current = null; // reset pour la prochaine conversation
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); setShowSAV(false); setResolved(false);
     setQuickReplies([]); setFeedback(null);
-    if (snapMsgs.length >= 2) saveConversation(snapMsgs, snapCat, snapBrand);
   };
   const goTab = (t) => { setTab(t); if (t === "home") goHome(); };
 
@@ -426,6 +436,7 @@ export default function ReparoApp() {
     const { cat, br, mo, ctx } = getContext(s);
     const userMsg = br ? `Mon ${cat} ${br} ${mo} : ${problem}` : problem;
     setTab("home"); setScreen("chat"); setResolved(false);
+    convIdRef.current = null; // nouvelle conversation
     const msgs = [{ role: "user", content: userMsg }];
     setMessages(msgs);
     const reply = await callAPI(msgs, ctx);
@@ -433,6 +444,7 @@ export default function ReparoApp() {
       const finalMsgs = [...msgs, { role: "assistant", content: reply }];
       setMessages(finalMsgs);
       setQuickReplies(getQuickReplies(reply, finalMsgs));
+      persistConversation(finalMsgs); // sauvegarder après le premier échange
     }
   };
 
@@ -448,7 +460,11 @@ export default function ReparoApp() {
     setMessages(msgs); setImage(null); setImageB64(null);
     const { ctx } = getContext(sel);
     const reply = await callAPI(msgs, ctx);
-    if (reply) setMessages([...msgs, { role: "assistant", content: reply }]);
+    if (reply) {
+      const finalMsgs = [...msgs, { role: "assistant", content: reply }];
+      setMessages(finalMsgs);
+      persistConversation(finalMsgs); // sauvegarder/mettre à jour à chaque échange
+    }
   };
 
   const cleanReply = (reply) => {
