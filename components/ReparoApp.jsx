@@ -255,6 +255,14 @@ export default function ReparoApp() {
 
   // Détection session Supabase — bypass onboarding si déjà connecté
   useEffect(() => {
+    // Mode invité — "Continuer sans compte"
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("guest") === "1") {
+        setAppState("main");
+        return;
+      }
+    }
     const sb = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
