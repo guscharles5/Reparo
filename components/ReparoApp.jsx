@@ -220,6 +220,8 @@ export default function ReparoApp() {
 
   const [appState,    setAppState]    = useState("onboarding");
   const [isLoggedIn,  setIsLoggedIn]  = useState(false);
+  const [user,        setUser]        = useState(null);
+  const [conversations, setConversations] = useState([]);
   const [obStep,      setObStep]      = useState(0);
   const [tab,         setTab]         = useState("home");
   const [screen,      setScreen]      = useState("home");
@@ -269,14 +271,21 @@ export default function ReparoApp() {
     );
     sb.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
+        setUser(session.user);
         setIsLoggedIn(true);
         setAppState("main");
+        loadConversations(session.user.id, sb);
       }
     });
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
+        setUser(session.user);
         setIsLoggedIn(true);
         setAppState("main");
+      } else {
+        setUser(null);
+        setIsLoggedIn(false);
+        setConversations([]);
       }
     });
     return () => subscription.unsubscribe();
@@ -289,10 +298,71 @@ export default function ReparoApp() {
 
 
 
+  const getSb = () => createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+
+  const loadConversations = async (uid, sb) => {
+    const client = sb || getSb();
+    const { data } = await client.from("conversations").select("*")
+      .eq("user_id", uid).order("created_at", { ascending: false }).limit(50);
+    if (data) setConversations(data);
+  };
+
+  const saveConversation = async (msgs, category, brand) => {
+    if (!msgs || msgs.length < 2) return;
+    // Get current user from Supabase directly (avoids stale closure)
+    const sb = getSb();
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.user) return;
+    const uid = session.user.id;
+
+    // Auto-detect appareil if missing
+    if (!category || !brand) {
+      const text = msgs.slice(0, 6).map(m => typeof m.content === "string" ? m.content : "").join(" ").toLowerCase();
+      const TYPES = ["lave-linge","réfrigérateur","lave-vaisselle","four","sèche-linge","machine à café","micro-ondes","congélateur","hotte","cuisinière"];
+      const BRANDS = ["samsung","bosch","lg","whirlpool","miele","siemens","electrolux","hotpoint","indesit","beko","candy","brandt","liebherr","smeg","aeg","neff","zanussi"];
+      if (!category) category = TYPES.find(t => text.includes(t)) || null;
+      if (!brand) {
+        const b = BRANDS.find(b => text.includes(b));
+        if (b) brand = b.charAt(0).toUpperCase() + b.slice(1);
+      }
+    }
+
+    const { data, error } = await sb.from("conversations").insert({
+      user_id: uid,
+      appareil_type: category || null,
+      appareil_marque: brand || null,
+      messages: msgs.filter(m => typeof m.content === "string"),
+    }).select().single();
+
+    if (error) { console.error("[Reparo] saveConversation:", error.message); return; }
+    console.log("[Reparo] Conversation sauvegardée ✅", data.id);
+    setConversations(prev => [data, ...prev]);
+
+    // Auto-save appareil if detected
+    if (category && brand) {
+      const { data: existing } = await sb.from("appareils").select("id")
+        .eq("user_id", uid).eq("type", category).eq("marque", brand).maybeSingle();
+      if (!existing) {
+        await sb.from("appareils").insert({
+          user_id: uid, type: category, marque: brand,
+          modele: "Détecté via diagnostic", achat: "—",
+          entretien: "Entretien à jour", pannes: 0
+        });
+      }
+    }
+  };
+
   const goHome = () => {
+    const snapMsgs = [...messages];
+    const snapCat = sel.category || null;
+    const snapBrand = sel.brand || null;
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); setShowSAV(false); setResolved(false);
     setQuickReplies([]); setFeedback(null);
+    if (snapMsgs.length >= 2) saveConversation(snapMsgs, snapCat, snapBrand);
   };
   const goTab = (t) => { setTab(t); if (t === "home") goHome(); };
 
