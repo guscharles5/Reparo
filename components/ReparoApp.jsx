@@ -306,7 +306,11 @@ export default function ReparoApp() {
 
   const loadConversations = async () => {
     try {
-      const res = await fetch("/api/conversations");
+      const token = await getToken();
+      if (!token) return;
+      const res = await fetch("/api/conversations", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (!res.ok) return;
       const { conversations: data } = await res.json();
       if (data) setConversations(data);
@@ -332,9 +336,11 @@ export default function ReparoApp() {
     const { category, brand } = detectAppareil(msgs, sel.category, sel.brand);
     const cleanMsgs = msgs.filter(m => typeof m.content === "string");
     try {
+      const token = await getToken();
+      if (!token) return;
       const res = await fetch("/api/conversations", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           id: convIdRef.current || undefined,
           messages: cleanMsgs,
