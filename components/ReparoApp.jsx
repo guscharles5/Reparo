@@ -1175,7 +1175,15 @@ export default function ReparoApp() {
                   </div>
                 </div>
               ))}
-              <button onClick={() => { setIsLoggedIn(false); setAppState("auth"); }}
+              <button onClick={async () => {
+                const sb = createClient(
+                  process.env.NEXT_PUBLIC_SUPABASE_URL,
+                  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+                );
+                await sb.auth.signOut();
+                setIsLoggedIn(false);
+                setAppState("auth");
+              }}
                 style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "12px", color: "#e11d48", padding: "14px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif", marginTop: "8px" }}>
                 Se déconnecter
               </button>
