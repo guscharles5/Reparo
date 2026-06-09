@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
 
 // Clé API sécurisée côté serveur via /api/chat
@@ -251,6 +252,32 @@ export default function ReparoApp() {
   const recRef     = useRef();
   const msgEnd     = useRef();
   const msgTop     = useRef();
+
+  // Détection session Supabase — bypass onboarding si déjà connecté
+  useEffect(() => {
+    const sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setIsLoggedIn(true);
+        setAppState("main");
+      }
+    });
+    const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setIsLoggedIn(true);
+        setAppState("main");
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Auto-scroll vers le dernier message
+  useEffect(() => {
+    msgEnd.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
 
 
 
