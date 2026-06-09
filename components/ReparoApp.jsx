@@ -1265,9 +1265,6 @@ export default function ReparoApp() {
         if (typeof window !== "undefined") window.location.href = "/auth/login"
         return null
       })()}
-          <button onClick={() => setAppState("main")} style={{ background: "none", border: "none", color: "#aaa", fontSize: "14px", cursor: "pointer", marginTop: "8px", fontFamily: "Nunito,sans-serif" }}>Continuer sans compte</button>
-        </div>
-      )}
 
       {/* MAIN */}
       {appState === "main" && (
