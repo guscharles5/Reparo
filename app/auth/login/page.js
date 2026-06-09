@@ -68,7 +68,7 @@ export default function LoginPage() {
         </svg>
         {loading ? 'Connexion...' : 'Continuer avec Google'}
       </button>
-      <button onClick={() => window.location.href = '/'} style={{
+      <button onClick={() => window.location.href = '/?guest=1'} style={{
         background: 'none', border: 'none', color: '#aaa', fontSize: '14px',
         cursor: 'pointer', marginTop: '8px', fontFamily: 'Nunito, sans-serif', padding: '8px'
       }}>
