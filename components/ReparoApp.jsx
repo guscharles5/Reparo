@@ -1229,7 +1229,14 @@ export default function ReparoApp() {
           {/* Tabs */}
           <div style={{ display: "flex", background: "rgba(255,255,255,.15)", borderRadius: "10px", padding: "3px", marginTop: "16px" }}>
             {[{ id: "stats", label: "Résumé" }, { id: "history", label: "Conversations" }].map(t => (
-              <button key={t.id} onClick={() => setProfilTab(t.id)}
+              <button key={t.id} onClick={() => {
+                setProfilTab(t.id);
+                if (t.id === "history") {
+                  getSb().auth.getSession().then(({ data: { session } }) => {
+                    if (session?.user) loadConversations(session.user.id);
+                  });
+                }
+              }}
                 style={{ flex: 1, background: profilTab === t.id ? "white" : "transparent", border: "none", borderRadius: "8px", padding: "8px", fontWeight: "700", fontSize: "13px", color: profilTab === t.id ? PRIMARY : "rgba(255,255,255,.8)", cursor: "pointer", fontFamily: "Nunito,sans-serif", transition: "all .2s" }}>
                 {t.label}
               </button>
