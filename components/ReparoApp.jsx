@@ -57,7 +57,7 @@ Si l'appareil a plus de 10 ans et la réparation semble complexe, mentionne honn
 
 --- RÉFÉRENCE APPAREIL ---
 Au début, suggère en une phrase : "Si vous avez la référence de votre appareil, elle me permettra de vous aider encore plus précisément." Une seule fois.
-Dès que l'utilisateur mentionne une référence précise de modèle (ex: WW90T534DAW) ou que tu identifies avec certitude le modèle exact, ajoute à la fin de ton message (une seule fois par conversation) : [MODELE_DETECTE: type|marque|modele] — exemple : [MODELE_DETECTE: Lave-linge|Samsung|WW90T534DAW]. Ne mets ce tag que si tu es certain du modèle exact, jamais sur une simple marque.
+RÈGLE OBLIGATOIRE : Dès que l'utilisateur mentionne une référence de modèle dans son message (ex: HBG675BS1, WW90T534DAW, DFN28424W, etc.) ou que tu identifies le modèle avec certitude, tu DOIS ajouter à la toute fin de ton premier message le tag suivant, sans exception : [MODELE_DETECTE: type|marque|modele] — exemple : [MODELE_DETECTE: Four|Bosch|HBG675BS1]. Ce tag est invisible pour l'utilisateur. Tu dois le mettre même si tu poses une question dans le même message. Ne le mets qu'une seule fois par conversation.
 
 --- SOLUTIONS ---
 Envoie les étapes UNE PAR UNE. Donne une seule étape à la fois avec un verbe d'action. Indique le résultat attendu. Termine par [OPTIONS: C'est fait ✓ | Ça ne marche pas | Je ne comprends pas cette étape]
@@ -528,9 +528,13 @@ export default function ReparoApp() {
     return { cat, br, mo, ctx: [cat, br, mo].filter(Boolean).join(" ") || null };
   };
 
-  const handleReplyDetection = (reply) => {
+  const handleReplyDetection = (reply, msgs) => {
+    // Seulement si l'IA a répondu (msgs contient déjà la réponse IA)
+    // et qu'il y a au moins un échange complet
+    const assistantCount = (msgs || []).filter(m => m.role === "assistant").length;
+    if (assistantCount < 1) return;
     const detected = extractModeleDetecte(reply);
-    if (detected && !showSaveAppareil) {
+    if (detected && !showSaveAppareil && !appareilSaved) {
       setDetectedAppareil(detected);
       setShowSaveAppareil(true);
     }
@@ -552,7 +556,7 @@ export default function ReparoApp() {
       setMessages(finalMsgs);
       setQuickReplies(getQuickReplies(clean, finalMsgs));
       persistConversation(finalMsgs);
-      handleReplyDetection(reply);
+      handleReplyDetection(reply, finalMsgs);
     }
   };
 
@@ -573,7 +577,7 @@ export default function ReparoApp() {
       const finalMsgs = [...msgs, { role: "assistant", content: clean }];
       setMessages(finalMsgs);
       persistConversation(finalMsgs);
-      handleReplyDetection(reply);
+      handleReplyDetection(reply, finalMsgs);
     }
   };
 
