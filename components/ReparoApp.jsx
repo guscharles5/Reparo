@@ -57,6 +57,7 @@ Si l'appareil a plus de 10 ans et la réparation semble complexe, mentionne honn
 
 --- RÉFÉRENCE APPAREIL ---
 Au début, suggère en une phrase : "Si vous avez la référence de votre appareil, elle me permettra de vous aider encore plus précisément." Une seule fois.
+Dès que l'utilisateur mentionne une référence précise de modèle (ex: WW90T534DAW) ou que tu identifies avec certitude le modèle exact, ajoute à la fin de ton message (une seule fois par conversation) : [MODELE_DETECTE: type|marque|modele] — exemple : [MODELE_DETECTE: Lave-linge|Samsung|WW90T534DAW]. Ne mets ce tag que si tu es certain du modèle exact, jamais sur une simple marque.
 
 --- SOLUTIONS ---
 Envoie les étapes UNE PAR UNE. Donne une seule étape à la fois avec un verbe d'action. Indique le résultat attendu. Termine par [OPTIONS: C'est fait ✓ | Ça ne marche pas | Je ne comprends pas cette étape]
@@ -262,6 +263,9 @@ export default function ReparoApp() {
   const [refImage,     setRefImage]     = useState(null);
   const [refResult,    setRefResult]    = useState(null);
   const [refLoading,   setRefLoading]   = useState(false);
+  const [detectedAppareil, setDetectedAppareil] = useState(null); // modele détecté par IA en cours de conv
+  const [showSaveAppareil, setShowSaveAppareil] = useState(false); // bannière "Enregistrer cet appareil"
+  const [selectedAppareil, setSelectedAppareil] = useState(null); // fiche appareil ouverte
   const synthRef    = useRef(null);
   const voiceRecRef = useRef(null);
   const fileRef    = useRef();
@@ -287,6 +291,7 @@ export default function ReparoApp() {
         setIsLoggedIn(true);
         setAppState("main");
         loadConversations();
+        loadAppareils();
       }
     });
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
@@ -295,10 +300,12 @@ export default function ReparoApp() {
         setIsLoggedIn(true);
         setAppState("main");
         loadConversations();
+        loadAppareils();
       } else {
         setUser(null);
         setIsLoggedIn(false);
         setConversations([]);
+        setAppareils([]);
       }
     });
     return () => subscription.unsubscribe();
@@ -324,6 +331,69 @@ export default function ReparoApp() {
       const { conversations: data } = await res.json();
       if (data) setConversations(data);
     } catch(e) { console.error("[Reparo] loadConversations:", e.message); }
+  };
+
+  const loadAppareils = async () => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const res = await fetch("/api/appareils", { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      const { appareils: data } = await res.json();
+      if (data) setAppareils(data);
+    } catch(e) { console.error("[Reparo] loadAppareils:", e.message); }
+  };
+
+  const saveAppareil = async (appareilData) => {
+    try {
+      const token = await getToken();
+      if (!token) return null;
+      const res = await fetch("/api/appareils", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(appareilData),
+      });
+      if (!res.ok) return null;
+      const { appareil } = await res.json();
+      if (appareil) {
+        setAppareils(prev => {
+          const exists = prev.find(a => a.id === appareil.id);
+          if (exists) return prev.map(a => a.id === appareil.id ? appareil : a);
+          return [appareil, ...prev];
+        });
+        return appareil;
+      }
+    } catch(e) { console.error("[Reparo] saveAppareil:", e.message); }
+    return null;
+  };
+
+  const updateAppareil = async (id, updates) => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const res = await fetch(`/api/appareils/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) return;
+      const { appareil } = await res.json();
+      if (appareil) setAppareils(prev => prev.map(a => a.id === appareil.id ? appareil : a));
+    } catch(e) { console.error("[Reparo] updateAppareil:", e.message); }
+  };
+
+  // Extrait le tag [MODELE_DETECTE: type|marque|modele] d'une réponse IA
+  const extractModeleDetecte = (reply) => {
+    if (typeof reply !== "string") return null;
+    const match = reply.match(/\[MODELE_DETECTE:\s*([^|\]]+)\|([^|\]]+)\|([^\]]+)\]/i);
+    if (!match) return null;
+    return { type: match[1].trim(), marque: match[2].trim(), modele: match[3].trim() };
+  };
+
+  // Nettoie le tag [MODELE_DETECTE] du texte affiché
+  const cleanModeleTag = (text) => {
+    if (typeof text !== "string") return text;
+    return text.replace(/\[MODELE_DETECTE:[^\]]*\]/gi, "").trim();
   };
 
   const detectAppareil = (msgs, category, brand) => {
@@ -457,20 +527,31 @@ export default function ReparoApp() {
     return { cat, br, mo, ctx: [cat, br, mo].filter(Boolean).join(" ") || null };
   };
 
+  const handleReplyDetection = (reply) => {
+    const detected = extractModeleDetecte(reply);
+    if (detected && !showSaveAppareil) {
+      setDetectedAppareil(detected);
+      setShowSaveAppareil(true);
+    }
+  };
+
   const startChat = async (problem, override) => {
     const s = override || sel;
     const { cat, br, mo, ctx } = getContext(s);
     const userMsg = br ? `Mon ${cat} ${br} ${mo} : ${problem}` : problem;
     setTab("home"); setScreen("chat"); setResolved(false);
+    setShowSaveAppareil(false); setDetectedAppareil(null);
     convIdRef.current = null; // nouvelle conversation
     const msgs = [{ role: "user", content: userMsg }];
     setMessages(msgs);
     const reply = await callAPI(msgs, ctx);
     if (reply) {
-      const finalMsgs = [...msgs, { role: "assistant", content: reply }];
+      const clean = cleanModeleTag(reply);
+      const finalMsgs = [...msgs, { role: "assistant", content: clean }];
       setMessages(finalMsgs);
-      setQuickReplies(getQuickReplies(reply, finalMsgs));
-      persistConversation(finalMsgs); // sauvegarder après le premier échange
+      setQuickReplies(getQuickReplies(clean, finalMsgs));
+      persistConversation(finalMsgs);
+      handleReplyDetection(reply);
     }
   };
 
@@ -487,9 +568,11 @@ export default function ReparoApp() {
     const { ctx } = getContext(sel);
     const reply = await callAPI(msgs, ctx);
     if (reply) {
-      const finalMsgs = [...msgs, { role: "assistant", content: reply }];
+      const clean = cleanModeleTag(reply);
+      const finalMsgs = [...msgs, { role: "assistant", content: clean }];
       setMessages(finalMsgs);
-      persistConversation(finalMsgs); // sauvegarder/mettre à jour à chaque échange
+      persistConversation(finalMsgs);
+      handleReplyDetection(reply);
     }
   };
 
@@ -1108,6 +1191,36 @@ export default function ReparoApp() {
             </button>
           </div>
         )}
+        {/* Bannière enregistrer appareil détecté */}
+        {showSaveAppareil && detectedAppareil && isLoggedIn && (
+          <div style={{ background: "#EFF4FF", border: "1.5px solid #c7d7f8", borderRadius: "14px", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px", animation: "fadeUp .3s ease" }}>
+            <div style={{ background: ACCENT, borderRadius: "10px", width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "18px" }}>🔧</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: "700", fontSize: "13px", color: PRIMARY }}>Appareil identifié</div>
+              <div style={{ fontSize: "12px", color: "#555", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {detectedAppareil.marque} {detectedAppareil.type} — {detectedAppareil.modele}
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px", flexShrink: 0 }}>
+              <button onClick={async () => {
+                const a = await saveAppareil({
+                  type: detectedAppareil.type,
+                  marque: detectedAppareil.marque,
+                  modele: detectedAppareil.modele,
+                  statut: "en_cours",
+                  achat: null,
+                });
+                if (a) showToast("Appareil enregistré ✓");
+                setShowSaveAppareil(false);
+              }} style={{ background: ACCENT, border: "none", borderRadius: "8px", color: "white", padding: "7px 12px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                Enregistrer
+              </button>
+              <button onClick={() => setShowSaveAppareil(false)} style={{ background: "transparent", border: "none", color: "#aaa", fontSize: "11px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                Ignorer
+              </button>
+            </div>
+          </div>
+        )}
         <div ref={msgEnd} />
       </div>
 
@@ -1187,7 +1300,7 @@ export default function ReparoApp() {
         </div>
         <div style={{ padding: "16px" }}>
           {appareils.map(a => (
-            <div key={a.id} className="card fu" onClick={() => setShowDetail(a)}
+            <div key={a.id} className="card fu" onClick={() => setSelectedAppareil(a)}
               style={{ background: "white", borderRadius: "14px", padding: "14px 16px", border: "1.5px solid #eee", boxShadow: "0 2px 6px rgba(0,0,0,.04)", display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
               <AppareilImg type={a.type} size={48} radius={12} />
               <div style={{ flex: 1 }}>
@@ -1225,13 +1338,114 @@ export default function ReparoApp() {
                   }
                 </div>
               ))}
-              <button onClick={() => {
+              <button onClick={async () => {
                 if (!form.type || !form.marque) return;
-                setAppareils(a => [...a, { id: Date.now(), ...form, pannes: 0, entretien: "Entretien à jour" }]);
+                const a = await saveAppareil({ ...form, statut: "ok" });
+                if (a) showToast("Appareil enregistré ✓");
                 setForm({ type: "", marque: "", modele: "", achat: "" });
                 setShowAdd(false);
-                showToast("Appareil enregistré ✓");
               }} style={{ width: "100%", background: ACCENT, border: "none", borderRadius: "12px", color: "white", padding: "14px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Confirmer</button>
+            </div>
+          </div>
+        )}
+
+        {/* Fiche appareil */}
+        {selectedAppareil && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: "480px", left: "50%", transform: "translateX(-50%)" }}>
+            <div onClick={() => setSelectedAppareil(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.5)", animation: "fadeIn .2s" }} />
+            <div style={{ position: "relative", background: "white", borderRadius: "20px 20px 0 0", padding: "0 0 40px", maxHeight: "90vh", overflowY: "auto", animation: "slideUp .3s ease" }}>
+              <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
+                <div style={{ width: "40px", height: "4px", background: "#e0e0e0", borderRadius: "2px" }} />
+              </div>
+              {/* Header fiche */}
+              <div style={{ background: PRIMARY, margin: "0", padding: "16px 20px 20px", display: "flex", alignItems: "center", gap: "14px" }}>
+                <div style={{ background: "rgba(255,255,255,.15)", borderRadius: "14px", width: "52px", height: "52px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "26px", flexShrink: 0 }}>
+                  {selectedAppareil.type === "Lave-linge" ? "🫧" : selectedAppareil.type === "Réfrigérateur" ? "🧊" : selectedAppareil.type === "Four" ? "🔥" : selectedAppareil.type === "Lave-vaisselle" ? "🍽️" : selectedAppareil.type === "Machine à café" ? "☕" : selectedAppareil.type === "Micro-ondes" ? "📡" : selectedAppareil.type === "Sèche-linge" ? "💨" : "🔧"}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: "white", fontWeight: "800", fontSize: "17px" }}>{selectedAppareil.marque} {selectedAppareil.type}</div>
+                  {selectedAppareil.modele && <div style={{ color: "rgba(255,255,255,.8)", fontSize: "13px", marginTop: "2px" }}>Réf. {selectedAppareil.modele}</div>}
+                  {selectedAppareil.achat && <div style={{ color: "rgba(255,255,255,.6)", fontSize: "12px" }}>Acheté en {selectedAppareil.achat}</div>}
+                </div>
+              </div>
+
+              <div style={{ padding: "16px 20px 0" }}>
+                {/* Statut */}
+                <div style={{ marginBottom: "16px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "8px", textTransform: "uppercase", letterSpacing: ".5px" }}>État de l'appareil</div>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    {[
+                      { id: "ok", label: "✅ Fonctionnel", color: "#16a34a", bg: "#f0fdf4", border: "#86efac" },
+                      { id: "en_cours", label: "🔧 En réparation", color: "#d97706", bg: "#fffbeb", border: "#fcd34d" },
+                      { id: "hs", label: "❌ Hors service", color: "#e11d48", bg: "#fff1f2", border: "#fecdd3" },
+                    ].map(s => (
+                      <button key={s.id} onClick={async () => {
+                        await updateAppareil(selectedAppareil.id, { statut: s.id });
+                        setSelectedAppareil(a => ({ ...a, statut: s.id }));
+                        showToast("Statut mis à jour ✓");
+                      }} style={{ flex: 1, background: selectedAppareil.statut === s.id ? s.bg : "#f8fafc", border: `1.5px solid ${selectedAppareil.statut === s.id ? s.border : "#eee"}`, borderRadius: "10px", padding: "8px 4px", fontSize: "11px", fontWeight: "700", color: selectedAppareil.statut === s.id ? s.color : "#aaa", cursor: "pointer", fontFamily: "Nunito,sans-serif", textAlign: "center" }}>
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Historique pannes liées */}
+                <div style={{ marginBottom: "16px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "8px", textTransform: "uppercase", letterSpacing: ".5px" }}>Historique des pannes</div>
+                  {conversations.filter(c =>
+                    (c.appareil_type === selectedAppareil.type && c.appareil_marque === selectedAppareil.marque) ||
+                    (selectedAppareil.conv_ids && selectedAppareil.conv_ids.includes(c.id))
+                  ).length === 0
+                    ? <div style={{ fontSize: "13px", color: "#aaa", textAlign: "center", padding: "20px 0" }}>Aucune panne enregistrée</div>
+                    : conversations.filter(c =>
+                        (c.appareil_type === selectedAppareil.type && c.appareil_marque === selectedAppareil.marque) ||
+                        (selectedAppareil.conv_ids && selectedAppareil.conv_ids.includes(c.id))
+                      ).map(conv => (
+                        <div key={conv.id} style={{ background: "#f8fafc", borderRadius: "10px", padding: "10px 12px", marginBottom: "8px", border: "1px solid #eee" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+                            <div style={{ fontSize: "12px", color: "#555", flex: 1, lineHeight: "1.5" }}>
+                              {typeof conv.messages?.[0]?.content === "string"
+                                ? conv.messages[0].content.slice(0, 80) + (conv.messages[0].content.length > 80 ? "…" : "")
+                                : "Diagnostic"}
+                            </div>
+                            <div style={{ fontSize: "11px", color: "#aaa", flexShrink: 0 }}>
+                              {new Date(conv.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: "11px", color: "#aaa", marginTop: "4px" }}>{conv.messages?.length || 0} messages</div>
+                          <button onClick={() => { setSelectedAppareil(null); resumeConversation(conv); }}
+                            style={{ marginTop: "8px", width: "100%", background: "#EFF4FF", border: "none", borderRadius: "8px", color: ACCENT, padding: "7px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                            Reprendre ce diagnostic
+                          </button>
+                        </div>
+                      ))
+                  }
+                </div>
+
+                {/* Actions */}
+                <button onClick={() => {
+                  setSel({ category: selectedAppareil.type, brand: selectedAppareil.marque, model: selectedAppareil.modele });
+                  setSelectedAppareil(null);
+                  setMessages([]);
+                  convIdRef.current = null;
+                  setTab("home"); setScreen("chat");
+                }} style={{ width: "100%", background: ACCENT, border: "none", borderRadius: "12px", color: "white", padding: "13px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif", marginBottom: "8px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                  🔧 Nouveau diagnostic
+                </button>
+                <button onClick={async () => {
+                  if (!window.confirm("Supprimer cet appareil ?")) return;
+                  try {
+                    const token = await getToken();
+                    await fetch(`/api/appareils/${selectedAppareil.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+                    setAppareils(prev => prev.filter(a => a.id !== selectedAppareil.id));
+                    setSelectedAppareil(null);
+                    showToast("Appareil supprimé");
+                  } catch(e) { console.error(e); }
+                }} style={{ width: "100%", background: "white", border: "1.5px solid #fecdd3", borderRadius: "12px", color: "#e11d48", padding: "13px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                  Supprimer l'appareil
+                </button>
+              </div>
             </div>
           </div>
         )}
