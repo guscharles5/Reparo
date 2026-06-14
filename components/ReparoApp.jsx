@@ -294,6 +294,7 @@ export default function ReparoApp() {
         setUser(session.user);
         setIsLoggedIn(true);
         setAppState("main");
+        loadConversations();
       } else {
         setUser(null);
         setIsLoggedIn(false);
@@ -530,6 +531,7 @@ export default function ReparoApp() {
     const finalMsgs = [...msgs, { role: "assistant", content: response }];
     setMessages(finalMsgs);
     setQuickReplies(getQuickReplies(response, finalMsgs));
+    persistConversation(finalMsgs);
   };
 
   const sendSuggestion = async (suggestion) => {
@@ -541,6 +543,7 @@ export default function ReparoApp() {
     const finalMsgs = [...msgs, { role: "assistant", content: reply }];
     setMessages(finalMsgs);
     setQuickReplies(getQuickReplies(reply, finalMsgs));
+    persistConversation(finalMsgs);
   };
 
   // Compression image : max 800px, qualité 0.75
@@ -1288,13 +1291,13 @@ export default function ReparoApp() {
                 Mes conversations
               </div>
               
-              {true && (
+              {conversations.length === 0 && (
                 <div style={{ textAlign: "center", padding: "40px 20px", color: "#aaa" }}>
                   <div style={{ fontSize: "40px", marginBottom: "12px" }}>💬</div>
                   <div style={{ fontSize: "14px" }}>Aucune conversation enregistrée</div>
                 </div>
               )}
-              {[].map(conv => (
+              {conversations.map(conv => (
                 <div key={conv.id} className="card"
                   style={{ background: "white", borderRadius: "14px", padding: "14px 16px", border: "1.5px solid #eee", marginBottom: "10px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", marginBottom: "10px" }}>
