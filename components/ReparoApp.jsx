@@ -1275,7 +1275,7 @@ export default function ReparoApp() {
             {[{ id: "stats", label: "Résumé" }, { id: "history", label: "Conversations" }].map(t => (
               <button key={t.id} onClick={() => {
                 setProfilTab(t.id);
-                if (t.id === "history") loadConversations();
+                loadConversations();
               }}
                 style={{ flex: 1, background: profilTab === t.id ? "white" : "transparent", border: "none", borderRadius: "8px", padding: "8px", fontWeight: "700", fontSize: "13px", color: profilTab === t.id ? PRIMARY : "rgba(255,255,255,.8)", cursor: "pointer", fontFamily: "Nunito,sans-serif", transition: "all .2s" }}>
                 {t.label}
@@ -1289,7 +1289,7 @@ export default function ReparoApp() {
             <>
               {[
                 { label: "Mes appareils", value: `${appareils.length} appareil${appareils.length > 1 ? "s" : ""}`, icon: "🔧" },
-                { label: "Diagnostics effectués", value: "0", icon: "📋" },
+                { label: "Diagnostics effectués", value: `${conversations.length}`, icon: "📋" },
                 { label: "Entretiens à prévoir", value: `${appareils.filter(a => a.entretien.includes("conseillé")).length}`, icon: "⚠️" },
               ].map(s => (
                 <div key={s.label} style={{ background: "white", borderRadius: "14px", padding: "16px", border: "1.5px solid #eee", marginBottom: "10px", display: "flex", alignItems: "center", gap: "12px" }}>
