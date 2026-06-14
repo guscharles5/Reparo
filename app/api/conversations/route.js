@@ -2,55 +2,70 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
-const getSupabase = (token) => createClient(
+// Client admin — bypasse RLS complètement
+const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  { global: { headers: { Authorization: `Bearer ${token}` } } }
+  process.env.SUPABASE_SERVICE_KEY
 )
 
-export async function GET(req) {
+// Vérifie le token JWT et retourne l'uid
+const getUserId = async (req) => {
   const token = req.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
+  if (!token) return null
+  const { data: { user } } = await getAdmin().auth.getUser(token)
+  return user?.id || null
+}
 
-  const sb = getSupabase(token)
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Token invalide' }, { status: 401 })
+export async function GET(req) {
+  const uid = await getUserId(req)
+  if (!uid) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
 
-  const { data, error } = await sb.from('conversations').select('*')
-    .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50)
+  const { data, error } = await getAdmin()
+    .from('conversations')
+    .select('*')
+    .eq('user_id', uid)
+    .order('created_at', { ascending: false })
+    .limit(50)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ conversations: data })
+  return NextResponse.json({ conversations: data || [] })
 }
 
 export async function POST(req) {
-  const token = req.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
-
-  const sb = getSupabase(token)
-  const { data: { user } } = await sb.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Token invalide' }, { status: 401 })
+  const uid = await getUserId(req)
+  if (!uid) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
 
   const { messages, appareil_type, appareil_marque, id } = await req.json()
-  const uid = user.id
 
   if (id) {
-    const { data, error } = await sb.from('conversations')
+    const { data, error } = await getAdmin()
+      .from('conversations')
       .update({ messages, appareil_type, appareil_marque })
-      .eq('id', id).eq('user_id', uid).select().single()
+      .eq('id', id)
+      .eq('user_id', uid)
+      .select()
+      .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ conversation: data })
   } else {
-    const { data, error } = await sb.from('conversations')
+    const { data, error } = await getAdmin()
+      .from('conversations')
       .insert({ user_id: uid, messages, appareil_type, appareil_marque })
-      .select().single()
+      .select()
+      .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+    // Auto-save appareil si détecté
     if (appareil_type && appareil_marque) {
-      const { data: existing } = await sb.from('appareils').select('id')
-        .eq('user_id', uid).eq('type', appareil_type).eq('marque', appareil_marque).maybeSingle()
+      const { data: existing } = await getAdmin()
+        .from('appareils')
+        .select('id')
+        .eq('user_id', uid)
+        .eq('type', appareil_type)
+        .eq('marque', appareil_marque)
+        .maybeSingle()
       if (!existing) {
-        await sb.from('appareils').insert({
+        await getAdmin().from('appareils').insert({
           user_id: uid, type: appareil_type, marque: appareil_marque,
           modele: 'Détecté via diagnostic', achat: '—',
           entretien: 'Entretien à jour', pannes: 0
