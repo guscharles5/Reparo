@@ -997,22 +997,7 @@ export default function ReparoApp() {
           </div>
         )}
 
-        {isLoggedIn && appareils.length > 0 && (
-          <div>
-            <div style={{ fontWeight: "800", fontSize: "15px", color: "#222", marginBottom: "10px" }}>Mes appareils</div>
-            {appareils.map(a => (
-              <div key={a.id} className="card fu" onClick={() => { setSel({ category: a.type, brand: a.marque, model: a.modele }); setScreen("appareil"); }}
-                style={{ background: "white", borderRadius: "12px", padding: "13px 16px", border: "1.5px solid #eee", boxShadow: "0 2px 6px rgba(0,0,0,.04)", display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-                <AppareilImg type={a.type} size={42} radius={10} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: "700", fontSize: "14px", color: "#222" }}>{a.marque} {a.type}</div>
-                  <div style={{ fontSize: "12px", color: "#888" }}>{a.modele}</div>
-                </div>
-                <div style={{ background: ACCENT, color: "white", borderRadius: "8px", padding: "6px 12px", fontSize: "12px", fontWeight: "700" }}>Dépanner</div>
-              </div>
-            ))}
-          </div>
-        )}
+
 
         <div>
           <div style={{ fontWeight: "800", fontSize: "15px", color: "#222", marginBottom: "10px" }}>Choisissez votre appareil</div>
@@ -1228,7 +1213,10 @@ export default function ReparoApp() {
                       statut: "en_cours",
                       achat: null,
                     });
-                    if (a) setAppareilSaved(true);
+                    if (a) {
+                      setAppareilSaved(true);
+                      setTimeout(() => setShowSaveAppareil(false), 3000);
+                    }
                   }} style={{ background: ACCENT, border: "none", borderRadius: "8px", color: "white", padding: "7px 12px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
                     Enregistrer
                   </button>
@@ -1473,6 +1461,13 @@ export default function ReparoApp() {
 
   // ── PROFIL ────────────────────────────────────────
   const Profil = () => {
+    const [editEmail, setEditEmail] = React.useState(false);
+    const [newEmail, setNewEmail] = React.useState("");
+    const [editPwd, setEditPwd] = React.useState(false);
+    const [newPwd, setNewPwd] = React.useState("");
+    const [confirmPwd, setConfirmPwd] = React.useState("");
+    const [accountLoading, setAccountLoading] = React.useState(false);
+
     if (!isLoggedIn) return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "70vh", padding: "32px", textAlign: "center" }}>
         <div style={{ fontSize: "48px", marginBottom: "16px" }}>👤</div>
@@ -1481,6 +1476,8 @@ export default function ReparoApp() {
         <button onClick={() => setAppState("auth")} style={{ background: ACCENT, border: "none", borderRadius: "14px", color: "white", padding: "14px 28px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Se connecter</button>
       </div>
     );
+
+    const isGoogleUser = user?.app_metadata?.provider === "google";
 
     const formatDate = (iso) => {
       const d = new Date(iso);
@@ -1495,94 +1492,161 @@ export default function ReparoApp() {
       return "Diagnostic sans titre";
     };
 
+    const deleteConversation = async (convId) => {
+      try {
+        const token = await getToken();
+        await fetch(`/api/conversations/${convId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+        setConversations(prev => prev.filter(c => c.id !== convId));
+        showToast("Conversation supprimée");
+      } catch(e) { console.error(e); }
+    };
+
+    const updateEmail = async () => {
+      if (!newEmail.trim()) return;
+      setAccountLoading(true);
+      try {
+        const { error } = await getSbClient().auth.updateUser({ email: newEmail.trim() });
+        if (error) { showToast("Erreur : " + error.message); }
+        else { showToast("Email mis à jour — vérifiez votre boîte mail ✓"); setEditEmail(false); setNewEmail(""); }
+      } catch(e) { showToast("Erreur inattendue"); }
+      setAccountLoading(false);
+    };
+
+    const updatePassword = async () => {
+      if (!newPwd || newPwd !== confirmPwd) { showToast("Les mots de passe ne correspondent pas"); return; }
+      if (newPwd.length < 6) { showToast("Mot de passe trop court (6 caractères min.)"); return; }
+      setAccountLoading(true);
+      try {
+        const { error } = await getSbClient().auth.updateUser({ password: newPwd });
+        if (error) { showToast("Erreur : " + error.message); }
+        else { showToast("Mot de passe mis à jour ✓"); setEditPwd(false); setNewPwd(""); setConfirmPwd(""); }
+      } catch(e) { showToast("Erreur inattendue"); }
+      setAccountLoading(false);
+    };
+
+    const SectionTitle = ({ children }) => (
+      <div style={{ fontSize: "11px", fontWeight: "800", color: "#aaa", textTransform: "uppercase", letterSpacing: ".8px", margin: "20px 0 10px" }}>{children}</div>
+    );
+
     return (
       <div className="fade-in" style={{ paddingBottom: "80px" }}>
         {/* Header */}
-        <div style={{ background: PRIMARY, padding: "28px 20px 16px", textAlign: "center" }}>
+        <div style={{ background: PRIMARY, padding: "28px 20px 20px", textAlign: "center" }}>
           <div style={{ width: "72px", height: "72px", background: "rgba(255,255,255,.2)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: "28px" }}>👤</div>
           <div style={{ color: "white", fontWeight: "800", fontSize: "18px" }}>Mon compte</div>
-          <div style={{ color: "rgba(255,255,255,.7)", fontSize: "13px", marginTop: "4px" }}>Membre Reparo</div>
-          {/* Tabs */}
-          <div style={{ display: "flex", background: "rgba(255,255,255,.15)", borderRadius: "10px", padding: "3px", marginTop: "16px" }}>
-            {[{ id: "stats", label: "Résumé" }, { id: "history", label: "Conversations" }].map(t => (
-              <button key={t.id} onClick={() => {
-                setProfilTab(t.id);
-                loadConversations();
-              }}
-                style={{ flex: 1, background: profilTab === t.id ? "white" : "transparent", border: "none", borderRadius: "8px", padding: "8px", fontWeight: "700", fontSize: "13px", color: profilTab === t.id ? PRIMARY : "rgba(255,255,255,.8)", cursor: "pointer", fontFamily: "Nunito,sans-serif", transition: "all .2s" }}>
-                {t.label}
-              </button>
-            ))}
-          </div>
+          <div style={{ color: "rgba(255,255,255,.7)", fontSize: "13px", marginTop: "4px" }}>{user?.email}</div>
+          {isGoogleUser && <div style={{ background: "rgba(255,255,255,.15)", borderRadius: "20px", padding: "4px 12px", fontSize: "11px", color: "white", fontWeight: "700", display: "inline-block", marginTop: "8px" }}>Compte Google</div>}
         </div>
 
-        <div style={{ padding: "16px" }}>
-          {profilTab === "stats" && (
-            <>
-              {[
-                { label: "Mes appareils", value: `${appareils.length} appareil${appareils.length > 1 ? "s" : ""}`, icon: "🔧" },
-                { label: "Diagnostics effectués", value: `${conversations.length}`, icon: "📋" },
-                { label: "Entretiens à prévoir", value: `${appareils.filter(a => a.entretien.includes("conseillé")).length}`, icon: "⚠️" },
-              ].map(s => (
-                <div key={s.label} style={{ background: "white", borderRadius: "14px", padding: "16px", border: "1.5px solid #eee", marginBottom: "10px", display: "flex", alignItems: "center", gap: "12px" }}>
-                  <span style={{ fontSize: "24px" }}>{s.icon}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "13px", color: "#888" }}>{s.label}</div>
-                    <div style={{ fontWeight: "800", fontSize: "18px", color: "#222" }}>{s.value}</div>
-                  </div>
-                </div>
-              ))}
-              <button onClick={async () => {
-                await getSbClient().auth.signOut();
-                window.location.href = "/auth/login";
-              }}
-                style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "12px", color: "#e11d48", padding: "14px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif", marginTop: "8px" }}>
-                Se déconnecter
-              </button>
-            </>
-          )}
+        <div style={{ padding: "0 16px" }}>
 
-          {profilTab === "history" && (
-            <>
-              <div style={{ fontWeight: "800", fontSize: "15px", color: "#222", marginBottom: "12px" }}>
-                Mes conversations
-              </div>
-              
-              {conversations.length === 0 && (
-                <div style={{ textAlign: "center", padding: "40px 20px", color: "#aaa" }}>
-                  <div style={{ fontSize: "40px", marginBottom: "12px" }}>💬</div>
-                  <div style={{ fontSize: "14px" }}>Aucune conversation enregistrée</div>
+          {/* ── Conversations ── */}
+          <SectionTitle>Mes conversations</SectionTitle>
+          {conversations.length === 0 && (
+            <div style={{ textAlign: "center", padding: "30px 20px", color: "#aaa", background: "white", borderRadius: "14px", border: "1.5px solid #eee" }}>
+              <div style={{ fontSize: "32px", marginBottom: "8px" }}>💬</div>
+              <div style={{ fontSize: "14px" }}>Aucune conversation enregistrée</div>
+            </div>
+          )}
+          {conversations.map(conv => (
+            <div key={conv.id} style={{ background: "white", borderRadius: "14px", padding: "14px 16px", border: "1.5px solid #eee", marginBottom: "10px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", marginBottom: "10px" }}>
+                <div style={{ background: "#EFF4FF", borderRadius: "10px", width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "18px" }}>
+                  {conv.appareil_type === "Lave-linge" ? "🫧" : conv.appareil_type === "Réfrigérateur" ? "🧊" : conv.appareil_type === "Four" ? "🔥" : conv.appareil_type === "Lave-vaisselle" ? "🍽️" : "🔧"}
                 </div>
-              )}
-              {conversations.map(conv => (
-                <div key={conv.id} className="card"
-                  style={{ background: "white", borderRadius: "14px", padding: "14px 16px", border: "1.5px solid #eee", marginBottom: "10px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", marginBottom: "10px" }}>
-                    <div style={{ background: "#EFF4FF", borderRadius: "10px", width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "18px" }}>
-                      {conv.appareil_type === "Lave-linge" ? "🫧" : conv.appareil_type === "Réfrigérateur" ? "🧊" : conv.appareil_type === "Four" ? "🔥" : conv.appareil_type === "Lave-vaisselle" ? "🍽️" : "🔧"}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: "700", fontSize: "14px", color: "#222", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {getConvTitle(conv)}
-                      </div>
-                      <div style={{ fontSize: "11px", color: "#aaa" }}>{formatDate(conv.created_at)} · {conv.messages?.length || 0} messages</div>
-                    </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: "700", fontSize: "14px", color: "#222", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {getConvTitle(conv)}
                   </div>
-                  <div style={{ fontSize: "12px", color: "#666", marginBottom: "10px", lineHeight: "1.5",
-                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                    {typeof conv.messages?.[conv.messages.length - 1]?.content === "string"
-                      ? conv.messages[conv.messages.length - 1].content.slice(0, 100)
-                      : ""}
-                  </div>
-                  <button onClick={() => resumeConversation(conv)}
-                    style={{ width: "100%", background: ACCENT, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                    Reprendre la conversation
+                  <div style={{ fontSize: "11px", color: "#aaa" }}>{formatDate(conv.created_at)} · {conv.messages?.length || 0} messages</div>
+                </div>
+              </div>
+              <div style={{ fontSize: "12px", color: "#666", marginBottom: "10px", lineHeight: "1.5", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                {typeof conv.messages?.[conv.messages.length - 1]?.content === "string"
+                  ? conv.messages[conv.messages.length - 1].content.slice(0, 100) : ""}
+              </div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button onClick={() => resumeConversation(conv)}
+                  style={{ flex: 1, background: ACCENT, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  Reprendre
+                </button>
+                <button onClick={() => deleteConversation(conv.id)}
+                  style={{ background: "#fff1f2", border: "1.5px solid #fecdd3", borderRadius: "10px", color: "#e11d48", padding: "10px 14px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                  🗑️
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* ── Mon compte ── */}
+          <SectionTitle>Paramètres du compte</SectionTitle>
+          <div style={{ background: "white", borderRadius: "14px", border: "1.5px solid #eee", overflow: "hidden", marginBottom: "10px" }}>
+
+            {/* Email */}
+            <div style={{ padding: "14px 16px", borderBottom: "1px solid #f0f0f0" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: "12px", color: "#aaa", marginBottom: "2px" }}>Adresse email</div>
+                  <div style={{ fontSize: "14px", fontWeight: "700", color: isGoogleUser ? "#aaa" : "#222" }}>{user?.email}</div>
+                </div>
+                {!isGoogleUser && (
+                  <button onClick={() => { setEditEmail(!editEmail); setEditPwd(false); }}
+                    style={{ background: "#EFF4FF", border: "none", borderRadius: "8px", color: ACCENT, padding: "7px 12px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                    {editEmail ? "Annuler" : "Modifier"}
+                  </button>
+                )}
+                {isGoogleUser && <span style={{ fontSize: "11px", color: "#aaa" }}>Via Google</span>}
+              </div>
+              {editEmail && (
+                <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Nouvel email" type="email"
+                    style={{ border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none", width: "100%" }} />
+                  <button onClick={updateEmail} disabled={accountLoading}
+                    style={{ background: ACCENT, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif", opacity: accountLoading ? 0.6 : 1 }}>
+                    {accountLoading ? "Mise à jour..." : "Confirmer le nouvel email"}
                   </button>
                 </div>
-              ))}
-            </>
-          )}
+              )}
+            </div>
+
+            {/* Mot de passe */}
+            <div style={{ padding: "14px 16px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: "12px", color: "#aaa", marginBottom: "2px" }}>Mot de passe</div>
+                  <div style={{ fontSize: "14px", fontWeight: "700", color: isGoogleUser ? "#aaa" : "#222" }}>{isGoogleUser ? "Géré par Google" : "••••••••"}</div>
+                </div>
+                {!isGoogleUser && (
+                  <button onClick={() => { setEditPwd(!editPwd); setEditEmail(false); }}
+                    style={{ background: "#EFF4FF", border: "none", borderRadius: "8px", color: ACCENT, padding: "7px 12px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                    {editPwd ? "Annuler" : "Modifier"}
+                  </button>
+                )}
+                {isGoogleUser && <span style={{ fontSize: "11px", color: "#aaa" }}>Via Google</span>}
+              </div>
+              {editPwd && (
+                <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <input value={newPwd} onChange={e => setNewPwd(e.target.value)} placeholder="Nouveau mot de passe" type="password"
+                    style={{ border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none", width: "100%" }} />
+                  <input value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} placeholder="Confirmer le mot de passe" type="password"
+                    style={{ border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none", width: "100%" }} />
+                  <button onClick={updatePassword} disabled={accountLoading}
+                    style={{ background: ACCENT, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif", opacity: accountLoading ? 0.6 : 1 }}>
+                    {accountLoading ? "Mise à jour..." : "Confirmer le nouveau mot de passe"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Déconnexion */}
+          <button onClick={async () => {
+            await getSbClient().auth.signOut();
+            window.location.href = "/auth/login";
+          }} style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "12px", color: "#e11d48", padding: "14px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif", marginTop: "4px" }}>
+            Se déconnecter
+          </button>
         </div>
       </div>
     );
@@ -1668,7 +1732,7 @@ export default function ReparoApp() {
             <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: "480px", background: "white", borderTop: "1px solid #eee", display: "flex", zIndex: 50, paddingBottom: "env(safe-area-inset-bottom)" }}>
               {[
                 { id: "home", label: "Accueil", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
-                { id: "appareils", label: "Appareils", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> },
+                { id: "appareils", label: "Mes appareils", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> },
                 { id: "profil", label: "Profil", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
               ].map(item => (
                 <button key={item.id} onClick={() => goTab(item.id)}
