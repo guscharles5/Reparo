@@ -3,6 +3,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
+let _sb = null;
+const getSbClient = () => {
+  if (!_sb) _sb = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+  return _sb;
+};
+
+const getToken = async () => {
+  const { data: { session } } = await getSbClient().auth.getSession();
+  return session?.access_token || null;
+};
+
 
 // Clé API sécurisée côté serveur via /api/chat
 
@@ -266,10 +280,7 @@ export default function ReparoApp() {
         return;
       }
     }
-    const sb = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+    const sb = getSbClient();
     sb.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setUser(session.user);
@@ -299,10 +310,7 @@ export default function ReparoApp() {
 
 
 
-  const getSb = () => createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
+
 
   const loadConversations = async () => {
     try {
@@ -1265,11 +1273,7 @@ export default function ReparoApp() {
                 </div>
               ))}
               <button onClick={async () => {
-                const sb = createClient(
-                  process.env.NEXT_PUBLIC_SUPABASE_URL,
-                  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-                );
-                await sb.auth.signOut();
+                await getSbClient().auth.signOut();
                 window.location.href = "/auth/login";
               }}
                 style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "12px", color: "#e11d48", padding: "14px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif", marginTop: "8px" }}>
