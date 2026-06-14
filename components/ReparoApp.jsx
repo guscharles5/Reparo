@@ -307,7 +307,7 @@ export default function ReparoApp() {
   // Auto-scroll vers le dernier message
   useEffect(() => {
     msgEnd.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
+  }, [messages]);
 
 
 
@@ -377,6 +377,31 @@ export default function ReparoApp() {
   };
   const goTab = (t) => { setTab(t); if (t === "home") goHome(); };
 
+  const resumeConversation = (conv) => {
+    // Restaure le contexte appareil depuis la conversation
+    setSel({
+      category: conv.appareil_type || "",
+      brand: conv.appareil_marque || "",
+    });
+    // Restaure les messages (filtre les éventuels messages avec images base64 non-string)
+    const msgs = (conv.messages || []).filter(m => typeof m.content === "string" || Array.isArray(m.content));
+    setMessages(msgs);
+    // Restaure l'ID pour que persistConversation mette à jour au lieu de créer
+    convIdRef.current = conv.id;
+    // Calcule les quick replies à partir du dernier message IA
+    const lastAssistant = [...msgs].reverse().find(m => m.role === "assistant");
+    if (lastAssistant && typeof lastAssistant.content === "string") {
+      setQuickReplies(getQuickReplies(lastAssistant.content, msgs));
+    } else {
+      setQuickReplies([]);
+    }
+    setResolved(false);
+    setImage(null); setImageB64(null);
+    setShowSAV(false); setFeedback(null); setApiError(null);
+    // Navigation vers le chat
+    setTab("home");
+    setScreen("chat");
+  };
 
   const callAPI = async (msgs, appareilContext) => {
     setLoading(true);
