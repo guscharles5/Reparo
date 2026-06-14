@@ -265,6 +265,7 @@ export default function ReparoApp() {
   const [refLoading,   setRefLoading]   = useState(false);
   const [detectedAppareil, setDetectedAppareil] = useState(null); // modele détecté par IA en cours de conv
   const [showSaveAppareil, setShowSaveAppareil] = useState(false); // bannière "Enregistrer cet appareil"
+  const [appareilSaved, setAppareilSaved] = useState(false); // confirmation après enregistrement
   const [selectedAppareil, setSelectedAppareil] = useState(null); // fiche appareil ouverte
   const synthRef    = useRef(null);
   const voiceRecRef = useRef(null);
@@ -443,7 +444,7 @@ export default function ReparoApp() {
     convIdRef.current = null; // reset pour la prochaine conversation
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); setShowSAV(false); setResolved(false);
-    setQuickReplies([]); setFeedback(null);
+    setQuickReplies([]); setFeedback(null); setShowSaveAppareil(false); setDetectedAppareil(null); setAppareilSaved(false);
   };
   const goTab = (t) => { setTab(t); if (t === "home") goHome(); };
 
@@ -540,7 +541,7 @@ export default function ReparoApp() {
     const { cat, br, mo, ctx } = getContext(s);
     const userMsg = br ? `Mon ${cat} ${br} ${mo} : ${problem}` : problem;
     setTab("home"); setScreen("chat"); setResolved(false);
-    setShowSaveAppareil(false); setDetectedAppareil(null);
+    setShowSaveAppareil(false); setDetectedAppareil(null); setAppareilSaved(false);
     convIdRef.current = null; // nouvelle conversation
     const msgs = [{ role: "user", content: userMsg }];
     setMessages(msgs);
@@ -1193,33 +1194,46 @@ export default function ReparoApp() {
         )}
         {/* Bannière enregistrer appareil détecté */}
         {showSaveAppareil && detectedAppareil && isLoggedIn && (
-          <div style={{ background: "#EFF4FF", border: "1.5px solid #c7d7f8", borderRadius: "14px", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px", animation: "fadeUp .3s ease" }}>
-            <div style={{ background: ACCENT, borderRadius: "10px", width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "18px" }}>🔧</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: "700", fontSize: "13px", color: PRIMARY }}>Appareil identifié</div>
-              <div style={{ fontSize: "12px", color: "#555", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {detectedAppareil.marque} {detectedAppareil.type} — {detectedAppareil.modele}
+          appareilSaved
+            ? (
+              <div style={{ background: "#f0fdf4", border: "1.5px solid #86efac", borderRadius: "14px", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px", animation: "fadeUp .3s ease" }}>
+                <div style={{ fontSize: "22px" }}>✅</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: "700", fontSize: "13px", color: "#16a34a" }}>Appareil bien enregistré !</div>
+                  <div style={{ fontSize: "12px", color: "#555", marginTop: "2px" }}>
+                    Retrouvez-le dans l'onglet <strong>Mes appareils</strong>.
+                  </div>
+                </div>
               </div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px", flexShrink: 0 }}>
-              <button onClick={async () => {
-                const a = await saveAppareil({
-                  type: detectedAppareil.type,
-                  marque: detectedAppareil.marque,
-                  modele: detectedAppareil.modele,
-                  statut: "en_cours",
-                  achat: null,
-                });
-                if (a) showToast("Appareil enregistré ✓");
-                setShowSaveAppareil(false);
-              }} style={{ background: ACCENT, border: "none", borderRadius: "8px", color: "white", padding: "7px 12px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
-                Enregistrer
-              </button>
-              <button onClick={() => setShowSaveAppareil(false)} style={{ background: "transparent", border: "none", color: "#aaa", fontSize: "11px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
-                Ignorer
-              </button>
-            </div>
-          </div>
+            )
+            : (
+              <div style={{ background: "#EFF4FF", border: "1.5px solid #c7d7f8", borderRadius: "14px", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px", animation: "fadeUp .3s ease" }}>
+                <div style={{ background: ACCENT, borderRadius: "10px", width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "18px" }}>🔧</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: "700", fontSize: "13px", color: PRIMARY }}>Appareil identifié</div>
+                  <div style={{ fontSize: "12px", color: "#555", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {detectedAppareil.marque} {detectedAppareil.type} — {detectedAppareil.modele}
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px", flexShrink: 0 }}>
+                  <button onClick={async () => {
+                    const a = await saveAppareil({
+                      type: detectedAppareil.type,
+                      marque: detectedAppareil.marque,
+                      modele: detectedAppareil.modele,
+                      statut: "en_cours",
+                      achat: null,
+                    });
+                    if (a) setAppareilSaved(true);
+                  }} style={{ background: ACCENT, border: "none", borderRadius: "8px", color: "white", padding: "7px 12px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                    Enregistrer
+                  </button>
+                  <button onClick={() => setShowSaveAppareil(false)} style={{ background: "transparent", border: "none", color: "#aaa", fontSize: "11px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                    Ignorer
+                  </button>
+                </div>
+              </div>
+            )
         )}
         <div ref={msgEnd} />
       </div>
