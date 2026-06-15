@@ -1485,10 +1485,17 @@ export default function ReparoApp() {
     const deleteConversation = async (convId) => {
       try {
         const token = await getToken();
-        await fetch(`/api/conversations/${convId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-        setConversations(prev => prev.filter(c => c.id !== convId));
-        showToast("Conversation supprimée");
-      } catch(e) { console.error(e); }
+        const res = await fetch(`/api/conversations/${convId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok) {
+          setConversations(prev => prev.filter(c => c.id !== convId));
+          showToast("Conversation supprimée");
+        } else {
+          showToast("Erreur lors de la suppression");
+        }
+      } catch(e) {
+        console.error(e);
+        showToast("Erreur lors de la suppression");
+      }
     };
 
     const updateEmail = async () => {
@@ -1593,7 +1600,7 @@ export default function ReparoApp() {
 
           {/* ── Conversations ── */}
           <SectionTitle>Historique</SectionTitle>
-          <div onClick={() => { loadConversations(); setTab("profil-conversations"); }}
+          <div onClick={() => { if (conversations.length === 0) loadConversations(); setTab("profil-conversations"); }}
             style={{ background: "white", borderRadius: "14px", padding: "16px", border: "1.5px solid #eee", marginBottom: "4px", display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }}>
             <div style={{ background: "#EFF4FF", borderRadius: "10px", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "20px" }}>💬</div>
             <div style={{ flex: 1 }}>
