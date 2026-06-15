@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 let _sb = null;
@@ -233,6 +233,29 @@ function ChatInput({ onSend, loading, fileRef, handleFile }) {
   );
 }
 
+
+const NAV_ITEMS = [
+  { id: "home", label: "Accueil", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
+  { id: "appareils", label: "Mes appareils", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> },
+  { id: "profil", label: "Profil", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
+];
+
+const NavBar = React.memo(({ tab, goTab }) => (
+  <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: "480px", background: "white", borderTop: "1px solid #eee", display: "flex", zIndex: 50, paddingBottom: "env(safe-area-inset-bottom)" }}>
+    {NAV_ITEMS.map(item => (
+      <button key={item.id} onClick={() => goTab(item.id)}
+        style={{ flex: 1, background: "none", border: "none", padding: "10px 0 8px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", fontFamily: "Nunito,sans-serif" }}>
+        <span style={{ color: tab === item.id ? "#2563EB" : "#bbb", display: "flex" }}>
+          {React.cloneElement(item.icon, { stroke: tab === item.id ? "#2563EB" : "#bbb" })}
+        </span>
+        <span style={{ fontSize: "10px", fontWeight: "700", color: tab === item.id ? "#2563EB" : "#bbb" }}>{item.label}</span>
+        {tab === item.id && <div style={{ width: "20px", height: "3px", background: "#2563EB", borderRadius: "2px" }} />}
+      </button>
+    ))}
+  </div>
+));
+NavBar.displayName = "NavBar";
+
 export default function ReparoApp() {
 
   const [appState,    setAppState]    = useState("onboarding");
@@ -316,15 +339,18 @@ export default function ReparoApp() {
   }, []);
 
   // Auto-scroll vers le dernier message
+  const isFirstScroll = useRef(true);
   useEffect(() => {
-    msgEnd.current?.scrollIntoView({ behavior: "smooth" });
+    if (!msgEnd.current) return;
+    msgEnd.current.scrollIntoView({ behavior: isFirstScroll.current ? "instant" : "smooth" });
+    isFirstScroll.current = false;
   }, [messages]);
 
 
 
 
 
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     try {
       const token = await getToken();
       if (!token) return;
@@ -335,9 +361,9 @@ export default function ReparoApp() {
       const { conversations: data } = await res.json();
       if (data) setConversations(data);
     } catch(e) { console.error("[Reparo] loadConversations:", e.message); }
-  };
+  }, [isLoggedIn]);
 
-  const loadAppareils = async () => {
+  const loadAppareils = useCallback(async () => {
     try {
       const token = await getToken();
       if (!token) return;
@@ -346,7 +372,7 @@ export default function ReparoApp() {
       const { appareils: data } = await res.json();
       if (data) setAppareils(data);
     } catch(e) { console.error("[Reparo] loadAppareils:", e.message); }
-  };
+  }, [isLoggedIn]);
 
   const saveAppareil = async (appareilData) => {
     try {
@@ -445,6 +471,7 @@ export default function ReparoApp() {
 
   const goHome = () => {
     convIdRef.current = null; convAppareilRef.current = null;
+    isFirstScroll.current = true;
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); setShowSAV(false); setResolved(false);
     setQuickReplies([]); setFeedback(null); setShowSaveAppareil(false); setDetectedAppareil(null); setAppareilSaved(false);
@@ -1708,7 +1735,7 @@ export default function ReparoApp() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f6f6f6", fontFamily: "Nunito, sans-serif", maxWidth: "480px", margin: "0 auto", boxShadow: "0 0 40px rgba(0,0,0,.12)", position: "relative", overflowX: "hidden" }}>
-      <style>{CSS}</style>
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
       {/* TOAST */}
       {toast && (
@@ -1783,22 +1810,7 @@ export default function ReparoApp() {
           </div>
 
           {screen !== "chat" && tab !== "profil-conversations" && (
-            <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: "480px", background: "white", borderTop: "1px solid #eee", display: "flex", zIndex: 50, paddingBottom: "env(safe-area-inset-bottom)" }}>
-              {[
-                { id: "home", label: "Accueil", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
-                { id: "appareils", label: "Mes appareils", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> },
-                { id: "profil", label: "Profil", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
-              ].map(item => (
-                <button key={item.id} onClick={() => goTab(item.id)}
-                  style={{ flex: 1, background: "none", border: "none", padding: "10px 0 8px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", fontFamily: "Nunito,sans-serif" }}>
-                  <span style={{ color: tab === item.id ? ACCENT : "#bbb", display: "flex" }}>
-                    {React.cloneElement(item.icon, { stroke: tab === item.id ? ACCENT : "#bbb" })}
-                  </span>
-                  <span style={{ fontSize: "10px", fontWeight: "700", color: tab === item.id ? ACCENT : "#bbb" }}>{item.label}</span>
-                  {tab === item.id && <div style={{ width: "20px", height: "3px", background: ACCENT, borderRadius: "2px" }} />}
-                </button>
-              ))}
-            </div>
+            <NavBar tab={tab} goTab={goTab} />
           )}
         </div>
       )}
