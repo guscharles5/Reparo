@@ -200,7 +200,7 @@ function SAVCard({ brand, data, highlight }) {
 
 
 // Composant input stable — défini hors de ReparoApp pour éviter les re-renders
-function ChatInput({ onSend, loading, fileRef, handleFile }) {
+function ChatInput({ onSend, loading, fileRef, handleFile, photoEnabled = true }) {
   const [val, setVal] = React.useState("");
   const inputEl = React.useRef(null);
   
@@ -213,10 +213,10 @@ function ChatInput({ onSend, loading, fileRef, handleFile }) {
 
   return (
     <div style={{ padding: "10px 16px 12px", display: "flex", gap: "8px", alignItems: "center" }}>
-      <button onClick={() => fileRef.current.click()} style={{ background: "#EFF4FF", border: "none", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+      {photoEnabled && <button onClick={() => fileRef.current.click()} style={{ background: "#EFF4FF", border: "none", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       </button>
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => handleFile(e.target.files[0])} />
+      }<input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => handleFile(e.target.files[0])} />
       <input
         ref={inputEl}
         value={val}
@@ -301,6 +301,7 @@ export default function ReparoApp() {
   const msgTop     = useRef();
   const convIdRef      = useRef(null);  // ID de la conversation en cours dans Supabase
   const convAppareilRef = useRef(null); // ID de l'appareil lié à la conv en cours
+  const imageUrlRef    = useRef(null);   // URL Supabase Storage de la dernière photo uploadée
 
   // Charge les settings admin au démarrage
   useEffect(() => { loadAppSettings(); }, []);
@@ -484,9 +485,10 @@ export default function ReparoApp() {
 
   const goHome = () => {
     convIdRef.current = null; convAppareilRef.current = null;
+    imageUrlRef.current = null;
     isFirstScroll.current = true;
     setScreen("home"); setSel({}); setMessages([]);
-    setInput(""); setImage(null); setImageB64(null); setShowSAV(false); setResolved(false);
+    setInput(""); setImage(null); setImageB64(null); imageUrlRef.current = null; setShowSAV(false); setResolved(false);
     setQuickReplies([]); setFeedback(null); setShowSaveAppareil(false); setDetectedAppareil(null); setAppareilSaved(false);
   };
   const goTab = (t) => { setTab(t); if (t === "home") goHome(); };
@@ -729,6 +731,26 @@ export default function ReparoApp() {
     setImage(URL.createObjectURL(file));
     const b64 = await compressImage(file);
     setImageB64(b64);
+
+    // Upload vers Supabase Storage si connecté
+    if (isLoggedIn) {
+      try {
+        const token = await getToken();
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        if (res.ok) {
+          const { url } = await res.json();
+          setImageB64(b64); // garde b64 pour l'envoi à Claude
+          // Stocke l'URL pour la sauvegarde dans la conversation
+          imageUrlRef.current = url;
+        }
+      } catch(e) { console.error("[Reparo] upload photo:", e.message); }
+    }
   };
 
   const startVoice = () => {
@@ -979,7 +1001,9 @@ export default function ReparoApp() {
             Continuer avec Google
           </button>
       </div>
-      <button onClick={() => setAppState("main")} style={{ background: "transparent", border: "none", color: "#aaa", padding: "12px", fontWeight: "600", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif", textAlign: "center" }}>Continuer sans compte</button>
+      {appSettings?.features?.guestMode !== false && (
+        <button onClick={() => setAppState("main")} style={{ background: "transparent", border: "none", color: "#aaa", padding: "12px", fontWeight: "600", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif", textAlign: "center" }}>Continuer sans compte</button>
+      )}
       <div style={{ textAlign: "center", marginTop: "16px", fontSize: "11px", color: "#ccc", lineHeight: "1.5" }}>En continuant, vous acceptez nos Conditions d'utilisation et notre Politique de confidentialité</div>
     </div>
   );
@@ -1144,11 +1168,11 @@ export default function ReparoApp() {
           <div style={{ color: "white", fontWeight: "800", fontSize: "16px" }}>{sel.category || "Reparo"}</div>
           <div style={{ color: "rgba(255,255,255,.8)", fontSize: "12px" }}>Expert en dépannage électroménager</div>
         </div>
-        <button onClick={() => setShowSAV(true)}
+        {appSettings?.features?.savModal !== false && <button onClick={() => setShowSAV(true)}
           style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "10px", padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.07 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16.92z"/></svg>
           <span style={{ fontSize: "11px", fontWeight: "700", color: "white" }}>SAV</span>
-        </button>
+        </button>}
       </div>
 
       {/* Messages */}
@@ -1297,7 +1321,7 @@ export default function ReparoApp() {
               <button onClick={() => { setImage(null); setImageB64(null); }} style={{ position: "absolute", top: "14px", right: "4px", background: "rgba(0,0,0,.5)", border: "none", borderRadius: "50%", width: "22px", height: "22px", color: "white", fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
             </div>
           )}
-          <ChatInput onSend={sendMessage} loading={loading} fileRef={fileRef} handleFile={handleFile} />
+          <ChatInput onSend={sendMessage} loading={loading} fileRef={fileRef} handleFile={handleFile} photoEnabled={appSettings?.features?.photoAnalysis !== false} />
         </div>
       )}
 
