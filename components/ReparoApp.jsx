@@ -57,6 +57,8 @@ Si l'appareil a plus de 10 ans et la réparation semble complexe, mentionne honn
 
 --- RÉFÉRENCE APPAREIL ---
 Au début, suggère en une phrase : "Si vous avez la référence de votre appareil, elle me permettra de vous aider encore plus précisément." Une seule fois.
+Quand le problème est résolu et que l'utilisateur confirme que l'appareil fonctionne à nouveau, ajoute à la fin de ton message : [PROBLEME_RESOLU]. Une seule fois par conversation.
+
 RÈGLE OBLIGATOIRE : Dès que l'utilisateur mentionne une référence de modèle dans son message (ex: HBG675BS1, WW90T534DAW, DFN28424W, etc.) ou que tu identifies le modèle avec certitude, tu DOIS ajouter à la toute fin de ton premier message le tag suivant, sans exception : [MODELE_DETECTE: type|marque|modele] — exemple : [MODELE_DETECTE: Four|Bosch|HBG675BS1]. Ce tag est invisible pour l'utilisateur. Tu dois le mettre même si tu poses une question dans le même message. Ne le mets qu'une seule fois par conversation.
 
 --- SOLUTIONS ---
@@ -273,7 +275,8 @@ export default function ReparoApp() {
   const recRef     = useRef();
   const msgEnd     = useRef();
   const msgTop     = useRef();
-  const convIdRef  = useRef(null);  // ID de la conversation en cours dans Supabase
+  const convIdRef      = useRef(null);  // ID de la conversation en cours dans Supabase
+  const convAppareilRef = useRef(null); // ID de l'appareil lié à la conv en cours
 
   // Détection session Supabase — bypass onboarding si déjà connecté
   useEffect(() => {
@@ -394,7 +397,7 @@ export default function ReparoApp() {
   // Nettoie le tag [MODELE_DETECTE] du texte affiché
   const cleanModeleTag = (text) => {
     if (typeof text !== "string") return text;
-    return text.replace(/\[MODELE_DETECTE:[^\]]*\]/gi, "").trim();
+    return text.replace(/\[MODELE_DETECTE:[^\]]*\]/gi, "").replace(/\[PROBLEME_RESOLU\]/gi, "").trim();
   };
 
   const detectAppareil = (msgs, category, brand) => {
@@ -441,7 +444,7 @@ export default function ReparoApp() {
   };
 
   const goHome = () => {
-    convIdRef.current = null; // reset pour la prochaine conversation
+    convIdRef.current = null; convAppareilRef.current = null;
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); setShowSAV(false); setResolved(false);
     setQuickReplies([]); setFeedback(null); setShowSaveAppareil(false); setDetectedAppareil(null); setAppareilSaved(false);
@@ -529,14 +532,17 @@ export default function ReparoApp() {
   };
 
   const handleReplyDetection = (reply, msgs) => {
-    // Seulement si l'IA a répondu (msgs contient déjà la réponse IA)
-    // et qu'il y a au moins un échange complet
     const assistantCount = (msgs || []).filter(m => m.role === "assistant").length;
     if (assistantCount < 1) return;
+    // Détection modèle
     const detected = extractModeleDetecte(reply);
     if (detected && !showSaveAppareil && !appareilSaved) {
       setDetectedAppareil(detected);
       setShowSaveAppareil(true);
+    }
+    // Détection résolution
+    if (reply.includes("[PROBLEME_RESOLU]") && convAppareilRef.current) {
+      updateAppareil(convAppareilRef.current, { statut: "ok" });
     }
   };
 
@@ -1213,6 +1219,7 @@ export default function ReparoApp() {
                       achat: null,
                     });
                     if (a) {
+                      convAppareilRef.current = a.id;
                       setAppareilSaved(true);
                       setTimeout(() => setShowSaveAppareil(false), 3000);
                     }
@@ -1305,16 +1312,36 @@ export default function ReparoApp() {
         </div>
         <div style={{ padding: "16px" }}>
           {appareils.map(a => (
-            <div key={a.id} className="card fu" onClick={() => setSelectedAppareil(a)}
-              style={{ background: "white", borderRadius: "14px", padding: "14px 16px", border: "1.5px solid #eee", boxShadow: "0 2px 6px rgba(0,0,0,.04)", display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
-              <AppareilImg type={a.type} size={48} radius={12} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: "700", fontSize: "15px", color: "#222" }}>{a.marque} {a.type}</div>
-                <div style={{ fontSize: "12px", color: "#888", marginTop: "2px" }}>{a.modele} · Acheté en {a.achat}</div>
-                <div style={{ fontSize: "11px", color: a.entretien.includes("conseillé") ? "#f59e0b" : "#22c55e", fontWeight: "700", marginTop: "4px" }}>{a.entretien}</div>
+            <div key={a.id} onClick={() => setSelectedAppareil(a)}
+              style={{ background: "white", borderRadius: "14px", padding: "14px 16px", border: `1.5px solid ${a.statut === "ok" ? "#86efac" : a.statut === "hs" ? "#fecdd3" : "#eee"}`, boxShadow: "0 2px 6px rgba(0,0,0,.04)", marginBottom: "10px", cursor: "pointer" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
+                <AppareilImg type={a.type} size={48} radius={12} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: "700", fontSize: "15px", color: "#222" }}>{a.marque} {a.type}</div>
+                  {a.modele && <div style={{ fontSize: "12px", color: "#888", marginTop: "2px" }}>Réf. {a.modele}</div>}
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "5px", background: a.statut === "ok" ? "#f0fdf4" : a.statut === "hs" ? "#fff1f2" : "#fffbeb", borderRadius: "20px", padding: "3px 8px" }}>
+                    <span style={{ fontSize: "11px" }}>{a.statut === "ok" ? "✅" : a.statut === "hs" ? "❌" : "🔧"}</span>
+                    <span style={{ fontSize: "11px", fontWeight: "700", color: a.statut === "ok" ? "#16a34a" : a.statut === "hs" ? "#e11d48" : "#d97706" }}>
+                      {a.statut === "ok" ? "Réparé" : a.statut === "hs" ? "Hors service" : "En cours de dépannage"}
+                    </span>
+                  </div>
+                </div>
+                <button onClick={e => { e.stopPropagation(); setSelectedAppareil(null);
+                  const linked = conversations.find(c => c.appareil_type === a.type && c.appareil_marque === a.marque);
+                  if (a.statut === "en_cours" && linked) {
+                    convAppareilRef.current = a.id;
+                    resumeConversation(linked);
+                  } else {
+                    setSel({ category: a.type, brand: a.marque, model: a.modele });
+                    convIdRef.current = null; convAppareilRef.current = a.id;
+                    setMessages([]); setTab("home"); setScreen("chat");
+                  }
+                }} style={{ background: a.statut === "en_cours" ? "#fffbeb" : ACCENT, color: a.statut === "en_cours" ? "#d97706" : "white", border: a.statut === "en_cours" ? "1.5px solid #fcd34d" : "none", borderRadius: "10px", padding: "8px 10px", fontSize: "11px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif", flexShrink: 0, textAlign: "center", lineHeight: "1.3" }}>
+                  {a.statut === "en_cours" ? "Reprendre
+le diagnostic" : "Nouveau
+diagnostic"}
+                </button>
               </div>
-              <button onClick={e => { e.stopPropagation(); setSel({ category: a.type, brand: a.marque, model: a.modele }); setTab("home"); setScreen("chat"); setMessages([]); }}
-                style={{ background: ACCENT, color: "white", border: "none", borderRadius: "8px", padding: "8px 12px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Dépanner</button>
             </div>
           ))}
           {appareils.length === 0 && <div style={{ textAlign: "center", color: "#aaa", fontSize: "14px", marginTop: "40px" }}>Aucun appareil enregistré</div>}
