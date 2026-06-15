@@ -303,8 +303,12 @@ export default function ReparoApp() {
   const convAppareilRef = useRef(null); // ID de l'appareil lié à la conv en cours
   const imageUrlRef    = useRef(null);   // URL Supabase Storage de la dernière photo uploadée
 
-  // Charge les settings admin au démarrage
-  useEffect(() => { loadAppSettings(); }, []);
+  // Charge les settings admin au démarrage et toutes les 30 secondes
+  useEffect(() => {
+    loadAppSettings();
+    const interval = setInterval(loadAppSettings, 30000);
+    return () => clearInterval(interval);
+  }, [loadAppSettings]);
 
   // Détection session Supabase — bypass onboarding si déjà connecté
   useEffect(() => {
