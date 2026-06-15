@@ -1488,13 +1488,11 @@ export default function ReparoApp() {
         const res = await fetch(`/api/conversations/${convId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
         if (res.ok) {
           setConversations(prev => prev.filter(c => c.id !== convId));
-          showToast("Conversation supprimée");
         } else {
-          showToast("Erreur lors de la suppression");
+          console.error("Erreur suppression:", res.status);
         }
       } catch(e) {
         console.error(e);
-        showToast("Erreur lors de la suppression");
       }
     };
 
