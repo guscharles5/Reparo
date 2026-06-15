@@ -1337,9 +1337,7 @@ export default function ReparoApp() {
                     setMessages([]); setTab("home"); setScreen("chat");
                   }
                 }} style={{ background: a.statut === "en_cours" ? "#fffbeb" : ACCENT, color: a.statut === "en_cours" ? "#d97706" : "white", border: a.statut === "en_cours" ? "1.5px solid #fcd34d" : "none", borderRadius: "10px", padding: "8px 10px", fontSize: "11px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif", flexShrink: 0, textAlign: "center", lineHeight: "1.3" }}>
-                  {a.statut === "en_cours" ? "Reprendre
-le diagnostic" : "Nouveau
-diagnostic"}
+                  {a.statut === "en_cours" ? "Reprendre le diagnostic" : "Nouveau diagnostic"}
                 </button>
               </div>
             </div>
