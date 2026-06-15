@@ -632,7 +632,6 @@ export default function ReparoApp() {
 
   const [quickReplies, setQuickReplies] = useState([]);
   const [feedback,     setFeedback]     = useState(null);
-  const [profilTab,    setProfilTab]    = useState("stats");
 
   const sendQuickReply = async (reply) => {
     if (reply === "Oui c'est résolu ✓") { setResolved(true); return; }
@@ -1468,15 +1467,6 @@ export default function ReparoApp() {
     const [confirmPwd, setConfirmPwd] = React.useState("");
     const [accountLoading, setAccountLoading] = React.useState(false);
 
-    if (!isLoggedIn) return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "70vh", padding: "32px", textAlign: "center" }}>
-        <div style={{ fontSize: "48px", marginBottom: "16px" }}>👤</div>
-        <div style={{ fontWeight: "800", fontSize: "18px", color: "#222", marginBottom: "8px" }}>Connectez-vous</div>
-        <div style={{ fontSize: "14px", color: "#888", marginBottom: "24px", lineHeight: "1.5" }}>Connectez-vous pour accéder à votre profil, votre historique et gérer vos préférences.</div>
-        <button onClick={() => setAppState("auth")} style={{ background: ACCENT, border: "none", borderRadius: "14px", color: "white", padding: "14px 28px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Se connecter</button>
-      </div>
-    );
-
     const isGoogleUser = user?.app_metadata?.provider === "google";
 
     const formatDate = (iso) => {
@@ -1528,22 +1518,28 @@ export default function ReparoApp() {
       <div style={{ fontSize: "11px", fontWeight: "800", color: "#aaa", textTransform: "uppercase", letterSpacing: ".8px", margin: "20px 0 10px" }}>{children}</div>
     );
 
-    return (
+    if (!isLoggedIn) return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "70vh", padding: "32px", textAlign: "center" }}>
+        <div style={{ fontSize: "48px", marginBottom: "16px" }}>👤</div>
+        <div style={{ fontWeight: "800", fontSize: "18px", color: "#222", marginBottom: "8px" }}>Connectez-vous</div>
+        <div style={{ fontSize: "14px", color: "#888", marginBottom: "24px", lineHeight: "1.5" }}>Connectez-vous pour accéder à votre profil, votre historique et gérer vos préférences.</div>
+        <button onClick={() => setAppState("auth")} style={{ background: ACCENT, border: "none", borderRadius: "14px", color: "white", padding: "14px 28px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Se connecter</button>
+      </div>
+    );
+
+    // ── PAGE CONVERSATIONS ──
+    if (tab === "profil-conversations") return (
       <div className="fade-in" style={{ paddingBottom: "80px" }}>
-        {/* Header */}
-        <div style={{ background: PRIMARY, padding: "28px 20px 20px", textAlign: "center" }}>
-          <div style={{ width: "72px", height: "72px", background: "rgba(255,255,255,.2)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: "28px" }}>👤</div>
-          <div style={{ color: "white", fontWeight: "800", fontSize: "18px" }}>Mon compte</div>
-          <div style={{ color: "rgba(255,255,255,.7)", fontSize: "13px", marginTop: "4px" }}>{user?.email}</div>
-          {isGoogleUser && <div style={{ background: "rgba(255,255,255,.15)", borderRadius: "20px", padding: "4px 12px", fontSize: "11px", color: "white", fontWeight: "700", display: "inline-block", marginTop: "8px" }}>Compte Google</div>}
+        <div style={{ background: PRIMARY, padding: "16px 20px", display: "flex", alignItems: "center", gap: "12px" }}>
+          <button onClick={() => setTab("profil")}
+            style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "8px", width: "34px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div style={{ color: "white", fontWeight: "800", fontSize: "17px" }}>Mes conversations</div>
         </div>
-
-        <div style={{ padding: "0 16px" }}>
-
-          {/* ── Conversations ── */}
-          <SectionTitle>Mes conversations</SectionTitle>
+        <div style={{ padding: "16px" }}>
           {conversations.length === 0 && (
-            <div style={{ textAlign: "center", padding: "30px 20px", color: "#aaa", background: "white", borderRadius: "14px", border: "1.5px solid #eee" }}>
+            <div style={{ textAlign: "center", padding: "40px 20px", color: "#aaa", background: "white", borderRadius: "14px", border: "1.5px solid #eee" }}>
               <div style={{ fontSize: "32px", marginBottom: "8px" }}>💬</div>
               <div style={{ fontSize: "14px" }}>Aucune conversation enregistrée</div>
             </div>
@@ -1552,7 +1548,7 @@ export default function ReparoApp() {
             <div key={conv.id} style={{ background: "white", borderRadius: "14px", padding: "14px 16px", border: "1.5px solid #eee", marginBottom: "10px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", marginBottom: "10px" }}>
                 <div style={{ background: "#EFF4FF", borderRadius: "10px", width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "18px" }}>
-                  {conv.appareil_type === "Lave-linge" ? "🫧" : conv.appareil_type === "Réfrigérateur" ? "🧊" : conv.appareil_type === "Four" ? "🔥" : conv.appareil_type === "Lave-vaisselle" ? "🍽️" : "🔧"}
+                  {conv.appareil_type === "Lave-linge" ? "🫧" : conv.appareil_type === "Réfrigérateur" ? "🧊" : conv.appareil_type === "Four" ? "🔥" : conv.appareil_type === "Lave-vaisselle" ? "🍽️" : conv.appareil_type === "Sèche-linge" ? "💨" : conv.appareil_type === "Machine à café" ? "☕" : conv.appareil_type === "Micro-ondes" ? "📡" : "🔧"}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: "700", fontSize: "14px", color: "#222", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1566,7 +1562,7 @@ export default function ReparoApp() {
                   ? conv.messages[conv.messages.length - 1].content.slice(0, 100) : ""}
               </div>
               <div style={{ display: "flex", gap: "8px" }}>
-                <button onClick={() => resumeConversation(conv)}
+                <button onClick={() => { setTab("profil"); resumeConversation(conv); }}
                   style={{ flex: 1, background: ACCENT, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                   Reprendre
@@ -1578,8 +1574,36 @@ export default function ReparoApp() {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+    );
 
-          {/* ── Mon compte ── */}
+    // ── PAGE PRINCIPALE PROFIL ──
+    return (
+      <div className="fade-in" style={{ paddingBottom: "80px" }}>
+        {/* Header */}
+        <div style={{ background: PRIMARY, padding: "28px 20px 20px", textAlign: "center" }}>
+          <div style={{ width: "72px", height: "72px", background: "rgba(255,255,255,.2)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: "28px" }}>👤</div>
+          <div style={{ color: "white", fontWeight: "800", fontSize: "18px" }}>Mon compte</div>
+          <div style={{ color: "rgba(255,255,255,.7)", fontSize: "13px", marginTop: "4px" }}>{user?.email}</div>
+          {isGoogleUser && <div style={{ background: "rgba(255,255,255,.15)", borderRadius: "20px", padding: "4px 12px", fontSize: "11px", color: "white", fontWeight: "700", display: "inline-block", marginTop: "8px" }}>Compte Google</div>}
+        </div>
+
+        <div style={{ padding: "0 16px" }}>
+
+          {/* ── Conversations ── */}
+          <SectionTitle>Historique</SectionTitle>
+          <div onClick={() => { loadConversations(); setTab("profil-conversations"); }}
+            style={{ background: "white", borderRadius: "14px", padding: "16px", border: "1.5px solid #eee", marginBottom: "4px", display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }}>
+            <div style={{ background: "#EFF4FF", borderRadius: "10px", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "20px" }}>💬</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: "700", fontSize: "14px", color: "#222" }}>Mes conversations</div>
+              <div style={{ fontSize: "12px", color: "#aaa", marginTop: "2px" }}>{conversations.length} diagnostic{conversations.length > 1 ? "s" : ""} enregistré{conversations.length > 1 ? "s" : ""}</div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+
+          {/* ── Paramètres du compte ── */}
           <SectionTitle>Paramètres du compte</SectionTitle>
           <div style={{ background: "white", borderRadius: "14px", border: "1.5px solid #eee", overflow: "hidden", marginBottom: "10px" }}>
 
@@ -1725,10 +1749,10 @@ export default function ReparoApp() {
             {tab === "home" && screen === "appareil" && <AppareilScreen />}
             {tab === "home" && screen === "chat"     && <Chat />}
             {tab === "appareils"                     && <Appareils />}
-            {tab === "profil"                        && <Profil />}
+            {(tab === "profil" || tab === "profil-conversations") && <Profil />}
           </div>
 
-          {screen !== "chat" && (
+          {screen !== "chat" && tab !== "profil-conversations" && (
             <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: "480px", background: "white", borderTop: "1px solid #eee", display: "flex", zIndex: 50, paddingBottom: "env(safe-area-inset-bottom)" }}>
               {[
                 { id: "home", label: "Accueil", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
