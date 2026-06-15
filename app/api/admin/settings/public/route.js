@@ -1,5 +1,4 @@
 // app/api/admin/settings/public/route.js
-// Route publique — expose uniquement les settings nécessaires à l'app (pas de données sensibles)
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
@@ -8,16 +7,8 @@ const getAdmin = () => createClient(
   process.env.SUPABASE_SERVICE_KEY
 )
 
-// Cache 60 secondes
-let cache = null
-let cacheTime = 0
-
 export async function GET() {
   try {
-    if (cache && Date.now() - cacheTime < 60000) {
-      return NextResponse.json({ settings: cache })
-    }
-
     const { data } = await getAdmin()
       .from('admin_settings')
       .select('value')
@@ -26,8 +17,7 @@ export async function GET() {
 
     const settings = data?.value || {}
 
-    // On expose uniquement ce dont l'app a besoin — pas le prompt ni les données sensibles
-    cache = {
+    const result = {
       language: settings.language || 'fr',
       features: {
         guestMode: settings.features?.guestMode !== false,
@@ -37,9 +27,8 @@ export async function GET() {
       },
       maintenanceMessage: settings.maintenanceMessage || '',
     }
-    cacheTime = Date.now()
 
-    return NextResponse.json({ settings: cache })
+    return NextResponse.json({ settings: result })
   } catch (e) {
     console.error('[Reparo] public settings error:', e.message)
     return NextResponse.json({ settings: null })
