@@ -305,10 +305,18 @@ export default function ReparoApp() {
 
   // Charge les settings admin au démarrage et toutes les 30 secondes
   useEffect(() => {
-    loadAppSettings();
-    const interval = setInterval(loadAppSettings, 30000);
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch('/api/admin/settings/public');
+        if (!res.ok) return;
+        const { settings } = await res.json();
+        if (settings) setAppSettings(settings);
+      } catch(e) { console.error("[Reparo] loadAppSettings:", e.message); }
+    };
+    fetchSettings();
+    const interval = setInterval(fetchSettings, 30000);
     return () => clearInterval(interval);
-  }, [loadAppSettings]);
+  }, []);
 
   // Détection session Supabase — bypass onboarding si déjà connecté
   useEffect(() => {
@@ -383,14 +391,14 @@ export default function ReparoApp() {
     } catch(e) { console.error("[Reparo] loadAppareils:", e.message); }
   }, [isLoggedIn]);
 
-  const loadAppSettings = useCallback(async () => {
+  const loadAppSettings = async () => {
     try {
       const res = await fetch('/api/admin/settings/public');
       if (!res.ok) return;
       const { settings } = await res.json();
       if (settings) setAppSettings(settings);
     } catch(e) { console.error("[Reparo] loadAppSettings:", e.message); }
-  }, []);
+  };
 
   const saveAppareil = async (appareilData) => {
     try {
