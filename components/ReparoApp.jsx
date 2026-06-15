@@ -292,6 +292,7 @@ export default function ReparoApp() {
   const [showSaveAppareil, setShowSaveAppareil] = useState(false); // bannière "Enregistrer cet appareil"
   const [appareilSaved, setAppareilSaved] = useState(false); // confirmation après enregistrement
   const [selectedAppareil, setSelectedAppareil] = useState(null); // fiche appareil ouverte
+  const [appSettings, setAppSettings] = useState(null); // settings chargés depuis le back-office
   const synthRef    = useRef(null);
   const voiceRecRef = useRef(null);
   const fileRef    = useRef();
@@ -300,6 +301,9 @@ export default function ReparoApp() {
   const msgTop     = useRef();
   const convIdRef      = useRef(null);  // ID de la conversation en cours dans Supabase
   const convAppareilRef = useRef(null); // ID de l'appareil lié à la conv en cours
+
+  // Charge les settings admin au démarrage
+  useEffect(() => { loadAppSettings(); }, []);
 
   // Détection session Supabase — bypass onboarding si déjà connecté
   useEffect(() => {
@@ -373,6 +377,15 @@ export default function ReparoApp() {
       if (data) setAppareils(data);
     } catch(e) { console.error("[Reparo] loadAppareils:", e.message); }
   }, [isLoggedIn]);
+
+  const loadAppSettings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/settings/public');
+      if (!res.ok) return;
+      const { settings } = await res.json();
+      if (settings) setAppSettings(settings);
+    } catch(e) { console.error("[Reparo] loadAppSettings:", e.message); }
+  }, []);
 
   const saveAppareil = async (appareilData) => {
     try {
@@ -1732,6 +1745,17 @@ export default function ReparoApp() {
       </div>
     );
   };
+
+  // Mode maintenance
+  if (appSettings?.features?.maintenanceMode) return (
+    <div style={{ minHeight: "100vh", background: PRIMARY, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px", textAlign: "center", fontFamily: "Nunito, sans-serif" }}>
+      <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔧</div>
+      <div style={{ color: "white", fontWeight: "800", fontSize: "22px", marginBottom: "12px" }}>Reparo est en maintenance</div>
+      <div style={{ color: "rgba(255,255,255,.8)", fontSize: "15px", lineHeight: "1.6", maxWidth: "300px" }}>
+        {appSettings?.maintenanceMessage || "Nous effectuons des améliorations. Nous serons de retour très bientôt."}
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ minHeight: "100vh", background: "#f6f6f6", fontFamily: "Nunito, sans-serif", maxWidth: "480px", margin: "0 auto", boxShadow: "0 0 40px rgba(0,0,0,.12)", position: "relative", overflowX: "hidden" }}>
