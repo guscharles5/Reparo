@@ -157,29 +157,24 @@ const PRIMARY = "#1B3A6B";
 const ACCENT  = "#2563EB";
 
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { overflow-x: hidden; background: #f0f2f5; }
+  html, body { overflow-x: hidden; background: #f4f5f7; overflow-anchor: none; }
   @media (min-width: 480px) {
-    body { display: flex; justify-content: center; background: #e8edf5; }
+    body { display: flex; justify-content: center; background: #eceef1; }
   }
-  @keyframes fadeUp   { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-  @keyframes slideUp  { from { opacity:0; transform:translateY(100%); } to { opacity:1; transform:translateY(0); } }
-  @keyframes slideIn  { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes fadeUp   { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes slideUp  { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:translateY(0); } }
   @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
-  @keyframes pulse    { 0%,100% { opacity:.3; transform:scale(.8); } 50% { opacity:1; transform:scale(1.2); } }
-  @keyframes obIn     { from { opacity:0; transform:translateX(60px); } to { opacity:1; transform:translateX(0); } }
-  @keyframes obOut    { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(-60px); } }
-  .fu      { animation: fadeUp .3s ease both; }
-  .slide-in{ animation: slideIn .3s cubic-bezier(.4,0,.2,1) both; }
-  .fade-in { animation: fadeIn .25s ease both; }
-  .ob-in   { animation: obIn .3s cubic-bezier(.4,0,.2,1) both; }
-  .ob-out  { animation: obOut .28s cubic-bezier(.4,0,.2,1) both; }
-  .dot { animation: pulse 1.2s ease-in-out infinite; }
-  .dot:nth-child(2){animation-delay:.2s} .dot:nth-child(3){animation-delay:.4s}
-  .card { transition: all .2s; cursor: pointer; }
-  .card:hover  { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.1) !important; }
-  .card:active { transform: scale(.97); }
+  @keyframes pulse    { 0%,100% { opacity:.35; } 50% { opacity:1; } }
+  .fu      { animation: fadeUp .2s ease both; }
+  .slide-in{ animation: fadeIn .18s ease both; }
+  .fade-in { animation: fadeIn .18s ease both; }
+  .dot { animation: pulse 1.1s ease-in-out infinite; }
+  .dot:nth-child(2){animation-delay:.15s} .dot:nth-child(3){animation-delay:.3s}
+  .card { transition: border-color .15s, background .15s; cursor: pointer; }
+  .card:hover  { border-color: #c7d2e0 !important; background: #fafbfc; }
+  .card:active { background: #f1f3f6; }
   select:focus, input:focus, textarea:focus { outline: none; }
   textarea { resize: none; }
   ::-webkit-scrollbar { width: 3px; }
@@ -223,7 +218,7 @@ function ChatInput({ onSend, loading, fileRef, handleFile, photoEnabled = true }
         onChange={e => setVal(e.target.value)}
         onKeyDown={e => { if (e.key === "Enter") send(); }}
         placeholder="Décrivez votre panne ici..."
-        style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "12px", padding: "10px 14px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none" }}
+        style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "12px", padding: "10px 14px", fontSize: "14px", fontFamily: "Inter,sans-serif", outline: "none" }}
       />
       <button onClick={send} disabled={loading || !val.trim()}
         style={{ background: "#2563EB", border: "none", borderRadius: "50%", width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: loading || !val.trim() ? 0.5 : 1, flexShrink: 0 }}>
@@ -244,7 +239,7 @@ const NavBar = React.memo(({ tab, goTab }) => (
   <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: "480px", background: "white", borderTop: "1px solid #eee", display: "flex", zIndex: 50, paddingBottom: "env(safe-area-inset-bottom)" }}>
     {NAV_ITEMS.map(item => (
       <button key={item.id} onClick={() => goTab(item.id)}
-        style={{ flex: 1, background: "none", border: "none", padding: "10px 0 8px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", fontFamily: "Nunito,sans-serif" }}>
+        style={{ flex: 1, background: "none", border: "none", padding: "10px 0 8px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", fontFamily: "Inter,sans-serif" }}>
         <span style={{ color: tab === item.id ? "#2563EB" : "#bbb", display: "flex" }}>
           {React.cloneElement(item.icon, { stroke: tab === item.id ? "#2563EB" : "#bbb" })}
         </span>
@@ -304,13 +299,19 @@ export default function ReparoApp() {
   const imageUrlRef    = useRef(null);   // URL Supabase Storage de la dernière photo uploadée
 
   // Charge les settings admin au démarrage et toutes les 30 secondes
+  // Ne déclenche un re-render que si les valeurs ont réellement changé,
+  // sinon l'app entière re-render toutes les 30s (cause de "clignotement").
+  const appSettingsRef = useRef(null);
   useEffect(() => {
     const fetchSettings = async () => {
       try {
         const res = await fetch('/api/admin/settings/public', { cache: 'no-store' });
         if (!res.ok) return;
         const { settings } = await res.json();
-        if (settings) setAppSettings(settings);
+        if (settings && JSON.stringify(settings) !== JSON.stringify(appSettingsRef.current)) {
+          appSettingsRef.current = settings;
+          setAppSettings(settings);
+        }
       } catch(e) { console.error("[Reparo] loadAppSettings:", e.message); }
     };
     fetchSettings();
@@ -355,12 +356,10 @@ export default function ReparoApp() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Auto-scroll vers le dernier message
-  const isFirstScroll = useRef(true);
+  // Auto-scroll vers le dernier message — toujours instantané pour éviter
+  // l'effet de "saut" perçu pendant un smooth-scroll interrompu par un re-render.
   useEffect(() => {
-    if (!msgEnd.current) return;
-    msgEnd.current.scrollIntoView({ behavior: isFirstScroll.current ? "instant" : "smooth" });
-    isFirstScroll.current = false;
+    msgEnd.current?.scrollIntoView({ behavior: "auto", block: "end" });
   }, [messages]);
 
 
@@ -498,7 +497,6 @@ export default function ReparoApp() {
   const goHome = () => {
     convIdRef.current = null; convAppareilRef.current = null;
     imageUrlRef.current = null;
-    isFirstScroll.current = true;
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); imageUrlRef.current = null; setShowSAV(false); setResolved(false);
     setQuickReplies([]); setFeedback(null); setShowSaveAppareil(false); setDetectedAppareil(null); setAppareilSaved(false);
@@ -904,11 +902,15 @@ export default function ReparoApp() {
     </div>
   );
 
-  const AppareilImg = ({ type, size = 48, radius = 12 }) => (
-    <div style={{ width: size, height: size, borderRadius: radius, flexShrink: 0, background: CATEGORIES[type]?.bgColor || "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <span style={{ fontSize: size * 0.45 }}>{CATEGORIES[type]?.emoji || "🔧"}</span>
-    </div>
-  );
+  const AppareilImg = ({ type, size = 48, radius = 12 }) => {
+    const iconSize = Math.round(size * 0.6);
+    const icon = ILLUSTRATIONS[type] || ILLUSTRATIONS["Autre appareil"];
+    return (
+      <div style={{ width: size, height: size, borderRadius: radius, flexShrink: 0, background: CATEGORIES[type]?.bgColor || "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {React.cloneElement(icon, { width: iconSize, height: iconSize })}
+      </div>
+    );
+  };
 
   const Dots = () => (
     <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
@@ -937,89 +939,6 @@ export default function ReparoApp() {
     </button>
   );
 
-  // ── ONBOARDING ──────────────────────────────
-  const OnboardingScreen = () => {
-    const [animKey, setAnimKey] = useState(0);
-    const [sliding, setSliding] = useState(false);
-    const goNext = () => {
-      if (sliding) return;
-      setSliding(true);
-      setTimeout(() => {
-        if (obStep < ONBOARDING.length - 1) setObStep(o => o + 1);
-        else setAppState("auth");
-        setAnimKey(k => k + 1);
-        setSliding(false);
-      }, 280);
-    };
-    const s = ONBOARDING[obStep];
-    const tc = s.light ? "white" : "#222";
-    const bb = s.light ? "white" : PRIMARY;
-    const bc = s.light ? PRIMARY : "white";
-    const imgs = [
-      "https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?w=400&q=85",
-      "https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=400&q=85",
-      "https://images.unsplash.com/photo-1556909172-54557c7e4fb7?w=400&q=85",
-    ];
-    return (
-      <div style={{ minHeight: "100vh", background: s.bg, display: "flex", flexDirection: "column", padding: "48px 24px 32px", transition: "background .4s ease" }}>
-        <div style={{ display: "flex", gap: "6px", justifyContent: "center", marginBottom: "auto" }}>
-          {ONBOARDING.map((_, i) => <div key={i} style={{ height: "4px", borderRadius: "2px", transition: "all .4s ease", width: i === obStep ? "28px" : "10px", background: i === obStep ? (s.light ? "white" : PRIMARY) : "rgba(0,0,0,.15)" }} />)}
-        </div>
-        <div key={animKey} className={sliding ? "ob-out" : "ob-in"}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 0" }}>
-            <div style={{ width: "220px", height: "220px", borderRadius: "28px", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,.2)" }}>
-              <img src={imgs[obStep]} alt="Appareil" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            </div>
-          </div>
-          <div style={{ marginBottom: "40px" }}>
-            <div style={{ fontWeight: "900", fontSize: "26px", color: tc, lineHeight: "1.3", marginBottom: "14px", whiteSpace: "pre-line" }}>{s.title}</div>
-            <div style={{ fontSize: "15px", color: tc, opacity: .8, lineHeight: "1.6" }}>{s.sub}</div>
-          </div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          <button onClick={goNext} style={{ background: bb, border: "none", borderRadius: "14px", color: bc, padding: "16px", fontWeight: "800", fontSize: "16px", cursor: "pointer", fontFamily: "Nunito,sans-serif", opacity: sliding ? .7 : 1 }}>
-            {obStep < ONBOARDING.length - 1 ? "Suivant" : "Commencer"}
-          </button>
-          {obStep < ONBOARDING.length - 1 && (
-            <button onClick={() => setAppState("auth")} style={{ background: "transparent", border: "none", color: tc, opacity: .6, padding: "12px", fontWeight: "600", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Passer</button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // ── AUTH ────────────────────────────────────
-  const AuthScreen = () => (
-    <div className="slide-in" style={{ minHeight: "100vh", background: "white", display: "flex", flexDirection: "column", padding: "48px 24px 32px" }}>
-      <div style={{ textAlign: "center", marginBottom: "40px" }}>
-        <div style={{ background: PRIMARY, borderRadius: "20px", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-            <svg width="38" height="38" viewBox="-16 -16 32 32" style={{display:"block"}}>
-              <g transform="rotate(-45)">
-                <path d="M-5,-11 L-5,-6 L-1.5,-4 L1.5,-4 L5,-6 L5,-11 Q5,-14 0,-14 Q-5,-14 -5,-11 Z" fill="white"/>
-                <rect x="-2" y="-14" width="4" height="5" rx="1" fill="#1B3A6B"/>
-                <rect x="-1.8" y="-4" width="3.6" height="14" rx="1.8" fill="white"/>
-                <path d="M-5,11 L-5,6 L-1.5,4 L1.5,4 L5,6 L5,11 Q5,14 0,14 Q-5,14 -5,11 Z" fill="white"/>
-                <rect x="-2" y="9" width="4" height="5" rx="1" fill="#1B3A6B"/>
-              </g>
-            </svg>
-          </div>
-        <div style={{ fontWeight: "900", fontSize: "24px", color: "#222" }}>Bienvenue sur Reparo</div>
-        <div style={{ fontSize: "14px", color: "#888", marginTop: "8px", lineHeight: "1.5" }}>Créez un compte pour sauvegarder vos appareils et votre historique de dépannages.</div>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }}>
-        <button onClick={() => setAppState("auth")}
-            style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "14px", padding: "15px", marginBottom: "10px", fontWeight: "700", fontSize: "15px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", fontFamily: "Nunito,sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-            Continuer avec Google
-          </button>
-      </div>
-      {appSettings?.features?.guestMode !== false && (
-        <button onClick={() => setAppState("main")} style={{ background: "transparent", border: "none", color: "#aaa", padding: "12px", fontWeight: "600", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif", textAlign: "center" }}>Continuer sans compte</button>
-      )}
-      <div style={{ textAlign: "center", marginTop: "16px", fontSize: "11px", color: "#ccc", lineHeight: "1.5" }}>En continuant, vous acceptez nos Conditions d'utilisation et notre Politique de confidentialité</div>
-    </div>
-  );
-
   // ── HOME ────────────────────────────────────
   const Home = () => (
     <div className="fade-in" style={{ paddingBottom: "80px" }}>
@@ -1037,7 +956,7 @@ export default function ReparoApp() {
             </svg>
           </div>
           <div>
-            <div style={{ color: "white", fontWeight: "800", fontSize: "22px", fontFamily: "Nunito,sans-serif" }}>Reparo</div>
+            <div style={{ color: "white", fontWeight: "800", fontSize: "22px", fontFamily: "Inter,sans-serif" }}>Reparo</div>
             <div style={{ color: "rgba(255,255,255,.85)", fontSize: "12px" }}>Votre expert en dépannage</div>
           </div>
         </div>
@@ -1063,16 +982,16 @@ export default function ReparoApp() {
           <div style={{ background: "white", borderRadius: "14px", padding: "16px", border: "1px solid #eee", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
             <div style={{ fontWeight: "800", fontSize: "14px", color: "#222", marginBottom: "12px" }}>Comment ça marche ?</div>
             {[
-              { emoji: "📱", text: "Choisissez votre appareil et décrivez la panne" },
-              { emoji: "🔍", text: "Reparo analyse et diagnostique en quelques secondes" },
-              { emoji: "🔧", text: "Suivez les étapes guidées pour réparer vous-même" },
-            ].map((s, i) => (
+              "Choisissez votre appareil et décrivez la panne",
+              "Reparo analyse et diagnostique en quelques secondes",
+              "Suivez les étapes guidées pour réparer vous-même",
+            ].map((text, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: i < 2 ? "10px" : "0" }}>
-                <div style={{ fontSize: "20px", flexShrink: 0 }}>{s.emoji}</div>
-                <div style={{ fontSize: "13px", color: "#555", lineHeight: "1.4" }}>{s.text}</div>
+                <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#EFF4FF", color: ACCENT, fontWeight: "800", fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+                <div style={{ fontSize: "13px", color: "#555", lineHeight: "1.4" }}>{text}</div>
               </div>
             ))}
-            <button onClick={() => setAppState("auth")} style={{ marginTop: "14px", width: "100%", background: "#EFF4FF", border: "none", borderRadius: "10px", color: ACCENT, padding: "11px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+            <button onClick={() => setAppState("auth")} style={{ marginTop: "14px", width: "100%", background: "#EFF4FF", border: "none", borderRadius: "10px", color: ACCENT, padding: "11px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>
               Créer un compte gratuit — Sauvegarder mes appareils
             </button>
           </div>
@@ -1142,7 +1061,7 @@ export default function ReparoApp() {
               <input value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && input.trim()) startChat(input.trim()); }}
                 placeholder="Ex : fait du bruit, ne s'allume pas..."
-                style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none" }} />
+                style={{ flex: 1, border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Inter,sans-serif", outline: "none" }} />
               <button onClick={() => { if (input.trim()) startChat(input.trim()); }} disabled={!input.trim()}
                 style={{ background: ACCENT, border: "none", borderRadius: "10px", width: "42px", height: "42px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: input.trim() ? 1 : 0.4, flexShrink: 0 }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -1192,7 +1111,7 @@ export default function ReparoApp() {
         <div ref={msgTop} />
         {messages.length > 4 && (
           <button onClick={() => msgTop.current?.scrollIntoView({ behavior: "smooth" })}
-            style={{ position: "sticky", top: "8px", alignSelf: "center", zIndex: 10, background: "rgba(37,99,235,0.9)", border: "none", borderRadius: "20px", color: "white", padding: "6px 14px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif", display: "flex", alignItems: "center", gap: "6px", backdropFilter: "blur(4px)", boxShadow: "0 2px 8px rgba(0,0,0,.2)" }}>
+            style={{ position: "sticky", top: "8px", alignSelf: "center", zIndex: 10, background: "rgba(37,99,235,0.9)", border: "none", borderRadius: "20px", color: "white", padding: "6px 14px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Inter,sans-serif", display: "flex", alignItems: "center", gap: "6px", backdropFilter: "blur(4px)", boxShadow: "0 2px 8px rgba(0,0,0,.2)" }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
             Remonter
           </button>
@@ -1237,28 +1156,30 @@ export default function ReparoApp() {
           <div style={{ background: "#fff1f2", border: "1.5px solid #fecdd3", borderRadius: "12px", padding: "14px 16px", display: "flex", flexDirection: "column", gap: "10px" }}>
             <div style={{ fontSize: "13px", color: "#be123c", fontWeight: "600", lineHeight: "1.5" }}>{apiError}</div>
             <button onClick={retryLastCall}
-              style={{ background: PRIMARY, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+              style={{ background: PRIMARY, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>
               Réessayer
             </button>
           </div>
         )}
         {resolved && (
           <div style={{ background: "#f0fdf4", borderRadius: "12px", padding: "16px", textAlign: "center" }}>
-            <div style={{ fontSize: "20px", marginBottom: "6px" }}>✅</div>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "6px" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+            </div>
             <div style={{ fontWeight: "700", color: "#16a34a", fontSize: "14px" }}>Parfait ! Ravi d'avoir pu vous aider.</div>
             <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>N'hésitez pas à revenir si la panne persiste.</div>
             <div style={{ display: "flex", gap: "8px", marginTop: "12px", justifyContent: "center" }}>
-              <button onClick={() => setFeedback("positif")} style={{ flex: 1, background: feedback === "positif" ? "#16a34a" : "#f0fdf4", border: `1.5px solid ${feedback === "positif" ? "#16a34a" : "#86efac"}`, borderRadius: "10px", padding: "8px", fontWeight: "700", fontSize: "14px", cursor: "pointer", color: feedback === "positif" ? "white" : "#16a34a", fontFamily: "Nunito,sans-serif" }}>👍 Oui</button>
-              <button onClick={() => setFeedback("negatif")} style={{ flex: 1, background: feedback === "negatif" ? "#e11d48" : "#fff1f2", border: `1.5px solid ${feedback === "negatif" ? "#e11d48" : "#fecdd3"}`, borderRadius: "10px", padding: "8px", fontWeight: "700", fontSize: "14px", cursor: "pointer", color: feedback === "negatif" ? "white" : "#e11d48", fontFamily: "Nunito,sans-serif" }}>👎 Non</button>
+              <button onClick={() => setFeedback("positif")} style={{ flex: 1, background: feedback === "positif" ? "#16a34a" : "#f0fdf4", border: `1.5px solid ${feedback === "positif" ? "#16a34a" : "#86efac"}`, borderRadius: "10px", padding: "8px", fontWeight: "700", fontSize: "14px", cursor: "pointer", color: feedback === "positif" ? "white" : "#16a34a", fontFamily: "Inter,sans-serif" }}>Oui</button>
+              <button onClick={() => setFeedback("negatif")} style={{ flex: 1, background: feedback === "negatif" ? "#e11d48" : "#fff1f2", border: `1.5px solid ${feedback === "negatif" ? "#e11d48" : "#fecdd3"}`, borderRadius: "10px", padding: "8px", fontWeight: "700", fontSize: "14px", cursor: "pointer", color: feedback === "negatif" ? "white" : "#e11d48", fontFamily: "Inter,sans-serif" }}>Non</button>
             </div>
             {feedback && <div style={{ fontSize: "12px", marginTop: "8px", color: feedback === "positif" ? "#16a34a" : "#888" }}>{feedback === "positif" ? "Merci ! Ravi d'avoir pu vous aider." : "Merci pour votre retour, nous améliorons Reparo en continu."}</div>}
-            <button onClick={() => goHome()} style={{ marginTop: "12px", background: PRIMARY, border: "none", borderRadius: "10px", color: "white", padding: "10px 20px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif", width: "100%" }}>Nouvelle recherche</button>
+            <button onClick={() => goHome()} style={{ marginTop: "12px", background: PRIMARY, border: "none", borderRadius: "10px", color: "white", padding: "10px 20px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Inter,sans-serif", width: "100%" }}>Nouvelle recherche</button>
           </div>
         )}
         {messages.length >= 6 && !resolved && !loading && (
           <div style={{ textAlign: "center" }}>
-            <button onClick={() => setResolved(true)} style={{ background: "#f0fdf4", border: "1.5px solid #86efac", borderRadius: "20px", color: "#16a34a", padding: "8px 20px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
-              ✅ Mon problème est résolu !
+            <button onClick={() => setResolved(true)} style={{ background: "#f0fdf4", border: "1.5px solid #86efac", borderRadius: "20px", color: "#16a34a", padding: "8px 20px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>
+              Mon problème est résolu
             </button>
           </div>
         )}
@@ -1267,7 +1188,9 @@ export default function ReparoApp() {
           appareilSaved
             ? (
               <div style={{ background: "#f0fdf4", border: "1.5px solid #86efac", borderRadius: "14px", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px", animation: "fadeUp .3s ease" }}>
-                <div style={{ fontSize: "22px" }}>✅</div>
+                <div style={{ background: "#16a34a", borderRadius: "50%", width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+                </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: "700", fontSize: "13px", color: "#16a34a" }}>Appareil bien enregistré !</div>
                   <div style={{ fontSize: "12px", color: "#555", marginTop: "2px" }}>
@@ -1278,7 +1201,9 @@ export default function ReparoApp() {
             )
             : (
               <div style={{ background: "#EFF4FF", border: "1.5px solid #c7d7f8", borderRadius: "14px", padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px", animation: "fadeUp .3s ease" }}>
-                <div style={{ background: ACCENT, borderRadius: "10px", width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "18px" }}>🔧</div>
+                <div style={{ background: ACCENT, borderRadius: "10px", width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+                </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: "700", fontSize: "13px", color: PRIMARY }}>Appareil identifié</div>
                   <div style={{ fontSize: "12px", color: "#555", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1299,10 +1224,10 @@ export default function ReparoApp() {
                       setAppareilSaved(true);
                       setTimeout(() => setShowSaveAppareil(false), 3000);
                     }
-                  }} style={{ background: ACCENT, border: "none", borderRadius: "8px", color: "white", padding: "7px 12px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                  }} style={{ background: ACCENT, border: "none", borderRadius: "8px", color: "white", padding: "7px 12px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>
                     Enregistrer
                   </button>
-                  <button onClick={() => setShowSaveAppareil(false)} style={{ background: "transparent", border: "none", color: "#aaa", fontSize: "11px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                  <button onClick={() => setShowSaveAppareil(false)} style={{ background: "transparent", border: "none", color: "#aaa", fontSize: "11px", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>
                     Ignorer
                   </button>
                 </div>
@@ -1317,7 +1242,7 @@ export default function ReparoApp() {
         <div style={{ padding: "8px 16px 4px", display: "flex", gap: "6px", flexWrap: "wrap", background: "#f8fafc" }}>
           {quickReplies.map(r => (
             <button key={r} onClick={() => sendQuickReply(r)}
-              style={{ background: r.includes("résolu") || r.includes("fait") ? "#f0fdf4" : r.includes("marche pas") || r.includes("comprends pas") ? "#fff1f2" : "#EFF4FF", border: `1.5px solid ${r.includes("résolu") || r.includes("fait") ? "#86efac" : r.includes("marche pas") || r.includes("comprends pas") ? "#fecdd3" : "#c7d7f8"}`, borderRadius: "20px", padding: "8px 14px", fontSize: "13px", fontWeight: "700", color: r.includes("résolu") || r.includes("fait") ? "#16a34a" : r.includes("marche pas") || r.includes("comprends pas") ? "#e11d48" : ACCENT, cursor: "pointer", fontFamily: "Nunito,sans-serif", whiteSpace: "nowrap" }}>
+              style={{ background: r.includes("résolu") || r.includes("fait") ? "#f0fdf4" : r.includes("marche pas") || r.includes("comprends pas") ? "#fff1f2" : "#EFF4FF", border: `1.5px solid ${r.includes("résolu") || r.includes("fait") ? "#86efac" : r.includes("marche pas") || r.includes("comprends pas") ? "#fecdd3" : "#c7d7f8"}`, borderRadius: "20px", padding: "8px 14px", fontSize: "13px", fontWeight: "700", color: r.includes("résolu") || r.includes("fait") ? "#16a34a" : r.includes("marche pas") || r.includes("comprends pas") ? "#e11d48" : ACCENT, cursor: "pointer", fontFamily: "Inter,sans-serif", whiteSpace: "nowrap" }}>
               {r}
             </button>
           ))}
@@ -1348,7 +1273,7 @@ export default function ReparoApp() {
               <div style={{ fontSize: "13px", color: "#888", marginBottom: "16px" }}>Contactez un expert pour votre réparation</div>
               <div style={{ display: "flex", background: "#f1f5f9", borderRadius: "10px", padding: "4px", marginBottom: "16px" }}>
                 {["marque", "revendeur"].map(t => (
-                  <button key={t} onClick={() => setSavTab(t)} style={{ flex: 1, background: savTab === t ? "white" : "transparent", border: "none", borderRadius: "8px", padding: "8px", fontWeight: "700", fontSize: "13px", color: savTab === t ? PRIMARY : "#888", cursor: "pointer", fontFamily: "Nunito,sans-serif", boxShadow: savTab === t ? "0 1px 4px rgba(0,0,0,.1)" : "none" }}>
+                  <button key={t} onClick={() => setSavTab(t)} style={{ flex: 1, background: savTab === t ? "white" : "transparent", border: "none", borderRadius: "8px", padding: "8px", fontWeight: "700", fontSize: "13px", color: savTab === t ? PRIMARY : "#888", cursor: "pointer", fontFamily: "Inter,sans-serif", boxShadow: savTab === t ? "0 1px 4px rgba(0,0,0,.1)" : "none" }}>
                     {t === "marque" ? "SAV Marque" : "SAV Revendeur"}
                   </button>
                 ))}
@@ -1362,7 +1287,7 @@ export default function ReparoApp() {
                   <a href={`tel:${e.tel}`} style={{ display: "block", background: PRIMARY, borderRadius: "10px", padding: "10px", textAlign: "center", color: "white", fontWeight: "700", fontSize: "13px", textDecoration: "none" }}>{e.tel}</a>
                 </div>
               ))}
-              <button onClick={() => setShowSAV(false)} style={{ marginTop: "8px", width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "12px", color: "#666", padding: "12px", fontWeight: "600", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Fermer</button>
+              <button onClick={() => setShowSAV(false)} style={{ marginTop: "8px", width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "12px", color: "#666", padding: "12px", fontWeight: "600", fontSize: "14px", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>Fermer</button>
             </div>
           </div>
         </div>
@@ -1374,17 +1299,17 @@ export default function ReparoApp() {
   const Appareils = () => {
     if (!isLoggedIn) return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "70vh", padding: "32px", textAlign: "center" }}>
-        <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔧</div>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#b9c2d0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: "16px" }}><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
         <div style={{ fontWeight: "800", fontSize: "18px", color: "#222", marginBottom: "8px" }}>Connectez-vous</div>
         <div style={{ fontSize: "14px", color: "#888", marginBottom: "24px", lineHeight: "1.5" }}>Connectez-vous pour accéder à vos appareils enregistrés et votre historique de pannes.</div>
-        <button onClick={() => setAppState("auth")} style={{ background: ACCENT, border: "none", borderRadius: "14px", color: "white", padding: "14px 28px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Se connecter</button>
+        <button onClick={() => setAppState("auth")} style={{ background: ACCENT, border: "none", borderRadius: "14px", color: "white", padding: "14px 28px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>Se connecter</button>
       </div>
     );
     return (
       <div className="fade-in" style={{ paddingBottom: "80px" }}>
         <div style={{ background: PRIMARY, padding: "20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ color: "white", fontWeight: "800", fontSize: "20px" }}>Mes appareils</div>
-          <button onClick={() => setShowAdd(true)} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "10px", color: "white", padding: "8px 14px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>+ Enregistrer</button>
+          <button onClick={() => setShowAdd(true)} style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "10px", color: "white", padding: "8px 14px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>+ Enregistrer</button>
         </div>
         <div style={{ padding: "16px" }}>
           {appareils.map(a => (
@@ -1396,7 +1321,7 @@ export default function ReparoApp() {
                   <div style={{ fontWeight: "700", fontSize: "15px", color: "#222" }}>{a.marque} {a.type}</div>
                   {a.modele && <div style={{ fontSize: "12px", color: "#888", marginTop: "2px" }}>Réf. {a.modele}</div>}
                   <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "5px", background: a.statut === "ok" ? "#f0fdf4" : a.statut === "hs" ? "#fff1f2" : "#fffbeb", borderRadius: "20px", padding: "3px 8px" }}>
-                    <span style={{ fontSize: "11px" }}>{a.statut === "ok" ? "✅" : a.statut === "hs" ? "❌" : "🔧"}</span>
+                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: a.statut === "ok" ? "#16a34a" : a.statut === "hs" ? "#e11d48" : "#d97706" }} />
                     <span style={{ fontSize: "11px", fontWeight: "700", color: a.statut === "ok" ? "#16a34a" : a.statut === "hs" ? "#e11d48" : "#d97706" }}>
                       {a.statut === "ok" ? "Réparé" : a.statut === "hs" ? "Hors service" : "En cours de dépannage"}
                     </span>
@@ -1412,7 +1337,7 @@ export default function ReparoApp() {
                     convIdRef.current = null; convAppareilRef.current = a.id;
                     setMessages([]); setTab("home"); setScreen("chat");
                   }
-                }} style={{ background: a.statut === "en_cours" ? "#fffbeb" : ACCENT, color: a.statut === "en_cours" ? "#d97706" : "white", border: a.statut === "en_cours" ? "1.5px solid #fcd34d" : "none", borderRadius: "10px", padding: "8px 10px", fontSize: "11px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif", flexShrink: 0, textAlign: "center", lineHeight: "1.3" }}>
+                }} style={{ background: a.statut === "en_cours" ? "#fffbeb" : ACCENT, color: a.statut === "en_cours" ? "#d97706" : "white", border: a.statut === "en_cours" ? "1.5px solid #fcd34d" : "none", borderRadius: "10px", padding: "8px 10px", fontSize: "11px", fontWeight: "700", cursor: "pointer", fontFamily: "Inter,sans-serif", flexShrink: 0, textAlign: "center", lineHeight: "1.3" }}>
                   {a.statut === "en_cours" ? "Reprendre le diagnostic" : "Nouveau diagnostic"}
                 </button>
               </div>
@@ -1436,11 +1361,11 @@ export default function ReparoApp() {
                 <div key={f.key} style={{ marginBottom: "12px" }}>
                   <div style={{ fontSize: "12px", fontWeight: "700", color: "#666", marginBottom: "4px" }}>{f.label}</div>
                   {f.options
-                    ? <select value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: "100%", border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", background: "white" }}>
+                    ? <select value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: "100%", border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Inter,sans-serif", background: "white" }}>
                         <option value="">Sélectionnez...</option>
                         {f.options.map(o => <option key={o} value={o}>{o}</option>)}
                       </select>
-                    : <input value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} style={{ width: "100%", border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none" }} />
+                    : <input value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} style={{ width: "100%", border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Inter,sans-serif", outline: "none" }} />
                   }
                 </div>
               ))}
@@ -1450,7 +1375,7 @@ export default function ReparoApp() {
                 if (a) showToast("Appareil enregistré ✓");
                 setForm({ type: "", marque: "", modele: "", achat: "" });
                 setShowAdd(false);
-              }} style={{ width: "100%", background: ACCENT, border: "none", borderRadius: "12px", color: "white", padding: "14px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Confirmer</button>
+              }} style={{ width: "100%", background: ACCENT, border: "none", borderRadius: "12px", color: "white", padding: "14px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>Confirmer</button>
             </div>
           </div>
         )}
@@ -1465,8 +1390,8 @@ export default function ReparoApp() {
               </div>
               {/* Header fiche */}
               <div style={{ background: PRIMARY, margin: "0", padding: "16px 20px 20px", display: "flex", alignItems: "center", gap: "14px" }}>
-                <div style={{ background: "rgba(255,255,255,.15)", borderRadius: "14px", width: "52px", height: "52px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "26px", flexShrink: 0 }}>
-                  {selectedAppareil.type === "Lave-linge" ? "🫧" : selectedAppareil.type === "Réfrigérateur" ? "🧊" : selectedAppareil.type === "Four" ? "🔥" : selectedAppareil.type === "Lave-vaisselle" ? "🍽️" : selectedAppareil.type === "Machine à café" ? "☕" : selectedAppareil.type === "Micro-ondes" ? "📡" : selectedAppareil.type === "Sèche-linge" ? "💨" : "🔧"}
+                <div style={{ background: "rgba(255,255,255,.15)", borderRadius: "14px", width: "52px", height: "52px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {React.cloneElement(ILLUSTRATIONS[selectedAppareil.type] || ILLUSTRATIONS["Autre appareil"], { width: 30, height: 30 })}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ color: "white", fontWeight: "800", fontSize: "17px" }}>{selectedAppareil.marque} {selectedAppareil.type}</div>
@@ -1481,15 +1406,15 @@ export default function ReparoApp() {
                   <div style={{ fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "8px", textTransform: "uppercase", letterSpacing: ".5px" }}>État de l'appareil</div>
                   <div style={{ display: "flex", gap: "8px" }}>
                     {[
-                      { id: "ok", label: "✅ Fonctionnel", color: "#16a34a", bg: "#f0fdf4", border: "#86efac" },
-                      { id: "en_cours", label: "🔧 En réparation", color: "#d97706", bg: "#fffbeb", border: "#fcd34d" },
-                      { id: "hs", label: "❌ Hors service", color: "#e11d48", bg: "#fff1f2", border: "#fecdd3" },
+                      { id: "ok", label: "Fonctionnel", color: "#16a34a", bg: "#f0fdf4", border: "#86efac" },
+                      { id: "en_cours", label: "En réparation", color: "#d97706", bg: "#fffbeb", border: "#fcd34d" },
+                      { id: "hs", label: "Hors service", color: "#e11d48", bg: "#fff1f2", border: "#fecdd3" },
                     ].map(s => (
                       <button key={s.id} onClick={async () => {
                         await updateAppareil(selectedAppareil.id, { statut: s.id });
                         setSelectedAppareil(a => ({ ...a, statut: s.id }));
                         showToast("Statut mis à jour ✓");
-                      }} style={{ flex: 1, background: selectedAppareil.statut === s.id ? s.bg : "#f8fafc", border: `1.5px solid ${selectedAppareil.statut === s.id ? s.border : "#eee"}`, borderRadius: "10px", padding: "8px 4px", fontSize: "11px", fontWeight: "700", color: selectedAppareil.statut === s.id ? s.color : "#aaa", cursor: "pointer", fontFamily: "Nunito,sans-serif", textAlign: "center" }}>
+                      }} style={{ flex: 1, background: selectedAppareil.statut === s.id ? s.bg : "#f8fafc", border: `1.5px solid ${selectedAppareil.statut === s.id ? s.border : "#eee"}`, borderRadius: "10px", padding: "8px 4px", fontSize: "11px", fontWeight: "700", color: selectedAppareil.statut === s.id ? s.color : "#aaa", cursor: "pointer", fontFamily: "Inter,sans-serif", textAlign: "center" }}>
                         {s.label}
                       </button>
                     ))}
@@ -1521,7 +1446,7 @@ export default function ReparoApp() {
                           </div>
                           <div style={{ fontSize: "11px", color: "#aaa", marginTop: "4px" }}>{conv.messages?.length || 0} messages</div>
                           <button onClick={() => { setSelectedAppareil(null); resumeConversation(conv); }}
-                            style={{ marginTop: "8px", width: "100%", background: "#EFF4FF", border: "none", borderRadius: "8px", color: ACCENT, padding: "7px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                            style={{ marginTop: "8px", width: "100%", background: "#EFF4FF", border: "none", borderRadius: "8px", color: ACCENT, padding: "7px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>
                             Reprendre ce diagnostic
                           </button>
                         </div>
@@ -1536,8 +1461,8 @@ export default function ReparoApp() {
                   setMessages([]);
                   convIdRef.current = null;
                   setTab("home"); setScreen("chat");
-                }} style={{ width: "100%", background: ACCENT, border: "none", borderRadius: "12px", color: "white", padding: "13px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif", marginBottom: "8px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-                  🔧 Nouveau diagnostic
+                }} style={{ width: "100%", background: ACCENT, border: "none", borderRadius: "12px", color: "white", padding: "13px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Inter,sans-serif", marginBottom: "8px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                  Nouveau diagnostic
                 </button>
                 <button onClick={async () => {
                   if (!window.confirm("Supprimer cet appareil ?")) return;
@@ -1548,7 +1473,7 @@ export default function ReparoApp() {
                     setSelectedAppareil(null);
                     showToast("Appareil supprimé");
                   } catch(e) { console.error(e); }
-                }} style={{ width: "100%", background: "white", border: "1.5px solid #fecdd3", borderRadius: "12px", color: "#e11d48", padding: "13px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                }} style={{ width: "100%", background: "white", border: "1.5px solid #fecdd3", borderRadius: "12px", color: "#e11d48", padding: "13px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>
                   Supprimer l'appareil
                 </button>
               </div>
@@ -1626,10 +1551,10 @@ export default function ReparoApp() {
 
     if (!isLoggedIn) return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "70vh", padding: "32px", textAlign: "center" }}>
-        <div style={{ fontSize: "48px", marginBottom: "16px" }}>👤</div>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#b9c2d0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: "16px" }}><circle cx="12" cy="8" r="4"/><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/></svg>
         <div style={{ fontWeight: "800", fontSize: "18px", color: "#222", marginBottom: "8px" }}>Connectez-vous</div>
         <div style={{ fontSize: "14px", color: "#888", marginBottom: "24px", lineHeight: "1.5" }}>Connectez-vous pour accéder à votre profil, votre historique et gérer vos préférences.</div>
-        <button onClick={() => setAppState("auth")} style={{ background: ACCENT, border: "none", borderRadius: "14px", color: "white", padding: "14px 28px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>Se connecter</button>
+        <button onClick={() => setAppState("auth")} style={{ background: ACCENT, border: "none", borderRadius: "14px", color: "white", padding: "14px 28px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>Se connecter</button>
       </div>
     );
 
@@ -1646,15 +1571,15 @@ export default function ReparoApp() {
         <div style={{ padding: "16px" }}>
           {conversations.length === 0 && (
             <div style={{ textAlign: "center", padding: "40px 20px", color: "#aaa", background: "white", borderRadius: "14px", border: "1.5px solid #eee" }}>
-              <div style={{ fontSize: "32px", marginBottom: "8px" }}>💬</div>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: "8px" }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               <div style={{ fontSize: "14px" }}>Aucune conversation enregistrée</div>
             </div>
           )}
           {conversations.map(conv => (
             <div key={conv.id} style={{ background: "white", borderRadius: "14px", padding: "14px 16px", border: "1.5px solid #eee", marginBottom: "10px", boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", marginBottom: "10px" }}>
-                <div style={{ background: "#EFF4FF", borderRadius: "10px", width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "18px" }}>
-                  {conv.appareil_type === "Lave-linge" ? "🫧" : conv.appareil_type === "Réfrigérateur" ? "🧊" : conv.appareil_type === "Four" ? "🔥" : conv.appareil_type === "Lave-vaisselle" ? "🍽️" : conv.appareil_type === "Sèche-linge" ? "💨" : conv.appareil_type === "Machine à café" ? "☕" : conv.appareil_type === "Micro-ondes" ? "📡" : "🔧"}
+                <div style={{ background: "#EFF4FF", borderRadius: "10px", width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {React.cloneElement(ILLUSTRATIONS[conv.appareil_type] || ILLUSTRATIONS["Autre appareil"], { width: 22, height: 22 })}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: "700", fontSize: "14px", color: "#222", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1669,13 +1594,13 @@ export default function ReparoApp() {
               </div>
               <div style={{ display: "flex", gap: "8px" }}>
                 <button onClick={() => { setTab("profil"); resumeConversation(conv); }}
-                  style={{ flex: 1, background: ACCENT, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                  style={{ flex: 1, background: ACCENT, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Inter,sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                   Reprendre
                 </button>
                 <button onClick={() => deleteConversation(conv.id)}
-                  style={{ background: "#fff1f2", border: "1.5px solid #fecdd3", borderRadius: "10px", color: "#e11d48", padding: "10px 14px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
-                  🗑️
+                  style={{ background: "#fff1f2", border: "1.5px solid #fecdd3", borderRadius: "10px", color: "#e11d48", padding: "10px 14px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Inter,sans-serif", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e11d48" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>
                 </button>
               </div>
             </div>
@@ -1689,7 +1614,9 @@ export default function ReparoApp() {
       <div className="fade-in" style={{ paddingBottom: "80px" }}>
         {/* Header */}
         <div style={{ background: PRIMARY, padding: "28px 20px 20px", textAlign: "center" }}>
-          <div style={{ width: "72px", height: "72px", background: "rgba(255,255,255,.2)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px", fontSize: "28px" }}>👤</div>
+          <div style={{ width: "72px", height: "72px", background: "rgba(255,255,255,.2)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"/></svg>
+          </div>
           <div style={{ color: "white", fontWeight: "800", fontSize: "18px" }}>Mon compte</div>
           <div style={{ color: "rgba(255,255,255,.7)", fontSize: "13px", marginTop: "4px" }}>{user?.email}</div>
           {isGoogleUser && <div style={{ background: "rgba(255,255,255,.15)", borderRadius: "20px", padding: "4px 12px", fontSize: "11px", color: "white", fontWeight: "700", display: "inline-block", marginTop: "8px" }}>Compte Google</div>}
@@ -1701,7 +1628,9 @@ export default function ReparoApp() {
           <SectionTitle>Historique</SectionTitle>
           <div onClick={() => { if (conversations.length === 0) loadConversations(); setTab("profil-conversations"); }}
             style={{ background: "white", borderRadius: "14px", padding: "16px", border: "1.5px solid #eee", marginBottom: "4px", display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }}>
-            <div style={{ background: "#EFF4FF", borderRadius: "10px", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "20px" }}>💬</div>
+            <div style={{ background: "#EFF4FF", borderRadius: "10px", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: "700", fontSize: "14px", color: "#222" }}>Mes conversations</div>
               <div style={{ fontSize: "12px", color: "#aaa", marginTop: "2px" }}>{conversations.length} diagnostic{conversations.length > 1 ? "s" : ""} enregistré{conversations.length > 1 ? "s" : ""}</div>
@@ -1722,7 +1651,7 @@ export default function ReparoApp() {
                 </div>
                 {!isGoogleUser && (
                   <button onClick={() => { setEditEmail(!editEmail); setEditPwd(false); }}
-                    style={{ background: "#EFF4FF", border: "none", borderRadius: "8px", color: ACCENT, padding: "7px 12px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                    style={{ background: "#EFF4FF", border: "none", borderRadius: "8px", color: ACCENT, padding: "7px 12px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>
                     {editEmail ? "Annuler" : "Modifier"}
                   </button>
                 )}
@@ -1731,9 +1660,9 @@ export default function ReparoApp() {
               {editEmail && (
                 <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
                   <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Nouvel email" type="email"
-                    style={{ border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none", width: "100%" }} />
+                    style={{ border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Inter,sans-serif", outline: "none", width: "100%" }} />
                   <button onClick={updateEmail} disabled={accountLoading}
-                    style={{ background: ACCENT, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif", opacity: accountLoading ? 0.6 : 1 }}>
+                    style={{ background: ACCENT, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Inter,sans-serif", opacity: accountLoading ? 0.6 : 1 }}>
                     {accountLoading ? "Mise à jour..." : "Confirmer le nouvel email"}
                   </button>
                 </div>
@@ -1749,7 +1678,7 @@ export default function ReparoApp() {
                 </div>
                 {!isGoogleUser && (
                   <button onClick={() => { setEditPwd(!editPwd); setEditEmail(false); }}
-                    style={{ background: "#EFF4FF", border: "none", borderRadius: "8px", color: ACCENT, padding: "7px 12px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+                    style={{ background: "#EFF4FF", border: "none", borderRadius: "8px", color: ACCENT, padding: "7px 12px", fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>
                     {editPwd ? "Annuler" : "Modifier"}
                   </button>
                 )}
@@ -1758,11 +1687,11 @@ export default function ReparoApp() {
               {editPwd && (
                 <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
                   <input value={newPwd} onChange={e => setNewPwd(e.target.value)} placeholder="Nouveau mot de passe" type="password"
-                    style={{ border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none", width: "100%" }} />
+                    style={{ border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Inter,sans-serif", outline: "none", width: "100%" }} />
                   <input value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} placeholder="Confirmer le mot de passe" type="password"
-                    style={{ border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Nunito,sans-serif", outline: "none", width: "100%" }} />
+                    style={{ border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Inter,sans-serif", outline: "none", width: "100%" }} />
                   <button onClick={updatePassword} disabled={accountLoading}
-                    style={{ background: ACCENT, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Nunito,sans-serif", opacity: accountLoading ? 0.6 : 1 }}>
+                    style={{ background: ACCENT, border: "none", borderRadius: "10px", color: "white", padding: "10px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Inter,sans-serif", opacity: accountLoading ? 0.6 : 1 }}>
                     {accountLoading ? "Mise à jour..." : "Confirmer le nouveau mot de passe"}
                   </button>
                 </div>
@@ -1774,7 +1703,7 @@ export default function ReparoApp() {
           <button onClick={async () => {
             await getSbClient().auth.signOut();
             window.location.href = "/auth/login";
-          }} style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "12px", color: "#e11d48", padding: "14px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Nunito,sans-serif", marginTop: "4px" }}>
+          }} style={{ width: "100%", background: "white", border: "1.5px solid #eee", borderRadius: "12px", color: "#e11d48", padding: "14px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Inter,sans-serif", marginTop: "4px" }}>
             Se déconnecter
           </button>
         </div>
@@ -1784,8 +1713,8 @@ export default function ReparoApp() {
 
   // Mode maintenance
   if (appSettings?.features?.maintenanceMode) return (
-    <div style={{ minHeight: "100vh", background: PRIMARY, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px", textAlign: "center", fontFamily: "Nunito, sans-serif" }}>
-      <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔧</div>
+    <div style={{ minHeight: "100vh", background: PRIMARY, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px", textAlign: "center", fontFamily: "Inter, sans-serif" }}>
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: "16px" }}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
       <div style={{ color: "white", fontWeight: "800", fontSize: "22px", marginBottom: "12px" }}>Reparo est en maintenance</div>
       <div style={{ color: "rgba(255,255,255,.8)", fontSize: "15px", lineHeight: "1.6", maxWidth: "300px" }}>
         {appSettings?.maintenanceMessage || "Nous effectuons des améliorations. Nous serons de retour très bientôt."}
@@ -1794,7 +1723,7 @@ export default function ReparoApp() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f6f6f6", fontFamily: "Nunito, sans-serif", maxWidth: "480px", margin: "0 auto", boxShadow: "0 0 40px rgba(0,0,0,.12)", position: "relative", overflowX: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: "#f6f6f6", fontFamily: "Inter, sans-serif", maxWidth: "480px", margin: "0 auto", boxShadow: "0 0 40px rgba(0,0,0,.12)", position: "relative", overflowX: "hidden" }}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
       {/* TOAST */}
@@ -1844,10 +1773,10 @@ export default function ReparoApp() {
               {ONBOARDING.map((_, i) => <div key={i} style={{ width: i === obStep ? "24px" : "8px", height: "8px", borderRadius: "4px", background: s.light ? "white" : PRIMARY, opacity: i === obStep ? 1 : 0.3, transition: "all .3s" }} />)}
             </div>
             <button onClick={() => obStep < ONBOARDING.length - 1 ? setObStep(o => o + 1) : setAppState("auth")}
-              style={{ background: s.light ? "white" : PRIMARY, color: s.light ? PRIMARY : "white", border: "none", borderRadius: "16px", padding: "16px", fontWeight: "800", fontSize: "16px", cursor: "pointer", fontFamily: "Nunito,sans-serif" }}>
+              style={{ background: s.light ? "white" : PRIMARY, color: s.light ? PRIMARY : "white", border: "none", borderRadius: "16px", padding: "16px", fontWeight: "800", fontSize: "16px", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>
               {obStep < ONBOARDING.length - 1 ? "Suivant" : "Commencer"}
             </button>
-            <button onClick={() => setAppState("auth")} style={{ background: "none", border: "none", color: s.light ? "rgba(255,255,255,.7)" : "#aaa", fontSize: "14px", cursor: "pointer", marginTop: "12px", fontFamily: "Nunito,sans-serif" }}>Passer</button>
+            <button onClick={() => setAppState("auth")} style={{ background: "none", border: "none", color: s.light ? "rgba(255,255,255,.7)" : "#aaa", fontSize: "14px", cursor: "pointer", marginTop: "12px", fontFamily: "Inter,sans-serif" }}>Passer</button>
           </div>
         );
       })()}
