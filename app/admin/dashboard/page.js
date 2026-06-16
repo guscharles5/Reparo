@@ -1,66 +1,204 @@
 'use client'
-// app/admin/dashboard/page.js
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
-const PRIMARY = '#1B3A6B'
-const ACCENT = '#2563EB'
+const SIDEBAR_BG = '#1d2327'
+const SIDEBAR_TEXT = '#a7aaad'
+const SIDEBAR_ACTIVE_BG = '#2c3338'
+const SIDEBAR_ACTIVE_TEXT = '#fff'
+const SIDEBAR_HOVER_BG = '#2c3338'
+const TOPBAR_BG = '#1d2327'
 
-// ── Composants UI ──────────────────────────────────────────────────────────
+function useOutsideClick(ref, callback) {
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) callback() }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [ref, callback])
+}
 
-const StatCard = ({ icon, label, value, sub, color = ACCENT }) => (
-  <div style={{ background: 'white', borderRadius: '10px', padding: '20px', border: '1px solid #e8eaed', boxShadow: '0 1px 4px rgba(0,0,0,.04)' }}>
-    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-      <div>
-        <div style={{ fontSize: '13px', color: '#666', marginBottom: '6px' }}>{label}</div>
-        <div style={{ fontSize: '28px', fontWeight: '800', color: '#222' }}>{value}</div>
-        {sub && <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>{sub}</div>}
-      </div>
-      <div style={{ background: color + '15', borderRadius: '10px', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>{icon}</div>
+const Skeleton = ({ w = '100%', h = '20px', r = '6px', mb = '0' }) => (
+  <div style={{ width: w, height: h, borderRadius: r, background: 'linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%)', backgroundSize: '400% 100%', animation: 'shimmer 1.4s ease infinite', marginBottom: mb }} />
+)
+
+const KpiCard = ({ icon, label, value, sub, color, trend }) => (
+  <div style={{ background: '#fff', borderRadius: '8px', padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,.07)', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: color, borderRadius: '8px 0 0 8px' }} />
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b', letterSpacing: '.3px', textTransform: 'uppercase' }}>{label}</span>
+      <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{icon}</div>
     </div>
+    <div style={{ fontSize: '30px', fontWeight: '800', color: '#0f172a', lineHeight: 1 }}>{value}</div>
+    {sub && (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: trend === 'up' ? '#16a34a' : trend === 'down' ? '#dc2626' : '#64748b' }}>
+        {trend === 'up' && <span>↑</span>}
+        {trend === 'down' && <span>↓</span>}
+        <span>{sub}</span>
+      </div>
+    )}
   </div>
 )
 
-const SectionTitle = ({ children }) => (
-  <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#222', margin: '32px 0 12px', paddingBottom: '8px', borderBottom: '2px solid #f0f0f0' }}>{children}</h2>
-)
-
-const Badge = ({ label, color, bg }) => (
-  <span style={{ background: bg, color, borderRadius: '20px', padding: '3px 10px', fontSize: '12px', fontWeight: '700' }}>{label}</span>
-)
-
-// ── Mini bar chart ──────────────────────────────────────────────────────────
-const BarChart = ({ data, color = ACCENT }) => {
+const BarChart = ({ data, color }) => {
   const max = Math.max(...data.map(d => d.value), 1)
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '80px' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '100px', padding: '8px 0 0' }}>
       {data.map((d, i) => (
-        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-          <div style={{ width: '100%', background: color, borderRadius: '4px 4px 0 0', height: `${Math.max((d.value / max) * 70, 2)}px`, transition: 'height .3s ease' }} />
-          <div style={{ fontSize: '10px', color: '#999', whiteSpace: 'nowrap' }}>{d.label}</div>
+        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', height: '100%', justifyContent: 'flex-end' }}>
+          <div style={{ fontSize: '10px', fontWeight: '600', color: color, opacity: d.value > 0 ? 1 : 0 }}>{d.value}</div>
+          <div style={{ width: '100%', background: color, borderRadius: '4px 4px 0 0', height: `${Math.max((d.value / max) * 70, 2)}px`, transition: 'height .5s cubic-bezier(.4,0,.2,1)', opacity: .85 }} />
+          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '500' }}>{d.label}</div>
         </div>
       ))}
     </div>
   )
 }
 
-// ── Page principale ─────────────────────────────────────────────────────────
+const Toggle = ({ checked, onChange, color = '#2563eb' }) => (
+  <div onClick={onChange} style={{ width: '46px', height: '26px', borderRadius: '13px', background: checked ? color : '#cbd5e1', cursor: 'pointer', position: 'relative', transition: 'background .25s', flexShrink: 0 }}>
+    <div style={{ position: 'absolute', top: '3px', left: checked ? '23px' : '3px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,.2)', transition: 'left .25s cubic-bezier(.4,0,.2,1)' }} />
+  </div>
+)
+
+const Badge = ({ label, variant = 'default' }) => {
+  const styles = {
+    success: { bg: '#dcfce7', color: '#15803d' },
+    warning: { bg: '#fef9c3', color: '#a16207' },
+    danger: { bg: '#fee2e2', color: '#dc2626' },
+    info: { bg: '#dbeafe', color: '#1d4ed8' },
+    default: { bg: '#f1f5f9', color: '#475569' },
+  }
+  const s = styles[variant] || styles.default
+  return <span style={{ background: s.bg, color: s.color, borderRadius: '20px', padding: '3px 10px', fontSize: '11px', fontWeight: '700', letterSpacing: '.3px' }}>{label}</span>
+}
+
+const Card = ({ children, title, action, noPad }) => (
+  <div style={{ background: '#fff', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,.07)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+    {title && (
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>{title}</h3>
+        {action}
+      </div>
+    )}
+    <div style={noPad ? {} : { padding: '20px' }}>{children}</div>
+  </div>
+)
+
+const Table = ({ cols, rows, emptyMsg = 'Aucune donnée' }) => (
+  <div style={{ overflowX: 'auto' }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <thead>
+        <tr style={{ background: '#f8fafc' }}>
+          {cols.map((c, i) => (
+            <th key={i} style={{ padding: '10px 16px', textAlign: c.align || 'left', fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.6px', whiteSpace: 'nowrap' }}>{c.label}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.length === 0 ? (
+          <tr><td colSpan={cols.length} style={{ textAlign: 'center', padding: '32px', color: '#94a3b8', fontSize: '14px' }}>{emptyMsg}</td></tr>
+        ) : rows.map((row, i) => (
+          <tr key={i} style={{ borderTop: '1px solid #f1f5f9' }}>
+            {cols.map((c, j) => (
+              <td key={j} style={{ padding: '12px 16px', fontSize: '14px', color: '#334155', textAlign: c.align || 'left' }}>{row[c.key]}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+)
+
+const SectionHeader = ({ title, subtitle, action }) => (
+  <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+    <div>
+      <h1 style={{ margin: '0 0 4px', fontSize: '22px', fontWeight: '800', color: '#0f172a' }}>{title}</h1>
+      {subtitle && <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>{subtitle}</p>}
+    </div>
+    {action}
+  </div>
+)
+
+const Alert = ({ type, children }) => {
+  const styles = {
+    success: { bg: '#f0fdf4', border: '#86efac', color: '#15803d' },
+    error: { bg: '#fff1f2', border: '#fca5a5', color: '#dc2626' },
+    warning: { bg: '#fffbeb', border: '#fcd34d', color: '#d97706' },
+    info: { bg: '#eff6ff', border: '#93c5fd', color: '#1d4ed8' },
+  }
+  const s = styles[type] || styles.info
+  return (
+    <div style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: '8px', padding: '12px 16px', fontSize: '14px', color: s.color, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {children}
+    </div>
+  )
+}
+
+const NAV_ITEMS = [
+  {
+    id: 'dashboard', label: 'Tableau de bord', icon: '◼',
+    children: [
+      { id: 'dashboard_overview', label: 'Vue d\'ensemble' },
+      { id: 'dashboard_activity', label: 'Activité récente' },
+    ]
+  },
+  { id: 'users', label: 'Utilisateurs', icon: '👥' },
+  { id: 'conversations', label: 'Conversations', icon: '💬' },
+  { id: 'devices', label: 'Appareils', icon: '🔧' },
+  {
+    id: 'settings', label: 'Réglages', icon: '⚙️',
+    children: [
+      { id: 'settings_general', label: 'Général' },
+      { id: 'settings_appearance', label: 'Apparence' },
+      { id: 'settings_features', label: 'Fonctionnalités' },
+      { id: 'settings_ai', label: 'IA & Prompt' },
+    ]
+  },
+  { id: 'rgpd', label: 'RGPD', icon: '🔒' },
+]
+
 export default function AdminDashboard() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [activeSection, setActiveSection] = useState('dashboard_overview')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [expandedMenus, setExpandedMenus] = useState({ dashboard: true, settings: false })
   const [stats, setStats] = useState(null)
   const [settings, setSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [saveMsg, setSaveMsg] = useState('')
+  const [toast, setToast] = useState(null)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [accentColor, setAccentColor] = useState('#2563eb')
+  const [widgetVisibility, setWidgetVisibility] = useState({
+    kpis: true, chart: true, topDevices: true, recentActivity: true, quickActions: true
+  })
+  const userMenuRef = useRef(null)
+  const notifRef = useRef(null)
+
+  useOutsideClick(userMenuRef, () => setUserMenuOpen(false))
+  useOutsideClick(notifRef, () => setNotifOpen(false))
 
   const getToken = () => typeof window !== 'undefined' ? sessionStorage.getItem('reparo_admin_token') : null
 
   useEffect(() => {
     if (!getToken()) { router.push('/admin'); return }
+    try {
+      const prefs = JSON.parse(localStorage.getItem('reparo_admin_prefs') || '{}')
+      if (prefs.accentColor) setAccentColor(prefs.accentColor)
+      if (prefs.sidebarCollapsed !== undefined) setSidebarCollapsed(prefs.sidebarCollapsed)
+      if (prefs.widgetVisibility) setWidgetVisibility(prev => ({ ...prev, ...prefs.widgetVisibility }))
+    } catch {}
     fetchAll()
   }, [])
+
+  const savePrefs = (updates) => {
+    try {
+      const existing = JSON.parse(localStorage.getItem('reparo_admin_prefs') || '{}')
+      localStorage.setItem('reparo_admin_prefs', JSON.stringify({ ...existing, ...updates }))
+    } catch {}
+  }
 
   const fetchAll = async () => {
     setLoading(true)
@@ -83,286 +221,645 @@ export default function AdminDashboard() {
     setSaving(true)
     try {
       const token = getToken()
-      await fetch('/api/admin/settings', {
+      const res = await fetch('/api/admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ settings }),
       })
-      setSaveMsg('Paramètres sauvegardés ✓')
-      setTimeout(() => setSaveMsg(''), 3000)
-    } catch (e) { setSaveMsg('Erreur lors de la sauvegarde') }
+      if (!res.ok) throw new Error()
+      showToast('success', '✓ Paramètres sauvegardés avec succès')
+    } catch {
+      showToast('error', '✗ Erreur lors de la sauvegarde')
+    }
     setSaving(false)
   }
 
-  const logout = () => { sessionStorage.removeItem('reparo_admin_token'); router.push('/admin') }
+  const showToast = (type, msg) => {
+    setToast({ type, msg })
+    setTimeout(() => setToast(null), 4000)
+  }
 
-  const TABS = [
-    { id: 'dashboard', label: '📊 Dashboard' },
-    { id: 'settings', label: '⚙️ Paramètres' },
-    { id: 'rgpd', label: '🔒 RGPD' },
-  ]
+  const logout = () => {
+    sessionStorage.removeItem('reparo_admin_token')
+    router.push('/admin')
+  }
+
+  const navigate = (section) => { setActiveSection(section) }
+  const toggleMenu = (id) => { setExpandedMenus(prev => ({ ...prev, [id]: !prev[id] })) }
+  const isActive = (id) => activeSection === id || activeSection.startsWith(id + '_')
+  const sidebarW = sidebarCollapsed ? 54 : 240
+
+  const btnPrimary = {
+    background: accentColor, border: 'none', borderRadius: '6px', color: '#fff',
+    padding: '9px 18px', fontSize: '14px', fontWeight: '600', cursor: 'pointer',
+    fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px',
+  }
+  const inputStyle = {
+    width: '100%', border: '1.5px solid #e2e8f0', borderRadius: '6px',
+    padding: '9px 12px', fontSize: '14px', outline: 'none', fontFamily: 'inherit',
+    boxSizing: 'border-box', color: '#0f172a',
+  }
+
+  const renderDashboardOverview = () => (
+    <div>
+      <SectionHeader
+        title="Tableau de bord"
+        subtitle={`Bonjour 👋 — ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`}
+        action={<button onClick={fetchAll} style={{ ...btnPrimary, background: 'transparent', color: accentColor, border: `1.5px solid ${accentColor}` }}>↻ Actualiser</button>}
+      />
+      {loading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '16px', marginBottom: '24px' }}>
+          {[1,2,3,4].map(i => <Skeleton key={i} h="96px" r="8px" />)}
+        </div>
+      ) : stats && widgetVisibility.kpis && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: '16px', marginBottom: '28px' }}>
+          <KpiCard icon="👥" label="Utilisateurs" value={stats.totalUsers} sub={`+${stats.newUsersThisWeek} cette semaine`} color="#2563eb" trend="up" />
+          <KpiCard icon="💬" label="Diagnostics" value={stats.totalConversations} sub={`${stats.conversationsToday} aujourd'hui`} color="#7c3aed" trend={stats.conversationsToday > 0 ? 'up' : 'neutral'} />
+          <KpiCard icon="✅" label="Taux de résolution" value={`${stats.resolutionRate}%`} sub="Via l'IA Reparo" color="#16a34a" />
+          <KpiCard icon="🔧" label="Appareils" value={stats.totalAppareils} sub={`+${stats.appareilsThisWeek} cette semaine`} color="#d97706" trend="up" />
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+        {!loading && stats && widgetVisibility.chart && (
+          <Card title="Activité — 7 derniers jours" action={<Badge label="Conversations" variant="info" />}>
+            <BarChart data={stats.conversationsPerDay} color={accentColor} />
+          </Card>
+        )}
+        {widgetVisibility.quickActions && (
+          <Card title="Actions rapides">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {[
+                { icon: '⚙️', label: 'Réglages généraux', action: () => navigate('settings_general') },
+                { icon: '🤖', label: 'Configurer le prompt IA', action: () => navigate('settings_ai') },
+                { icon: '🌍', label: 'Changer la langue', action: () => navigate('settings_general') },
+                { icon: '🚨', label: 'Mode maintenance', action: () => navigate('settings_features') },
+              ].map((item, i) => (
+                <button key={i} onClick={item.action} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px 14px', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', color: '#334155', fontWeight: '500' }}>
+                  <span style={{ fontSize: '16px' }}>{item.icon}</span>
+                  {item.label}
+                  <span style={{ marginLeft: 'auto', color: '#94a3b8' }}>→</span>
+                </button>
+              ))}
+            </div>
+          </Card>
+        )}
+      </div>
+      {!loading && stats && widgetVisibility.topDevices && (
+        <div style={{ marginBottom: '20px' }}>
+          <Card title="Appareils les plus dépannés" noPad action={<Badge label={`${stats.topAppareils?.length || 0} types`} />}>
+            <Table
+              cols={[{ key: 'type', label: 'Type' }, { key: 'marque', label: 'Marque' }, { key: 'count', label: 'Diagnostics', align: 'right' }, { key: 'rate', label: 'Résolution', align: 'right' }]}
+              rows={(stats.topAppareils || []).map(a => ({
+                type: <strong>{a.type || 'Autre'}</strong>,
+                marque: a.marque || '—',
+                count: <strong>{a.count}</strong>,
+                rate: <Badge label={`${a.resolutionRate}%`} variant={a.resolutionRate >= 50 ? 'success' : 'warning'} />,
+              }))}
+            />
+          </Card>
+        </div>
+      )}
+      {!loading && stats && widgetVisibility.recentActivity && (
+        <Card title="Activité récente" noPad action={<button onClick={() => navigate('users')} style={{ background: 'none', border: 'none', color: accentColor, fontSize: '13px', cursor: 'pointer', fontWeight: '600' }}>Voir tout →</button>}>
+          <Table
+            cols={[{ key: 'email', label: 'Utilisateur' }, { key: 'conversations', label: 'Diagnostics', align: 'right' }, { key: 'date', label: 'Dernière activité', align: 'right' }]}
+            rows={(stats.recentUsers || []).map(u => ({
+              email: <span style={{ color: '#0f172a', fontWeight: '500' }}>{u.email}</span>,
+              conversations: <Badge label={u.conversations} variant="info" />,
+              date: <span style={{ color: '#94a3b8' }}>{new Date(u.lastActivity).toLocaleDateString('fr-FR')}</span>,
+            }))}
+          />
+        </Card>
+      )}
+    </div>
+  )
+
+  const renderDashboardActivity = () => (
+    <div>
+      <SectionHeader title="Activité récente" subtitle="Historique détaillé des interactions utilisateurs" />
+      {loading ? <Skeleton h="200px" /> : stats && (
+        <Card title="Tous les utilisateurs actifs" noPad>
+          <Table
+            cols={[{ key: 'email', label: 'Email' }, { key: 'conversations', label: 'Diagnostics', align: 'right' }, { key: 'date', label: 'Dernière activité', align: 'right' }]}
+            rows={(stats.recentUsers || []).map(u => ({
+              email: u.email,
+              conversations: <Badge label={u.conversations} variant="info" />,
+              date: new Date(u.lastActivity).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+            }))}
+          />
+        </Card>
+      )}
+    </div>
+  )
+
+  const renderUsers = () => (
+    <div>
+      <SectionHeader title="Utilisateurs" subtitle="Gestion et analyse des comptes utilisateurs" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '16px', marginBottom: '24px' }}>
+        {loading ? [1,2,3].map(i => <Skeleton key={i} h="80px" r="8px" />) : stats && <>
+          <KpiCard icon="👥" label="Total inscrits" value={stats.totalUsers} color="#2563eb" />
+          <KpiCard icon="🆕" label="Nouveaux (semaine)" value={stats.newUsersThisWeek} color="#7c3aed" trend="up" />
+          <KpiCard icon="📊" label="Actifs (mois)" value={stats.recentUsers?.length || 0} sub="avec diagnostics" color="#16a34a" />
+        </>}
+      </div>
+      {!loading && stats && (
+        <Card title="Liste des utilisateurs actifs" noPad>
+          <Table
+            cols={[{ key: 'email', label: 'Email utilisateur' }, { key: 'conversations', label: 'Diagnostics', align: 'right' }, { key: 'date', label: 'Dernière connexion', align: 'right' }, { key: 'status', label: 'Statut', align: 'right' }]}
+            rows={(stats.recentUsers || []).map(u => {
+              const daysSince = Math.floor((Date.now() - new Date(u.lastActivity)) / 86400000)
+              return {
+                email: <span style={{ fontWeight: '500', color: '#0f172a' }}>{u.email}</span>,
+                conversations: <Badge label={u.conversations} variant="info" />,
+                date: new Date(u.lastActivity).toLocaleDateString('fr-FR'),
+                status: <Badge label={daysSince < 7 ? 'Actif' : daysSince < 30 ? 'Récent' : 'Inactif'} variant={daysSince < 7 ? 'success' : daysSince < 30 ? 'warning' : 'default'} />,
+              }
+            })}
+          />
+        </Card>
+      )}
+    </div>
+  )
+
+  const renderConversations = () => (
+    <div>
+      <SectionHeader title="Conversations" subtitle="Statistiques des diagnostics IA" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '16px', marginBottom: '24px' }}>
+        {loading ? [1,2,3].map(i => <Skeleton key={i} h="80px" r="8px" />) : stats && <>
+          <KpiCard icon="💬" label="Total diagnostics" value={stats.totalConversations} color="#7c3aed" />
+          <KpiCard icon="📅" label="Aujourd'hui" value={stats.conversationsToday} color="#2563eb" />
+          <KpiCard icon="✅" label="Taux de résolution" value={`${stats.resolutionRate}%`} color="#16a34a" />
+        </>}
+      </div>
+      {!loading && stats && (
+        <Card title="Conversations par jour (7 derniers jours)">
+          <BarChart data={stats.conversationsPerDay} color={accentColor} />
+        </Card>
+      )}
+    </div>
+  )
+
+  const renderDevices = () => (
+    <div>
+      <SectionHeader title="Appareils" subtitle="Types et marques d'appareils diagnostiqués" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '16px', marginBottom: '24px' }}>
+        {loading ? [1,2].map(i => <Skeleton key={i} h="80px" r="8px" />) : stats && <>
+          <KpiCard icon="🔧" label="Total appareils" value={stats.totalAppareils} color="#d97706" />
+          <KpiCard icon="📈" label="Cette semaine" value={stats.appareilsThisWeek} color="#16a34a" trend="up" />
+        </>}
+      </div>
+      {!loading && stats && (
+        <Card title="Appareils les plus dépannés" noPad>
+          <Table
+            cols={[{ key: 'rank', label: '#', align: 'right' }, { key: 'type', label: 'Type d\'appareil' }, { key: 'marque', label: 'Marque' }, { key: 'count', label: 'Diagnostics', align: 'right' }, { key: 'rate', label: 'Résolution', align: 'right' }]}
+            rows={(stats.topAppareils || []).map((a, i) => ({
+              rank: <span style={{ color: '#94a3b8', fontWeight: '600' }}>#{i + 1}</span>,
+              type: <strong style={{ color: '#0f172a' }}>{a.type || 'Autre'}</strong>,
+              marque: a.marque || '—',
+              count: <strong>{a.count}</strong>,
+              rate: <Badge label={`${a.resolutionRate}%`} variant={a.resolutionRate >= 60 ? 'success' : a.resolutionRate >= 40 ? 'warning' : 'danger'} />,
+            }))}
+          />
+        </Card>
+      )}
+    </div>
+  )
+
+  const renderSettingsGeneral = () => settings && (
+    <div>
+      <SectionHeader
+        title="Réglages généraux"
+        subtitle="Configuration principale de l'application"
+        action={<button onClick={saveSettings} disabled={saving} style={{ ...btnPrimary, opacity: saving ? .7 : 1 }}>{saving ? 'Sauvegarde...' : '💾 Enregistrer'}</button>}
+      />
+      {toast && <Alert type={toast.type}>{toast.msg}</Alert>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <Card title="Langue de l'interface">
+          <p style={{ margin: '0 0 14px', fontSize: '14px', color: '#64748b' }}>Définissez la langue par défaut de l'application pour les utilisateurs.</p>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            {[
+              { code: 'fr', flag: '🇫🇷', label: 'Français' },
+              { code: 'en', flag: '🇬🇧', label: 'English' },
+              { code: 'es', flag: '🇪🇸', label: 'Español' },
+              { code: 'de', flag: '🇩🇪', label: 'Deutsch' },
+              { code: 'it', flag: '🇮🇹', label: 'Italiano' },
+            ].map(lang => {
+              const active = settings.language === lang.code
+              return (
+                <button key={lang.code} onClick={() => setSettings(s => ({ ...s, language: lang.code }))}
+                  style={{ background: active ? accentColor + '15' : '#f8fafc', border: `2px solid ${active ? accentColor : '#e2e8f0'}`, borderRadius: '8px', padding: '10px 18px', fontSize: '14px', fontWeight: active ? '700' : '500', color: active ? accentColor : '#475569', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '20px' }}>{lang.flag}</span> {lang.label}
+                  {active && <span>✓</span>}
+                </button>
+              )
+            })}
+          </div>
+        </Card>
+        {settings.features?.maintenanceMode && (
+          <Card title="⚠️ Message de maintenance">
+            <Alert type="warning">Le mode maintenance est activé. Les utilisateurs voient ce message.</Alert>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: '#475569' }}>Message affiché aux utilisateurs</label>
+            <input value={settings.maintenanceMessage || ''} onChange={e => setSettings(s => ({ ...s, maintenanceMessage: e.target.value }))} placeholder="Reparo est en maintenance. Retour prévu à 14h00." style={{ ...inputStyle, borderColor: '#fcd34d' }} />
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+
+  const renderSettingsAppearance = () => (
+    <div>
+      <SectionHeader title="Apparence" subtitle="Personnalisez l'interface d'administration" />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <Card title="Couleur d'accentuation">
+          <p style={{ margin: '0 0 16px', fontSize: '14px', color: '#64748b' }}>Utilisée dans les boutons, liens actifs et éléments interactifs du back-office.</p>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            {['#2563eb','#7c3aed','#db2777','#16a34a','#d97706','#0891b2','#dc2626','#1d2327'].map(c => (
+              <div key={c} onClick={() => { setAccentColor(c); savePrefs({ accentColor: c }) }}
+                style={{ width: '36px', height: '36px', borderRadius: '50%', background: c, cursor: 'pointer', border: accentColor === c ? '3px solid #fff' : '3px solid transparent', boxShadow: accentColor === c ? `0 0 0 3px ${c}` : '0 1px 3px rgba(0,0,0,.2)' }} />
+            ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input type="color" value={accentColor} onChange={e => { setAccentColor(e.target.value); savePrefs({ accentColor: e.target.value }) }} style={{ width: '36px', height: '36px', borderRadius: '50%', border: 'none', cursor: 'pointer', padding: 0 }} />
+              <span style={{ fontSize: '13px', color: '#64748b' }}>Personnalisée</span>
+            </div>
+          </div>
+          <div style={{ background: accentColor, borderRadius: '6px', padding: '12px 16px', color: '#fff', fontSize: '14px', fontWeight: '600', display: 'inline-block' }}>Aperçu du bouton principal</div>
+        </Card>
+        <Card title="Widgets du tableau de bord">
+          <p style={{ margin: '0 0 16px', fontSize: '14px', color: '#64748b' }}>Afficher ou masquer les widgets sur la page d'accueil.</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {[
+              { key: 'kpis', label: 'Indicateurs clés (KPIs)', desc: 'Les 4 statistiques principales' },
+              { key: 'chart', label: 'Graphique d\'activité', desc: 'Conversations des 7 derniers jours' },
+              { key: 'topDevices', label: 'Top appareils', desc: 'Table des appareils les plus dépannés' },
+              { key: 'recentActivity', label: 'Activité récente', desc: 'Derniers utilisateurs actifs' },
+              { key: 'quickActions', label: 'Actions rapides', desc: 'Raccourcis vers les sections importantes' },
+            ].map(w => (
+              <div key={w.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '600', color: '#0f172a' }}>{w.label}</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{w.desc}</div>
+                </div>
+                <Toggle checked={widgetVisibility[w.key]} onChange={() => { const u = { ...widgetVisibility, [w.key]: !widgetVisibility[w.key] }; setWidgetVisibility(u); savePrefs({ widgetVisibility: u }) }} color={accentColor} />
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card title="Sidebar">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: '600', color: '#0f172a' }}>Sidebar réduite par défaut</div>
+              <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>Affiche uniquement les icônes au chargement</div>
+            </div>
+            <Toggle checked={sidebarCollapsed} onChange={() => { setSidebarCollapsed(p => { savePrefs({ sidebarCollapsed: !p }); return !p }) }} color={accentColor} />
+          </div>
+        </Card>
+      </div>
+    </div>
+  )
+
+  const renderSettingsFeatures = () => settings && (
+    <div>
+      <SectionHeader
+        title="Fonctionnalités"
+        subtitle="Activer ou désactiver les modules de l'application"
+        action={<button onClick={saveSettings} disabled={saving} style={{ ...btnPrimary, opacity: saving ? .7 : 1 }}>{saving ? 'Sauvegarde...' : '💾 Enregistrer'}</button>}
+      />
+      {toast && <Alert type={toast.type}>{toast.msg}</Alert>}
+      <Card title="Modules de l'application">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {[
+            { key: 'guestMode', icon: '👤', label: 'Mode invité', desc: 'Permettre l\'utilisation de Reparo sans créer de compte', risk: null },
+            { key: 'photoAnalysis', icon: '📷', label: 'Analyse photo', desc: 'Permettre l\'envoi de photos dans le chat IA', risk: null },
+            { key: 'savModal', icon: '🛠️', label: 'Contacts SAV', desc: 'Afficher les coordonnées SAV des marques d\'appareils', risk: null },
+            { key: 'maintenanceMode', icon: '🚨', label: 'Mode maintenance', desc: 'Bloque l\'accès à l\'application pour tous les utilisateurs', risk: 'danger' },
+          ].map(f => (
+            <div key={f.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, paddingRight: '16px' }}>
+                <span style={{ fontSize: '20px', marginTop: '1px' }}>{f.icon}</span>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#0f172a' }}>{f.label}</span>
+                    {f.risk === 'danger' && settings.features?.[f.key] && <Badge label="ACTIF" variant="danger" />}
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#64748b' }}>{f.desc}</div>
+                </div>
+              </div>
+              <Toggle checked={!!settings.features?.[f.key]} onChange={() => setSettings(s => ({ ...s, features: { ...s.features, [f.key]: !s.features?.[f.key] } }))} color={f.risk === 'danger' ? '#dc2626' : accentColor} />
+            </div>
+          ))}
+        </div>
+      </Card>
+      {settings.features?.maintenanceMode && (
+        <div style={{ marginTop: '16px' }}>
+          <Alert type="warning">⚠️ Le mode maintenance est <strong>actif</strong>. L'application est inaccessible aux utilisateurs.</Alert>
+          <Card title="Message de maintenance">
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: '#475569' }}>Message affiché</label>
+            <input value={settings.maintenanceMessage || ''} onChange={e => setSettings(s => ({ ...s, maintenanceMessage: e.target.value }))} placeholder="Reparo est en maintenance. Retour prévu à 14h00." style={{ ...inputStyle, borderColor: '#fcd34d' }} />
+          </Card>
+        </div>
+      )}
+    </div>
+  )
+
+  const renderSettingsAI = () => settings && (
+    <div>
+      <SectionHeader
+        title="IA & Prompt système"
+        subtitle="Configuration du comportement de l'intelligence artificielle"
+        action={<button onClick={saveSettings} disabled={saving} style={{ ...btnPrimary, opacity: saving ? .7 : 1 }}>{saving ? 'Sauvegarde...' : '💾 Enregistrer'}</button>}
+      />
+      {toast && <Alert type={toast.type}>{toast.msg}</Alert>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <Alert type="info">🤖 Le prompt système définit les instructions données à l'IA à chaque conversation. Mis en cache 60 secondes.</Alert>
+        <Card title="Prompt système personnalisé">
+          <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: '#475569' }}>Instructions pour l'IA</label>
+          <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '10px' }}>Laissez vide pour utiliser le prompt Reparo par défaut. Modifiez avec précaution.</div>
+          <textarea
+            value={settings.systemPromptOverride || ''}
+            onChange={e => setSettings(s => ({ ...s, systemPromptOverride: e.target.value }))}
+            placeholder="Vous êtes Reparo, un assistant expert en réparation d'appareils électroménagers..."
+            rows={12}
+            style={{ ...inputStyle, fontFamily: '"SF Mono", "Fira Code", monospace', fontSize: '13px', resize: 'vertical', lineHeight: '1.6' }}
+          />
+          {settings.systemPromptOverride && (
+            <div style={{ marginTop: '10px', fontSize: '12px', color: '#94a3b8', display: 'flex', gap: '16px' }}>
+              <span>📝 {settings.systemPromptOverride.split(' ').length} mots</span>
+              <span>🔤 {settings.systemPromptOverride.length} caractères</span>
+            </div>
+          )}
+        </Card>
+        <Card title="Modèle IA utilisé">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <span style={{ fontSize: '24px' }}>🧠</span>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>Claude Sonnet (Anthropic)</div>
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Modèle de production pour les diagnostics Reparo</div>
+            </div>
+            <Badge label="Actif" variant="success" />
+          </div>
+        </Card>
+      </div>
+    </div>
+  )
+
+  const renderRGPD = () => (
+    <div>
+      <SectionHeader title="Conformité RGPD" subtitle="Protection des données personnelles — Règlement Général sur la Protection des Données (UE 2016/679)" />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+        {[
+          { icon: '✅', title: 'Données collectées', color: '#15803d', bg: '#f0fdf4', border: '#86efac', items: ['Email (authentification uniquement)', 'Historique des conversations (avec consentement)', 'Type et marque des appareils', 'Date et heure des diagnostics'] },
+          { icon: '🚫', title: 'Données NON collectées', color: '#dc2626', bg: '#fff1f2', border: '#fca5a5', items: ['Nom / Prénom', 'Adresse postale', 'Numéro de téléphone', 'Données de paiement', 'Localisation GPS'] },
+          { icon: '🔒', title: 'Mesures de sécurité', color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd', items: ['HTTPS (chiffrement en transit)', 'Authentification Supabase sécurisée', 'Row Level Security sur toutes les tables', 'Token admin HMAC-SHA256', 'Hébergement en Europe (Supabase EU)'] },
+          { icon: '⚖️', title: 'Droits des utilisateurs', color: '#7c3aed', bg: '#faf5ff', border: '#d8b4fe', items: ['Accès : données visibles dans l\'app', 'Suppression : bouton compte (à implémenter)', 'Portabilité : export JSON (à implémenter)', 'Rectification : email/mdp modifiables'] },
+        ].map(s => (
+          <div key={s.title} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: '8px', padding: '20px' }}>
+            <div style={{ fontWeight: '700', fontSize: '15px', color: s.color, marginBottom: '12px' }}>{s.icon} {s.title}</div>
+            <ul style={{ margin: 0, paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {s.items.map((item, i) => <li key={i} style={{ fontSize: '13px', color: '#374151', lineHeight: '1.5' }}>{item}</li>)}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <Card title="Checklist de conformité">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {[
+            { done: true, label: 'Hébergement des données en Europe (Supabase EU)' },
+            { done: true, label: 'Row Level Security activé sur Supabase' },
+            { done: true, label: 'HTTPS activé via Vercel' },
+            { done: true, label: 'Accès admin protégé par token HMAC-SHA256' },
+            { done: false, label: 'Page CGU et Politique de confidentialité', priority: 'high' },
+            { done: false, label: 'Bouton "Supprimer mon compte"', priority: 'high' },
+            { done: false, label: 'Bannière de consentement cookies', priority: 'medium' },
+            { done: false, label: 'Désignation d\'un DPO', priority: 'low' },
+            { done: false, label: 'Export des données utilisateur (portabilité)', priority: 'medium' },
+          ].map((item, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 0', borderBottom: '1px solid #f1f5f9' }}>
+              <span style={{ fontSize: '16px', flexShrink: 0 }}>{item.done ? '✅' : '⬜'}</span>
+              <span style={{ fontSize: '14px', color: item.done ? '#15803d' : '#374151', flex: 1 }}>{item.label}</span>
+              {!item.done && item.priority && <Badge label={item.priority === 'high' ? 'Prioritaire' : item.priority === 'medium' ? 'Important' : 'Optionnel'} variant={item.priority === 'high' ? 'danger' : item.priority === 'medium' ? 'warning' : 'default'} />}
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  )
+
+  const SECTION_RENDERERS = {
+    dashboard_overview: renderDashboardOverview,
+    dashboard_activity: renderDashboardActivity,
+    users: renderUsers,
+    conversations: renderConversations,
+    devices: renderDevices,
+    settings_general: renderSettingsGeneral,
+    settings_appearance: renderSettingsAppearance,
+    settings_features: renderSettingsFeatures,
+    settings_ai: renderSettingsAI,
+    rgpd: renderRGPD,
+  }
+
+  const currentRenderer = SECTION_RENDERERS[activeSection]
+
+  const breadcrumb = (() => {
+    const map = {
+      dashboard_overview: ['Tableau de bord', 'Vue d\'ensemble'],
+      dashboard_activity: ['Tableau de bord', 'Activité récente'],
+      users: ['Utilisateurs'],
+      conversations: ['Conversations'],
+      devices: ['Appareils'],
+      settings_general: ['Réglages', 'Général'],
+      settings_appearance: ['Réglages', 'Apparence'],
+      settings_features: ['Réglages', 'Fonctionnalités'],
+      settings_ai: ['Réglages', 'IA & Prompt'],
+      rgpd: ['RGPD'],
+    }
+    return map[activeSection] || [activeSection]
+  })()
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      {/* Header */}
-      <div style={{ background: PRIMARY, padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '56px', boxShadow: '0 2px 8px rgba(0,0,0,.15)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '20px' }}>🔧</span>
-          <span style={{ color: 'white', fontWeight: '800', fontSize: '16px' }}>Reparo Admin</span>
-          <span style={{ background: 'rgba(255,255,255,.15)', color: 'rgba(255,255,255,.8)', fontSize: '11px', borderRadius: '4px', padding: '2px 8px' }}>v1.0</span>
-        </div>
-        <button onClick={logout} style={{ background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: '6px', color: 'white', padding: '6px 14px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' }}>
-          Déconnexion
-        </button>
-      </div>
+    <div style={{ minHeight: '100vh', background: '#f1f5f9', fontFamily: '"Inter", system-ui, -apple-system, sans-serif', display: 'flex', flexDirection: 'column' }}>
+      <style>{`
+        * { box-sizing: border-box; }
+        @keyframes shimmer { 0% { background-position: -400px 0 } 100% { background-position: 400px 0 } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px) } to { opacity: 1; transform: translateY(0) } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-8px) } to { opacity: 1; transform: translateX(0) } }
+        a { color: inherit; text-decoration: none; }
+        button:focus-visible { outline: 2px solid ${accentColor}; outline-offset: 2px; }
+        input:focus, textarea:focus { border-color: ${accentColor} !important; box-shadow: 0 0 0 3px ${accentColor}20; }
+        .nav-item:hover { background: ${SIDEBAR_HOVER_BG} !important; }
+        .sub-item:hover { background: rgba(255,255,255,.06) !important; }
+        .quick-link:hover { color: #fff !important; }
+      `}</style>
 
-      <div style={{ display: 'flex', minHeight: 'calc(100vh - 56px)' }}>
-        {/* Sidebar */}
-        <div style={{ width: '220px', background: 'white', borderRight: '1px solid #e8eaed', padding: '20px 0', flexShrink: 0 }}>
-          <div style={{ padding: '0 16px', marginBottom: '8px' }}>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#aaa', textTransform: 'uppercase', letterSpacing: '.8px' }}>Navigation</div>
-          </div>
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)}
-              style={{ width: '100%', background: activeTab === t.id ? '#EFF4FF' : 'transparent', border: 'none', borderLeft: activeTab === t.id ? `3px solid ${ACCENT}` : '3px solid transparent', padding: '10px 16px', textAlign: 'left', fontSize: '14px', fontWeight: activeTab === t.id ? '700' : '500', color: activeTab === t.id ? ACCENT : '#555', cursor: 'pointer', fontFamily: 'inherit' }}>
-              {t.label}
-            </button>
-          ))}
-
-          <div style={{ borderTop: '1px solid #f0f0f0', margin: '16px 0', padding: '16px 16px 0' }}>
-            <div style={{ fontSize: '11px', fontWeight: '700', color: '#aaa', textTransform: 'uppercase', letterSpacing: '.8px', marginBottom: '8px' }}>Liens rapides</div>
-            <a href="https://supabase.com" target="_blank" rel="noreferrer" style={{ display: 'block', fontSize: '13px', color: '#666', padding: '6px 0', textDecoration: 'none' }}>→ Supabase</a>
-            <a href="https://vercel.com" target="_blank" rel="noreferrer" style={{ display: 'block', fontSize: '13px', color: '#666', padding: '6px 0', textDecoration: 'none' }}>→ Vercel</a>
-            <a href="https://reparo-rosy.vercel.app" target="_blank" rel="noreferrer" style={{ display: 'block', fontSize: '13px', color: '#666', padding: '6px 0', textDecoration: 'none' }}>→ L'application</a>
-          </div>
-        </div>
-
-        {/* Main content */}
-        <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
-          {loading ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: '#aaa', fontSize: '15px' }}>Chargement des données...</div>
-          ) : (
-
-            // ── DASHBOARD ──
-            activeTab === 'dashboard' && stats && (
-              <div>
-                <div style={{ marginBottom: '24px' }}>
-                  <h1 style={{ fontSize: '22px', fontWeight: '800', color: '#222', margin: '0 0 4px' }}>Dashboard</h1>
-                  <div style={{ fontSize: '13px', color: '#888' }}>Dernière mise à jour : {new Date().toLocaleString('fr-FR')}</div>
-                </div>
-
-                {/* KPIs */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '8px' }}>
-                  <StatCard icon="👥" label="Utilisateurs inscrits" value={stats.totalUsers} sub={`+${stats.newUsersThisWeek} cette semaine`} color={ACCENT} />
-                  <StatCard icon="💬" label="Diagnostics lancés" value={stats.totalConversations} sub={`${stats.conversationsToday} aujourd'hui`} color="#7c3aed" />
-                  <StatCard icon="✅" label="Taux de résolution" value={`${stats.resolutionRate}%`} sub="Problèmes résolus via l'IA" color="#16a34a" />
-                  <StatCard icon="🔧" label="Appareils enregistrés" value={stats.totalAppareils} sub={`${stats.appareilsThisWeek} cette semaine`} color="#d97706" />
-                </div>
-
-                {/* Conversations par jour */}
-                <SectionTitle>Conversations par jour (7 derniers jours)</SectionTitle>
-                <div style={{ background: 'white', borderRadius: '10px', padding: '20px', border: '1px solid #e8eaed' }}>
-                  <BarChart data={stats.conversationsPerDay} color={ACCENT} />
-                </div>
-
-                {/* Appareils les plus dépannés */}
-                <SectionTitle>Appareils les plus dépannés</SectionTitle>
-                <div style={{ background: 'white', borderRadius: '10px', border: '1px solid #e8eaed', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc' }}>
-                        <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>Type</th>
-                        <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>Marque</th>
-                        <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>Diagnostics</th>
-                        <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>Résolution</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {stats.topAppareils.map((a, i) => (
-                        <tr key={i} style={{ borderTop: '1px solid #f0f0f0' }}>
-                          <td style={{ padding: '12px 16px', fontSize: '14px', color: '#222', fontWeight: '600' }}>{a.type || 'Autre'}</td>
-                          <td style={{ padding: '12px 16px', fontSize: '14px', color: '#555' }}>{a.marque || '—'}</td>
-                          <td style={{ padding: '12px 16px', fontSize: '14px', color: '#222', textAlign: 'right', fontWeight: '700' }}>{a.count}</td>
-                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                            <Badge
-                              label={`${a.resolutionRate}%`}
-                              color={a.resolutionRate >= 50 ? '#16a34a' : '#d97706'}
-                              bg={a.resolutionRate >= 50 ? '#f0fdf4' : '#fffbeb'}
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Utilisateurs actifs récents */}
-                <SectionTitle>Activité récente</SectionTitle>
-                <div style={{ background: 'white', borderRadius: '10px', border: '1px solid #e8eaed', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc' }}>
-                        <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>Email</th>
-                        <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>Diagnostics</th>
-                        <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '700', color: '#888', textTransform: 'uppercase' }}>Dernière activité</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {stats.recentUsers.map((u, i) => (
-                        <tr key={i} style={{ borderTop: '1px solid #f0f0f0' }}>
-                          <td style={{ padding: '12px 16px', fontSize: '14px', color: '#222' }}>{u.email}</td>
-                          <td style={{ padding: '12px 16px', fontSize: '14px', color: '#555', textAlign: 'right' }}>{u.conversations}</td>
-                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#999', textAlign: 'right' }}>{new Date(u.lastActivity).toLocaleDateString('fr-FR')}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )
-          )}
-
-          {/* ── PARAMÈTRES ── */}
-          {!loading && activeTab === 'settings' && settings && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                <div>
-                  <h1 style={{ fontSize: '22px', fontWeight: '800', color: '#222', margin: '0 0 4px' }}>Paramètres</h1>
-                  <div style={{ fontSize: '13px', color: '#888' }}>Configuration de l'application Reparo</div>
-                </div>
-                <button onClick={saveSettings} disabled={saving}
-                  style={{ background: ACCENT, border: 'none', borderRadius: '8px', color: 'white', padding: '10px 20px', fontWeight: '700', fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: saving ? 0.7 : 1 }}>
-                  {saving ? 'Sauvegarde...' : '💾 Sauvegarder'}
-                </button>
-              </div>
-
-              {saveMsg && (
-                <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', padding: '10px 14px', fontSize: '14px', color: '#16a34a', marginBottom: '16px' }}>
-                  {saveMsg}
-                </div>
-              )}
-
-              {/* Langue */}
-              <div style={{ background: 'white', borderRadius: '10px', border: '1px solid #e8eaed', marginBottom: '16px', overflow: 'hidden' }}>
-                <div style={{ padding: '14px 20px', background: '#f8fafc', borderBottom: '1px solid #e8eaed', fontWeight: '700', fontSize: '14px', color: '#222' }}>🌍 Langue de l'application</div>
-                <div style={{ padding: '20px' }}>
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                    {[
-                      { code: 'fr', label: '🇫🇷 Français' },
-                      { code: 'en', label: '🇬🇧 English' },
-                      { code: 'es', label: '🇪🇸 Español' },
-                      { code: 'de', label: '🇩🇪 Deutsch' },
-                      { code: 'it', label: '🇮🇹 Italiano' },
-                    ].map(lang => (
-                      <button key={lang.code} onClick={() => setSettings(s => ({ ...s, language: lang.code }))}
-                        style={{ background: settings.language === lang.code ? '#EFF4FF' : '#f8fafc', border: `2px solid ${settings.language === lang.code ? ACCENT : '#e0e0e0'}`, borderRadius: '8px', padding: '10px 16px', fontSize: '14px', fontWeight: settings.language === lang.code ? '700' : '500', color: settings.language === lang.code ? ACCENT : '#555', cursor: 'pointer', fontFamily: 'inherit' }}>
-                        {lang.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Prompt IA */}
-              <div style={{ background: 'white', borderRadius: '10px', border: '1px solid #e8eaed', marginBottom: '16px', overflow: 'hidden' }}>
-                <div style={{ padding: '14px 20px', background: '#f8fafc', borderBottom: '1px solid #e8eaed', fontWeight: '700', fontSize: '14px', color: '#222' }}>🤖 Prompt système de l'IA</div>
-                <div style={{ padding: '20px' }}>
-                  <div style={{ fontSize: '13px', color: '#888', marginBottom: '10px' }}>Ce texte définit le comportement de l'IA lors des diagnostics. Modifiez avec précaution.</div>
-                  <textarea
-                    value={settings.systemPromptOverride || ''}
-                    onChange={e => setSettings(s => ({ ...s, systemPromptOverride: e.target.value }))}
-                    placeholder="Laissez vide pour utiliser le prompt par défaut..."
-                    rows={8}
-                    style={{ width: '100%', border: '1.5px solid #e0e0e0', borderRadius: '8px', padding: '12px', fontSize: '13px', fontFamily: 'monospace', resize: 'vertical', outline: 'none', boxSizing: 'border-box', lineHeight: '1.6' }}
-                  />
-                </div>
-              </div>
-
-              {/* Fonctionnalités */}
-              <div style={{ background: 'white', borderRadius: '10px', border: '1px solid #e8eaed', marginBottom: '16px', overflow: 'hidden' }}>
-                <div style={{ padding: '14px 20px', background: '#f8fafc', borderBottom: '1px solid #e8eaed', fontWeight: '700', fontSize: '14px', color: '#222' }}>🎛️ Fonctionnalités</div>
-                <div style={{ padding: '8px 0' }}>
-                  {[
-                    { key: 'guestMode', label: 'Mode invité', desc: 'Permettre l\'utilisation sans compte' },
-                    { key: 'photoAnalysis', label: 'Analyse photo', desc: 'Permettre l\'envoi de photos dans le chat' },
-                    { key: 'savModal', label: 'Modal SAV', desc: 'Afficher les contacts SAV des marques' },
-                    { key: 'maintenanceMode', label: 'Mode maintenance', desc: 'Affiche un message de maintenance à tous les utilisateurs' },
-                  ].map(f => (
-                    <div key={f.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #f5f5f5' }}>
-                      <div>
-                        <div style={{ fontSize: '14px', fontWeight: '600', color: '#222' }}>{f.label}</div>
-                        <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>{f.desc}</div>
-                      </div>
-                      <div
-                        onClick={() => setSettings(s => ({ ...s, features: { ...s.features, [f.key]: !s.features?.[f.key] } }))}
-                        style={{ width: '44px', height: '24px', borderRadius: '12px', background: settings.features?.[f.key] ? ACCENT : '#ddd', cursor: 'pointer', position: 'relative', transition: 'background .2s', flexShrink: 0 }}>
-                        <div style={{ position: 'absolute', top: '3px', left: settings.features?.[f.key] ? '22px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.2)', transition: 'left .2s' }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Message maintenance */}
-              {settings.features?.maintenanceMode && (
-                <div style={{ background: 'white', borderRadius: '10px', border: '1.5px solid #fcd34d', marginBottom: '16px', overflow: 'hidden' }}>
-                  <div style={{ padding: '14px 20px', background: '#fffbeb', borderBottom: '1px solid #fcd34d', fontWeight: '700', fontSize: '14px', color: '#d97706' }}>⚠️ Message de maintenance</div>
-                  <div style={{ padding: '20px' }}>
-                    <input
-                      value={settings.maintenanceMessage || ''}
-                      onChange={e => setSettings(s => ({ ...s, maintenanceMessage: e.target.value }))}
-                      placeholder="Reparo est en maintenance. Retour prévu à 14h00."
-                      style={{ width: '100%', border: '1.5px solid #fcd34d', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                    />
-                  </div>
-                </div>
-              )}
+      {/* Top Admin Bar */}
+      <div style={{ background: TOPBAR_BG, height: '46px', display: 'flex', alignItems: 'center', padding: '0 16px', gap: '16px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 1px 3px rgba(0,0,0,.3)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: sidebarW - 16, flexShrink: 0 }}>
+          <button onClick={() => { setSidebarCollapsed(p => { savePrefs({ sidebarCollapsed: !p }); return !p }) }}
+            style={{ background: 'none', border: 'none', color: '#a7aaad', cursor: 'pointer', padding: '4px', fontSize: '16px', display: 'flex', alignItems: 'center' }}>
+            ☰
+          </button>
+          {!sidebarCollapsed && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '16px' }}>🔧</span>
+              <span style={{ color: '#fff', fontWeight: '700', fontSize: '15px' }}>Reparo</span>
+              <span style={{ color: '#a7aaad', fontSize: '12px' }}>Admin</span>
             </div>
           )}
+        </div>
 
-          {/* ── RGPD ── */}
-          {!loading && activeTab === 'rgpd' && (
-            <div>
-              <h1 style={{ fontSize: '22px', fontWeight: '800', color: '#222', margin: '0 0 4px' }}>Conformité RGPD</h1>
-              <div style={{ fontSize: '13px', color: '#888', marginBottom: '24px' }}>Gestion des données personnelles conformément au Règlement Général sur la Protection des Données</div>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+          {breadcrumb.map((crumb, i) => (
+            <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {i > 0 && <span style={{ color: '#4a5568' }}>›</span>}
+              <span style={{ color: i === breadcrumb.length - 1 ? '#e2e8f0' : '#a7aaad', fontWeight: i === breadcrumb.length - 1 ? '600' : '400' }}>{crumb}</span>
+            </span>
+          ))}
+        </div>
 
-              {[
-                { icon: '✅', title: 'Données collectées', color: '#16a34a', bg: '#f0fdf4', border: '#86efac', items: ['Email des utilisateurs (authentification uniquement)', 'Historique des conversations (stocké avec consentement)', 'Type et marque des appareils dépannés', 'Date et heure des diagnostics'] },
-                { icon: '🚫', title: 'Données NON collectées', color: '#e11d48', bg: '#fff1f2', border: '#fecdd3', items: ['Nom ou prénom', 'Adresse postale', 'Numéro de téléphone', 'Données de paiement', 'Localisation GPS'] },
-                { icon: '🔒', title: 'Mesures de sécurité', color: '#2563EB', bg: '#EFF4FF', border: '#c7d7f8', items: ['Chiffrement en transit (HTTPS)', 'Authentification Supabase sécurisée', 'Row Level Security activé sur toutes les tables', 'Accès admin protégé par token', 'Données hébergées en Europe (Supabase EU)'] },
-                { icon: '⚖️', title: 'Droits des utilisateurs', color: '#7c3aed', bg: '#faf5ff', border: '#d8b4fe', items: ['Droit d\'accès : l\'utilisateur voit ses données dans l\'app', 'Droit de suppression : bouton "Supprimer mon compte" (à implémenter)', 'Droit de portabilité : export des données (à implémenter)', 'Droit de rectification : modification email/mot de passe disponible'] },
-              ].map(section => (
-                <div key={section.title} style={{ background: section.bg, border: `1px solid ${section.border}`, borderRadius: '10px', padding: '20px', marginBottom: '16px' }}>
-                  <div style={{ fontWeight: '700', fontSize: '15px', color: section.color, marginBottom: '12px' }}>{section.icon} {section.title}</div>
-                  <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                    {section.items.map((item, i) => (
-                      <li key={i} style={{ fontSize: '14px', color: '#444', marginBottom: '6px', lineHeight: '1.5' }}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <a href="/" target="_blank" rel="noreferrer" className="quick-link"
+            style={{ color: '#a7aaad', fontSize: '13px', padding: '6px 10px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            ↗ Voir le site
+          </a>
 
-              <div style={{ background: '#f8fafc', border: '1px solid #e0e0e0', borderRadius: '10px', padding: '20px' }}>
-                <div style={{ fontWeight: '700', fontSize: '14px', color: '#222', marginBottom: '8px' }}>📋 À faire pour une conformité complète</div>
+          <div style={{ position: 'relative' }} ref={notifRef}>
+            <button onClick={() => setNotifOpen(p => !p)}
+              style={{ background: 'none', border: 'none', color: '#a7aaad', cursor: 'pointer', padding: '6px 8px', fontSize: '16px', position: 'relative' }}>
+              🔔
+              <span style={{ position: 'absolute', top: '4px', right: '4px', width: '7px', height: '7px', background: '#ef4444', borderRadius: '50%', border: '1.5px solid ' + TOPBAR_BG }} />
+            </button>
+            {notifOpen && (
+              <div style={{ position: 'absolute', right: 0, top: '40px', width: '300px', background: '#fff', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,.15)', border: '1px solid #e2e8f0', animation: 'fadeIn .15s ease', zIndex: 200 }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>Notifications</div>
                 {[
-                  { done: false, label: 'Ajouter une page CGU/Politique de confidentialité' },
-                  { done: false, label: 'Implémenter le bouton "Supprimer mon compte"' },
-                  { done: false, label: 'Ajouter une bannière de consentement cookies' },
-                  { done: false, label: 'Désigner un DPO (Délégué à la Protection des Données)' },
-                  { done: true, label: 'Hébergement des données en Europe' },
-                  { done: true, label: 'Row Level Security activé sur Supabase' },
-                  { done: true, label: 'HTTPS activé sur Vercel' },
-                ].map((item, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
-                    <span style={{ fontSize: '16px' }}>{item.done ? '✅' : '⬜'}</span>
-                    <span style={{ fontSize: '14px', color: item.done ? '#16a34a' : '#555', textDecoration: item.done ? 'none' : 'none' }}>{item.label}</span>
+                  { icon: '⚠️', msg: 'RGPD : 5 éléments en attente de conformité', time: 'Maintenant' },
+                  { icon: '📊', msg: `${stats?.conversationsToday || 0} nouveaux diagnostics aujourd'hui`, time: 'Aujourd\'hui' },
+                  { icon: '✅', msg: 'Système opérationnel', time: 'Statut' },
+                ].map((n, i) => (
+                  <div key={i} style={{ padding: '12px 16px', borderBottom: '1px solid #f8fafc', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: '16px' }}>{n.icon}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.4' }}>{n.msg}</div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{n.time}</div>
+                    </div>
                   </div>
                 ))}
+                <div style={{ padding: '8px 16px', textAlign: 'center' }}>
+                  <button onClick={() => { navigate('rgpd'); setNotifOpen(false) }}
+                    style={{ background: 'none', border: 'none', color: accentColor, fontSize: '13px', cursor: 'pointer', fontWeight: '600' }}>
+                    Voir tout
+                  </button>
+                </div>
               </div>
+            )}
+          </div>
+
+          <div style={{ position: 'relative' }} ref={userMenuRef}>
+            <button onClick={() => setUserMenuOpen(p => !p)}
+              style={{ background: accentColor, border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', color: '#fff', fontSize: '13px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              A
+            </button>
+            {userMenuOpen && (
+              <div style={{ position: 'absolute', right: 0, top: '38px', width: '200px', background: '#fff', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,.15)', border: '1px solid #e2e8f0', animation: 'fadeIn .15s ease', zIndex: 200 }}>
+                <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>Administrateur</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>Reparo Admin Panel</div>
+                </div>
+                {[
+                  { icon: '⚙️', label: 'Réglages', action: () => { navigate('settings_general'); setUserMenuOpen(false) } },
+                  { icon: '🎨', label: 'Apparence', action: () => { navigate('settings_appearance'); setUserMenuOpen(false) } },
+                ].map((item, i) => (
+                  <button key={i} onClick={item.action}
+                    style={{ width: '100%', background: 'none', border: 'none', padding: '10px 14px', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', fontSize: '13px', color: '#374151', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {item.icon} {item.label}
+                  </button>
+                ))}
+                <div style={{ borderTop: '1px solid #f1f5f9' }}>
+                  <button onClick={logout}
+                    style={{ width: '100%', background: 'none', border: 'none', padding: '10px 14px', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', fontSize: '13px', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    🚪 Déconnexion
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+
+        {/* Sidebar */}
+        <div style={{ width: sidebarW, background: SIDEBAR_BG, flexShrink: 0, transition: 'width .25s cubic-bezier(.4,0,.2,1)', overflowX: 'hidden', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <nav style={{ flex: 1, paddingTop: '8px' }}>
+            {NAV_ITEMS.map(item => {
+              const active = isActive(item.id)
+              const hasChildren = item.children?.length > 0
+              const expanded = expandedMenus[item.id]
+              return (
+                <div key={item.id}>
+                  <button className="nav-item"
+                    onClick={() => { if (hasChildren) toggleMenu(item.id); else navigate(item.id) }}
+                    style={{ width: '100%', background: active ? SIDEBAR_ACTIVE_BG : 'transparent', border: 'none', borderLeft: `3px solid ${active ? accentColor : 'transparent'}`, padding: sidebarCollapsed ? '11px 0' : '10px 14px', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '10px', color: active ? SIDEBAR_ACTIVE_TEXT : SIDEBAR_TEXT, fontSize: '13px', fontWeight: active ? '600' : '400', transition: 'all .15s', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
+                    <span style={{ fontSize: '15px', flexShrink: 0 }}>{item.icon}</span>
+                    {!sidebarCollapsed && (
+                      <>
+                        <span style={{ flex: 1 }}>{item.label}</span>
+                        {hasChildren && <span style={{ fontSize: '10px', transition: 'transform .2s', transform: expanded ? 'rotate(90deg)' : 'none', color: '#64748b' }}>▶</span>}
+                      </>
+                    )}
+                  </button>
+                  {hasChildren && !sidebarCollapsed && expanded && (
+                    <div style={{ background: 'rgba(0,0,0,.15)' }}>
+                      {item.children.map(child => {
+                        const childActive = activeSection === child.id
+                        return (
+                          <button key={child.id} className="sub-item" onClick={() => navigate(child.id)}
+                            style={{ width: '100%', background: childActive ? 'rgba(255,255,255,.08)' : 'transparent', border: 'none', borderLeft: `3px solid ${childActive ? accentColor : 'transparent'}`, padding: '8px 14px 8px 38px', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', fontSize: '13px', color: childActive ? '#fff' : '#8b949e', fontWeight: childActive ? '600' : '400', transition: 'all .15s', display: 'block' }}>
+                            {child.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </nav>
+          {!sidebarCollapsed && (
+            <div style={{ borderTop: '1px solid rgba(255,255,255,.06)', padding: '12px 0' }}>
+              <div style={{ padding: '0 14px', marginBottom: '6px', fontSize: '10px', fontWeight: '700', color: '#4a5568', textTransform: 'uppercase', letterSpacing: '.8px' }}>Liens</div>
+              {[
+                { label: 'Supabase', href: 'https://supabase.com', icon: '🗄️' },
+                { label: 'Vercel', href: 'https://vercel.com', icon: '▲' },
+              ].map(link => (
+                <a key={link.label} href={link.href} target="_blank" rel="noreferrer" className="quick-link"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 14px', fontSize: '12px', color: '#64748b', transition: 'color .15s' }}>
+                  <span>{link.icon}</span> {link.label}
+                </a>
+              ))}
             </div>
           )}
         </div>
+
+        {/* Main Content */}
+        <main style={{ flex: 1, padding: '28px 32px', overflowY: 'auto', minWidth: 0 }}>
+          <div style={{ maxWidth: '1200px', margin: '0 auto', animation: 'slideIn .2s ease' }} key={activeSection}>
+            {currentRenderer ? currentRenderer() : (
+              <div style={{ textAlign: 'center', padding: '80px 20px', color: '#94a3b8' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚧</div>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#475569' }}>Section en construction</div>
+              </div>
+            )}
+          </div>
+        </main>
       </div>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, background: toast.type === 'success' ? '#15803d' : '#dc2626', color: '#fff', borderRadius: '8px', padding: '14px 20px', fontSize: '14px', fontWeight: '600', boxShadow: '0 4px 16px rgba(0,0,0,.2)', animation: 'fadeIn .25s ease', display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '320px' }}>
+          {toast.msg}
+        </div>
+      )}
     </div>
   )
 }
