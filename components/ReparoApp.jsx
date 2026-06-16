@@ -307,7 +307,7 @@ export default function ReparoApp() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await fetch('/api/admin/settings/public');
+        const res = await fetch('/api/admin/settings/public', { cache: 'no-store' });
         if (!res.ok) return;
         const { settings } = await res.json();
         if (settings) setAppSettings(settings);
@@ -393,7 +393,7 @@ export default function ReparoApp() {
 
   const loadAppSettings = async () => {
     try {
-      const res = await fetch('/api/admin/settings/public');
+      const res = await fetch('/api/admin/settings/public', { cache: 'no-store' });
       if (!res.ok) return;
       const { settings } = await res.json();
       if (settings) setAppSettings(settings);
