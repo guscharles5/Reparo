@@ -1,16 +1,31 @@
 import { NextResponse } from 'next/server'
 import { createHmac } from 'crypto'
 
-// Admin credentials — stockés dans les variables d'environnement Vercel
-// ADMIN_EMAIL=votre@email.com
-// ADMIN_PASSWORD=votre_mot_de_passe_admin
-// ADMIN_SECRET=une_chaine_aleatoire_longue_pour_signer_les_tokens
-
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL
+const ADMIN_EMAIL    = process.env.ADMIN_EMAIL
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
-const ADMIN_SECRET = process.env.ADMIN_SECRET || 'reparo_admin_secret_change_me'
+const ADMIN_SECRET   = process.env.ADMIN_SECRET
 
-// Génère un token simple signé avec HMAC
+if (!ADMIN_SECRET) throw new Error('ADMIN_SECRET manquant dans les variables d\'environnement')
+
+// Rate limiting en mémoire (reset à chaque redémarrage du serveur)
+const attempts = new Map() // ip -> { count, resetAt }
+const MAX_ATTEMPTS = 5
+const WINDOW_MS    = 15 * 60 * 1000 // 15 minutes
+
+const isRateLimited = (ip) => {
+  const now = Date.now()
+  const entry = attempts.get(ip)
+  if (!entry || now > entry.resetAt) {
+    attempts.set(ip, { count: 1, resetAt: now + WINDOW_MS })
+    return false
+  }
+  if (entry.count >= MAX_ATTEMPTS) return true
+  entry.count++
+  return false
+}
+
+const resetAttempts = (ip) => attempts.delete(ip)
+
 const generateToken = () => {
   const payload = `${ADMIN_EMAIL}:${Date.now()}`
   const sig = createHmac('sha256', ADMIN_SECRET).update(payload).digest('hex')
@@ -30,16 +45,30 @@ export const verifyAdminToken = (token) => {
 }
 
 export async function POST(req) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+
+  if (isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+      { status: 429 }
+    )
+  }
+
   const { email, password } = await req.json()
 
   if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
-    return NextResponse.json({ error: 'Variables ADMIN_EMAIL et ADMIN_PASSWORD non configurées dans Vercel' }, { status: 500 })
+    return NextResponse.json({ error: 'Variables ADMIN_EMAIL et ADMIN_PASSWORD non configurées' }, { status: 500 })
+  }
+
+  if (!email || !password) {
+    return NextResponse.json({ error: 'Email et mot de passe requis' }, { status: 400 })
   }
 
   if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
     return NextResponse.json({ error: 'Email ou mot de passe incorrect' }, { status: 401 })
   }
 
+  resetAttempts(ip)
   const token = generateToken()
   return NextResponse.json({ token })
 }
