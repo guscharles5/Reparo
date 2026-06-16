@@ -59,6 +59,7 @@ const Skeleton = ({ w = '100%', h = '20px', r = '6px' }) => (
   <div style={{ width: w, height: h, borderRadius: r, background: 'linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%)', backgroundSize: '400% 100%', animation: 'shimmer 1.4s ease infinite' }} />
 )
 
+// Widget KPI sobre — aucune icône colorée
 const StatWidget = ({ label, value, sub, trend, accent }) => (
   <div style={{ background: '#fff', borderRadius: '8px', padding: '20px 22px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,.05)', position: 'relative', overflow: 'hidden' }}>
     <div style={{ position: 'absolute', top: 0, left: 0, width: '3px', height: '100%', background: accent || '#e2e8f0', borderRadius: '8px 0 0 8px' }} />
@@ -208,31 +209,36 @@ const BREADCRUMBS = {
 export default function AdminDashboard() {
   const router = useRouter()
 
+  // Navigation
   const [section, setSection]     = useState('dashboard_overview')
   const [collapsed, setCollapsed] = useState(false)
   const [expanded, setExpanded]   = useState({ dashboard: true, admin_settings: false, app_settings: false })
 
+  // Données
   const [stats, setStats]       = useState(null)
-  const [appCfg, setAppCfg]     = useState(null)
+  const [appCfg, setAppCfg]     = useState(null)  // settings sauvegardés en BDD
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
   const [toast, setToast]       = useState(null)
 
+  // Préférences admin locales (localStorage uniquement)
   const [adminPrefs, setAdminPrefs] = useState({
-    adminName:  'Administrateur',
-    theme:      'light',
-    timezone:   'Europe/Paris',
-    dateFormat: 'dd/MM/yyyy',
-    notifUsers: true,
-    notifConvs: false,
+    adminName:     'Administrateur',
+    theme:         'light',
+    timezone:      'Europe/Paris',
+    dateFormat:    'dd/MM/yyyy',
+    notifUsers:    true,
+    notifConvs:    false,
   })
 
+  // Personnalisation UI
   const [accentColor, setAccentColor] = useState('#2563eb')
   const [widgetViz, setWidgetViz]     = useState({
     kpis: true, extraStats: true, chart: true, topDevices: true, recentActivity: true, quickActions: true
   })
 
-  const [userMenu, setUserMenu]   = useState(false)
+  // Dropdowns
+  const [userMenu, setUserMenu] = useState(false)
   const [notifDrop, setNotifDrop] = useState(false)
   const userMenuRef = useRef(null)
   const notifRef    = useRef(null)
@@ -301,6 +307,8 @@ export default function AdminDashboard() {
   const btnPrimary = { background: accentColor, border: 'none', borderRadius: '6px', color: '#fff', padding: '8px 16px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' }
   const btnOutline = { ...btnPrimary, background: 'transparent', color: accentColor, border: `1.5px solid ${accentColor}` }
 
+  // ── Sections ────────────────────────────────────────────────────────────
+
   const renderOverview = () => {
     const topDevice = stats?.topAppareils?.[0]
     return (
@@ -311,6 +319,7 @@ export default function AdminDashboard() {
           action={<button onClick={fetchAll} style={btnOutline}><Icon name="refresh" size={13} color={accentColor} /> Actualiser</button>}
         />
 
+        {/* KPIs principaux */}
         {loading ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '14px', marginBottom: '20px' }}>
             {[1,2,3,4].map(i => <Skeleton key={i} h="88px" r="8px" />)}
@@ -324,6 +333,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* 3 nouvelles statistiques sobres */}
         {!loading && stats && widgetViz.extraStats && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '14px', marginBottom: '20px' }}>
             <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '18px 20px' }}>
@@ -333,17 +343,19 @@ export default function AdminDashboard() {
             </div>
             <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '18px 20px' }}>
               <div style={{ fontSize: '11px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '8px' }}>Taux de résolution global</div>
-              <div style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a', marginBottom: '6px' }}>{stats.resolutionRate}%</div>
-              <div style={{ height: '4px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                <div style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a' }}>{stats.resolutionRate}%</div>
+              </div>
+              <div style={{ marginTop: '6px', height: '4px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${stats.resolutionRate}%`, background: '#0f172a', borderRadius: '2px', transition: 'width .6s ease' }} />
               </div>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '5px' }}>ratio [PROBLEME_RESOLU]</div>
+              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>ratio [PROBLEME_RESOLU]</div>
             </div>
             <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '18px 20px' }}>
               <div style={{ fontSize: '11px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '8px' }}>Appareil le plus diagnostiqué</div>
               {topDevice ? (
                 <>
-                  <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', marginBottom: '3px' }}>{topDevice.type || 'N/A'}</div>
+                  <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', marginBottom: '2px' }}>{topDevice.type || 'N/A'}</div>
                   <div style={{ fontSize: '12px', color: '#64748b' }}>{topDevice.marque || '—'} · {topDevice.count} diagnostics</div>
                 </>
               ) : <div style={{ fontSize: '13px', color: '#94a3b8' }}>Aucune donnée</div>}
@@ -361,10 +373,10 @@ export default function AdminDashboard() {
             <Card title="Actions rapides">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {[
-                  { icon: 'sliders', label: 'Préférences admin',      to: 'admin_prefs'    },
-                  { icon: 'robot',   label: 'Configurer le prompt IA', to: 'app_ai'         },
-                  { icon: 'globe',   label: 'Langue des utilisateurs', to: 'app_general'    },
-                  { icon: 'warning', label: 'Mode maintenance',        to: 'app_features'   },
+                  { icon: 'sliders', label: 'Préférences admin', to: 'admin_prefs' },
+                  { icon: 'robot',   label: 'Configurer le prompt IA', to: 'app_ai' },
+                  { icon: 'globe',   label: 'Langue des utilisateurs', to: 'app_general' },
+                  { icon: 'warning', label: 'Mode maintenance', to: 'app_features' },
                 ].map((item, i) => (
                   <button key={i} onClick={() => go(item.to)}
                     style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '9px 13px', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '9px', fontSize: '13px', color: '#334155', fontWeight: '500' }}>
@@ -438,9 +450,9 @@ export default function AdminDashboard() {
         </div>
       ) : stats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '14px', marginBottom: '20px' }}>
-          <StatWidget label="Total inscrits"     value={stats.totalUsers}              accent={accentColor} />
-          <StatWidget label="Nouveaux (semaine)" value={stats.newUsersThisWeek}        sub="cette semaine" trend="up" accent="#475569" />
-          <StatWidget label="Actifs (période)"   value={stats.recentUsers?.length || 0} sub="avec diagnostics" accent="#475569" />
+          <StatWidget label="Total inscrits"    value={stats.totalUsers}              accent={accentColor} />
+          <StatWidget label="Nouveaux (semaine)" value={stats.newUsersThisWeek}       sub="cette semaine" trend="up" accent="#475569" />
+          <StatWidget label="Actifs (période)"  value={stats.recentUsers?.length || 0} sub="avec diagnostics" accent="#475569" />
         </div>
       )}
       {!loading && stats && (
@@ -493,8 +505,8 @@ export default function AdminDashboard() {
         </div>
       ) : stats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '14px', marginBottom: '20px' }}>
-          <StatWidget label="Total appareils" value={stats.totalAppareils}     accent={accentColor} />
-          <StatWidget label="Cette semaine"   value={stats.appareilsThisWeek} trend="up" accent="#475569" />
+          <StatWidget label="Total appareils"  value={stats.totalAppareils}     accent={accentColor} />
+          <StatWidget label="Cette semaine"    value={stats.appareilsThisWeek} trend="up" accent="#475569" />
         </div>
       )}
       {!loading && stats && (
@@ -513,6 +525,8 @@ export default function AdminDashboard() {
       )}
     </div>
   )
+
+  // ── Réglages back-office (stockés uniquement en localStorage) ────────────
 
   const renderAdminPrefs = () => {
     const upd = (k, v) => {
@@ -533,7 +547,8 @@ export default function AdminDashboard() {
 
           <Card title="Localisation">
             <FieldGroup label="Fuseau horaire">
-              <select value={adminPrefs.timezone} onChange={e => upd('timezone', e.target.value)} style={{ ...input, cursor: 'pointer' }}>
+              <select value={adminPrefs.timezone} onChange={e => upd('timezone', e.target.value)}
+                style={{ ...input, cursor: 'pointer' }}>
                 {['Europe/Paris','Europe/London','Europe/Berlin','America/New_York','America/Los_Angeles','Asia/Tokyo'].map(tz => (
                   <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>
                 ))}
@@ -552,10 +567,10 @@ export default function AdminDashboard() {
           </Card>
 
           <Card title="Notifications admin">
-            <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#64748b' }}>Alertes dans le back-office lors d'événements importants.</p>
+            <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#64748b' }}>Recevoir des alertes dans le back-office lors d'événements importants.</p>
             {[
-              { key: 'notifUsers', label: 'Nouveaux utilisateurs inscrits', desc: 'Notification lors de la création d\'un compte' },
-              { key: 'notifConvs', label: 'Nouvelles conversations',         desc: 'Alerte lorsqu\'un diagnostic est lancé'         },
+              { key: 'notifUsers', label: 'Nouveaux utilisateurs inscrits', desc: 'Notification lorsqu\'un nouveau compte est créé' },
+              { key: 'notifConvs', label: 'Nouvelles conversations', desc: 'Alerte lorsqu\'un diagnostic est lancé' },
             ].map(n => (
               <div key={n.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid #f8fafc' }}>
                 <div>
@@ -588,12 +603,16 @@ export default function AdminDashboard() {
               Personnalisée
             </label>
           </div>
-          <button style={btnPrimary}>Aperçu du bouton</button>
+          <button style={{ ...btnPrimary }}>Aperçu du bouton</button>
         </Card>
 
         <Card title="Thème de l'interface">
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {[{ val: 'light', label: 'Clair' }, { val: 'dark', label: 'Sombre' }, { val: 'system', label: 'Système' }].map(t => {
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {[
+              { val: 'light',  label: 'Clair'    },
+              { val: 'dark',   label: 'Sombre'   },
+              { val: 'system', label: 'Système'  },
+            ].map(t => {
               const act = adminPrefs.theme === t.val
               return (
                 <button key={t.val} onClick={() => { const n = { ...adminPrefs, theme: t.val }; setAdminPrefs(n); saveLocal({ adminPrefs: n }); showToast('success', 'Thème mis à jour') }}
@@ -610,12 +629,12 @@ export default function AdminDashboard() {
           <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#64748b' }}>Afficher ou masquer les blocs sur la page d'accueil.</p>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {[
-              { k: 'kpis',           label: 'Indicateurs principaux (KPIs)'        },
-              { k: 'extraStats',     label: '3 statistiques complémentaires'        },
-              { k: 'chart',          label: 'Graphique d\'activité 7 jours'         },
-              { k: 'topDevices',     label: 'Top appareils'                         },
-              { k: 'recentActivity', label: 'Activité récente'                      },
-              { k: 'quickActions',   label: 'Actions rapides'                       },
+              { k: 'kpis',          label: 'Indicateurs principaux (KPIs)' },
+              { k: 'extraStats',    label: '3 statistiques complémentaires' },
+              { k: 'chart',         label: 'Graphique d\'activité 7 jours' },
+              { k: 'topDevices',    label: 'Top appareils' },
+              { k: 'recentActivity', label: 'Activité récente' },
+              { k: 'quickActions',  label: 'Actions rapides' },
             ].map(w => (
               <div key={w.k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f8fafc' }}>
                 <span style={{ fontSize: '13px', color: '#374151', fontWeight: '500' }}>{w.label}</span>
@@ -637,6 +656,8 @@ export default function AdminDashboard() {
       </div>
     </div>
   )
+
+  // ── Réglages application (sauvegardés en BDD via API) ────────────────────
 
   const renderAppGeneral = () => appCfg && (
     <div>
@@ -697,10 +718,10 @@ export default function AdminDashboard() {
       <Card title="Modules de l'application">
         <div>
           {[
-            { key: 'guestMode',       label: 'Mode invité',      desc: 'Permettre l\'utilisation sans créer de compte',               critical: false },
-            { key: 'photoAnalysis',   label: 'Analyse photo',    desc: 'Permettre l\'envoi de photos dans le chat IA',                critical: false },
-            { key: 'savModal',        label: 'Contacts SAV',     desc: 'Afficher les coordonnées SAV des marques d\'appareils',       critical: false },
-            { key: 'maintenanceMode', label: 'Mode maintenance', desc: 'Bloque l\'accès à l\'application et affiche un message',      critical: true  },
+            { key: 'guestMode',       label: 'Mode invité',       desc: 'Permettre l\'utilisation sans créer de compte',                   critical: false },
+            { key: 'photoAnalysis',   label: 'Analyse photo',     desc: 'Permettre l\'envoi de photos dans le chat IA',                   critical: false },
+            { key: 'savModal',        label: 'Contacts SAV',      desc: 'Afficher les coordonnées SAV des marques d\'appareils',          critical: false },
+            { key: 'maintenanceMode', label: 'Mode maintenance',  desc: 'Bloque l\'accès à l\'application et affiche un message',         critical: true  },
           ].map(f => (
             <div key={f.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid #f8fafc' }}>
               <div style={{ flex: 1, paddingRight: '16px' }}>
@@ -727,7 +748,7 @@ export default function AdminDashboard() {
       />
       {toast && <Alert type={toast.type}><Icon name={toast.type === 'success' ? 'check' : 'warning'} size={14} />{toast.msg}</Alert>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <Alert type="info"><Icon name="info" size={14} />Le prompt système définit les instructions données à l'IA à chaque conversation. Mis en cache 60 secondes.</Alert>
+        <Alert type="info"><Icon name="info" size={14} />Le prompt système définit les instructions données à l'IA à chaque nouvelle conversation. Mis en cache 60 secondes.</Alert>
         <Card title="Prompt système personnalisé">
           <FieldGroup label="Instructions" hint="Laissez vide pour utiliser le prompt Reparo par défaut. Toute modification affecte immédiatement le comportement de l'IA.">
             <textarea
@@ -763,10 +784,10 @@ export default function AdminDashboard() {
       <SectionHeader title="Conformité RGPD" subtitle="Protection des données — Règlement (UE) 2016/679" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '18px' }}>
         {[
-          { title: 'Données collectées',      color: '#15803d', bg: '#f0fdf4', border: '#86efac', items: ['Email (authentification uniquement)', 'Historique des conversations (consentement)', 'Type et marque des appareils', 'Date et heure des diagnostics'] },
-          { title: 'Données NON collectées',  color: '#dc2626', bg: '#fff1f2', border: '#fca5a5', items: ['Nom / Prénom', 'Adresse postale', 'Numéro de téléphone', 'Données de paiement', 'Localisation GPS'] },
-          { title: 'Mesures de sécurité',     color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd', items: ['HTTPS — chiffrement en transit', 'Authentification Supabase sécurisée', 'Row Level Security activé', 'Token admin HMAC-SHA256', 'Hébergement en Europe (Supabase EU)'] },
-          { title: 'Droits des utilisateurs', color: '#7c3aed', bg: '#faf5ff', border: '#d8b4fe', items: ['Accès : données visibles dans l\'app', 'Suppression : à implémenter', 'Portabilité : export JSON (à implémenter)', 'Rectification : email/mdp modifiables'] },
+          { title: 'Données collectées',     color: '#15803d', bg: '#f0fdf4', border: '#86efac', items: ['Email (authentification uniquement)', 'Historique des conversations (consentement)', 'Type et marque des appareils', 'Date et heure des diagnostics'] },
+          { title: 'Données NON collectées', color: '#dc2626', bg: '#fff1f2', border: '#fca5a5', items: ['Nom / Prénom', 'Adresse postale', 'Numéro de téléphone', 'Données de paiement', 'Localisation GPS'] },
+          { title: 'Mesures de sécurité',    color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd', items: ['HTTPS — chiffrement en transit', 'Authentification Supabase sécurisée', 'Row Level Security activé', 'Token admin HMAC-SHA256', 'Hébergement en Europe (Supabase EU)'] },
+          { title: 'Droits des utilisateurs',color: '#7c3aed', bg: '#faf5ff', border: '#d8b4fe', items: ['Accès : données visibles dans l\'app', 'Suppression : à implémenter', 'Portabilité : export JSON (à implémenter)', 'Rectification : email/mdp modifiables'] },
         ].map(s => (
           <div key={s.title} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: '8px', padding: '18px' }}>
             <div style={{ fontWeight: '700', fontSize: '13px', color: s.color, marginBottom: '10px' }}>{s.title}</div>
@@ -779,10 +800,10 @@ export default function AdminDashboard() {
       <Card title="Checklist de conformité">
         <div>
           {[
-            { done: true,  label: 'Hébergement en Europe (Supabase EU)'           },
-            { done: true,  label: 'Row Level Security activé sur Supabase'         },
-            { done: true,  label: 'HTTPS activé via Vercel'                        },
-            { done: true,  label: 'Accès admin protégé par token HMAC-SHA256'      },
+            { done: true,  label: 'Hébergement en Europe (Supabase EU)' },
+            { done: true,  label: 'Row Level Security activé sur Supabase' },
+            { done: true,  label: 'HTTPS activé via Vercel' },
+            { done: true,  label: 'Accès admin protégé par token HMAC-SHA256' },
             { done: false, label: 'Page CGU et Politique de confidentialité',    priority: 'high'   },
             { done: false, label: 'Bouton "Supprimer mon compte"',               priority: 'high'   },
             { done: false, label: 'Bannière de consentement cookies',            priority: 'medium' },
@@ -793,7 +814,8 @@ export default function AdminDashboard() {
               <div style={{ width: '16px', height: '16px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {it.done
                   ? <Icon name="check" size={14} color="#16a34a" strokeWidth={2.5} />
-                  : <div style={{ width: '14px', height: '14px', borderRadius: '3px', border: '1.5px solid #cbd5e1' }} />}
+                  : <div style={{ width: '14px', height: '14px', borderRadius: '3px', border: '1.5px solid #cbd5e1' }} />
+                }
               </div>
               <span style={{ fontSize: '13px', color: it.done ? '#15803d' : '#374151', flex: 1 }}>{it.label}</span>
               {!it.done && it.priority && <Badge label={it.priority === 'high' ? 'Prioritaire' : it.priority === 'medium' ? 'Important' : 'Optionnel'} variant={it.priority === 'high' ? 'danger' : it.priority === 'medium' ? 'warning' : 'default'} />}
@@ -836,7 +858,7 @@ export default function AdminDashboard() {
         .ext-link:hover{color:#fff!important}
       `}</style>
 
-      {/* Top bar */}
+      {/* ── Top bar ─────────────────────────────────────────────────────── */}
       <div style={{ background: TOPBAR_BG, height: '44px', display: 'flex', alignItems: 'center', padding: '0 14px', gap: '14px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 1px 4px rgba(0,0,0,.3)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: W - 14, flexShrink: 0 }}>
           <button onClick={() => { setCollapsed(p => { saveLocal({ collapsed: !p }); return !p }) }}
@@ -852,6 +874,7 @@ export default function AdminDashboard() {
           )}
         </div>
 
+        {/* Breadcrumb */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px' }}>
           {breadcrumb.map((c, i) => (
             <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -861,12 +884,14 @@ export default function AdminDashboard() {
           ))}
         </div>
 
+        {/* Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
           <a href="/" target="_blank" rel="noreferrer" className="ext-link"
             style={{ color: SIDEBAR_TEXT, fontSize: '12px', padding: '5px 9px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Icon name="external" size={12} color="currentColor" /> Voir le site
           </a>
 
+          {/* Notifs */}
           <div style={{ position: 'relative' }} ref={notifRef}>
             <button onClick={() => setNotifDrop(p => !p)}
               style={{ background: 'none', border: 'none', color: SIDEBAR_TEXT, cursor: 'pointer', padding: '5px 7px', borderRadius: '4px', position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -877,12 +902,14 @@ export default function AdminDashboard() {
               <div style={{ position: 'absolute', right: 0, top: '38px', width: '290px', background: '#fff', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,.15)', border: '1px solid #e2e8f0', animation: 'fadeIn .15s ease', zIndex: 200 }}>
                 <div style={{ padding: '11px 15px', borderBottom: '1px solid #f1f5f9', fontWeight: '700', fontSize: '13px', color: '#0f172a' }}>Notifications</div>
                 {[
-                  { msg: 'RGPD : 5 éléments en attente',                                  time: 'Maintenant',   type: 'warning' },
-                  { msg: `${stats?.conversationsToday ?? 0} diagnostics aujourd'hui`,     time: "Aujourd'hui",  type: 'info'    },
-                  { msg: 'Système opérationnel',                                           time: 'Statut',       type: 'success' },
+                  { msg: 'RGPD : 5 éléments en attente',             time: 'Maintenant',  type: 'warning' },
+                  { msg: `${stats?.conversationsToday ?? 0} diagnostics aujourd'hui`, time: "Aujourd'hui", type: 'info'    },
+                  { msg: 'Système opérationnel',                      time: 'Statut',      type: 'success' },
                 ].map((n, i) => (
                   <div key={i} style={{ padding: '11px 15px', borderBottom: '1px solid #f8fafc', display: 'flex', gap: '9px', alignItems: 'flex-start' }}>
-                    <div style={{ marginTop: '1px' }}><Icon name={n.type === 'success' ? 'check' : n.type === 'warning' ? 'warning' : 'info'} size={13} color={n.type === 'success' ? '#16a34a' : n.type === 'warning' ? '#d97706' : '#2563eb'} strokeWidth={2} /></div>
+                    <div style={{ marginTop: '1px' }}>
+                      <Icon name={n.type === 'success' ? 'check' : n.type === 'warning' ? 'warning' : 'info'} size={13} color={n.type === 'success' ? '#16a34a' : n.type === 'warning' ? '#d97706' : '#2563eb'} strokeWidth={2} />
+                    </div>
                     <div>
                       <div style={{ fontSize: '12px', color: '#374151' }}>{n.msg}</div>
                       <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{n.time}</div>
@@ -890,12 +917,14 @@ export default function AdminDashboard() {
                   </div>
                 ))}
                 <div style={{ padding: '8px 15px' }}>
-                  <button onClick={() => { go('rgpd'); setNotifDrop(false) }} style={{ background: 'none', border: 'none', color: accentColor, fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>Voir tout →</button>
+                  <button onClick={() => { go('rgpd'); setNotifDrop(false) }}
+                    style={{ background: 'none', border: 'none', color: accentColor, fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>Voir tout →</button>
                 </div>
               </div>
             )}
           </div>
 
+          {/* User */}
           <div style={{ position: 'relative' }} ref={userMenuRef}>
             <button onClick={() => setUserMenu(p => !p)}
               style={{ background: accentColor, border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', color: '#fff', fontSize: '11px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -929,10 +958,10 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Layout */}
+      {/* ── Layout ──────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
 
-        {/* Sidebar */}
+        {/* ── Sidebar ─────────────────────────────────────────────────── */}
         <aside style={{ width: W, background: SIDEBAR_BG, flexShrink: 0, transition: 'width .22s cubic-bezier(.4,0,.2,1)', overflowX: 'hidden', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
           <nav style={{ flex: 1, paddingTop: '6px' }}>
             {NAV.map(item => {
@@ -969,6 +998,7 @@ export default function AdminDashboard() {
               )
             })}
           </nav>
+
           {!collapsed && (
             <div style={{ borderTop: '1px solid rgba(255,255,255,.05)', padding: '10px 0' }}>
               <div style={{ padding: '0 12px 5px', fontSize: '9px', fontWeight: '700', color: '#4a5568', textTransform: 'uppercase', letterSpacing: '.8px' }}>Outils</div>
@@ -982,7 +1012,7 @@ export default function AdminDashboard() {
           )}
         </aside>
 
-        {/* Main */}
+        {/* ── Contenu principal ────────────────────────────────────────── */}
         <main style={{ flex: 1, padding: '26px 30px', overflowY: 'auto', minWidth: 0 }}>
           <div style={{ maxWidth: '1160px', margin: '0 auto', animation: 'slideIn .18s ease' }} key={section}>
             {renderer ? renderer() : (
@@ -997,7 +1027,7 @@ export default function AdminDashboard() {
         </main>
       </div>
 
-      {/* Toast */}
+      {/* ── Toast ───────────────────────────────────────────────────────── */}
       {toast && (
         <div style={{ position: 'fixed', bottom: '22px', right: '22px', zIndex: 9999, background: toast.type === 'success' ? '#15803d' : '#dc2626', color: '#fff', borderRadius: '7px', padding: '12px 18px', fontSize: '13px', fontWeight: '600', boxShadow: '0 4px 16px rgba(0,0,0,.2)', animation: 'fadeIn .2s ease', display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '300px' }}>
           <Icon name={toast.type === 'success' ? 'check' : 'warning'} size={14} color="#fff" strokeWidth={2.5} />{toast.msg}
