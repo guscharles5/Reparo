@@ -2,11 +2,12 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 )
-
 export async function GET() {
   try {
     const { data } = await getAdmin()
@@ -14,9 +15,7 @@ export async function GET() {
       .select('value')
       .eq('key', 'app_settings')
       .maybeSingle()
-
     const settings = data?.value || {}
-
     const result = {
       language: settings.language || 'fr',
       features: {
@@ -27,7 +26,6 @@ export async function GET() {
       },
       maintenanceMessage: settings.maintenanceMessage || '',
     }
-
     return NextResponse.json({ settings: result })
   } catch (e) {
     console.error('[Reparo] public settings error:', e.message)
