@@ -1,11 +1,33 @@
 // app/api/chat/route.js
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { findRelevantManualPassages } from '../../../lib/manualSearch'
 
 const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 )
+
+const MODELE_TAG_RE = /\[MODELE_DETECTE:\s*([^|]+)\|([^|]+)\|([^\]]+)\]/i
+
+// Cherche la dernière mention [MODELE_DETECTE: type|marque|modele] émise par
+// l'IA dans l'historique de la conversation.
+const extractLatestModeleDetecte = (messages) => {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.role !== 'assistant') continue
+    const text = Array.isArray(m.content) ? m.content.map(c => c.text || '').join(' ') : (m.content || '')
+    const match = text.match(MODELE_TAG_RE)
+    if (match) return { type: match[1].trim(), marque: match[2].trim(), modele: match[3].trim() }
+  }
+  return null
+}
+
+const latestUserText = (messages) => {
+  const last = [...messages].reverse().find(m => m.role === 'user')
+  if (!last) return ''
+  return Array.isArray(last.content) ? last.content.map(c => c.text || '').join(' ') : (last.content || '')
+}
 
 // Charge le prompt override depuis le back-office (mis en cache 60s)
 let cachedPrompt = null
@@ -38,7 +60,18 @@ export async function POST(req) {
 
   try {
     // Charge le prompt depuis le back-office si défini, sinon utilise celui de l'app
-    const finalSystem = await getSystemPrompt(system)
+    let finalSystem = await getSystemPrompt(system)
+
+    // Si un modèle a été détecté dans la conversation, injecte les passages
+    // les plus pertinents de sa notice technique (recherche pgvector). Si
+    // aucune notice ne correspond, on continue en mode générique sans erreur.
+    const modeleDetecte = extractLatestModeleDetecte(messages)
+    if (modeleDetecte) {
+      const found = await findRelevantManualPassages(modeleDetecte, latestUserText(messages))
+      if (found) {
+        finalSystem = `${finalSystem}\n\n--- EXTRAIT DE NOTICE TECHNIQUE (${found.manual.marque} ${found.manual.modele}${found.manual.nom ? ' — ' + found.manual.nom : ''}) ---\n${found.passages}\n--- FIN EXTRAIT ---\nUtilise ces extraits en priorité s'ils sont pertinents pour répondre, sans révéler à l'utilisateur que tu consultes une notice interne.`
+      }
+    }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
