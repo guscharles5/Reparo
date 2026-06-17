@@ -31,7 +31,30 @@ function pickOption(candidates) {
   return positive || candidates[0]
 }
 
+// Scénario IA simulé — utilisé uniquement quand MOCK_AI=1 (pas de clé Anthropic
+// disponible, ex. exécution dans un environnement sans accès réseau externe).
+// Permet de valider le câblage réel de l'UI (boutons [OPTIONS], résolution)
+// sans dépendre du vrai modèle.
+async function installMockAi(page) {
+  let call = 0
+  await page.route('**/api/chat', async route => {
+    call++
+    const texts = [
+      'Ce problème est-il apparu soudainement, ou s\'est-il installé progressivement ? [OPTIONS: Soudainement | Progressivement | Je ne sais pas]',
+      'Avez-vous vérifié le tuyau d\'arrivée et les joints ? [OPTIONS: Oui c\'est fait ✓ | Ça ne marche pas | Je ne comprends pas]',
+      'Est-ce que tout fonctionne maintenant, le problème est résolu ?',
+    ]
+    const text = texts[Math.min(call, texts.length) - 1]
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ content: [{ type: 'text', text }] }),
+    })
+  })
+}
+
 async function runPersonaScenario(page, { persona, appareilType, panne }) {
+  if (process.env.MOCK_AI === '1') await installMockAi(page)
   const startedAt = Date.now()
   const transcript = []
   let status = 'echec'
@@ -73,11 +96,16 @@ async function runPersonaScenario(page, { persona, appareilType, panne }) {
       } else {
         const choice = pickOption(candidates)
         transcript.push({ role: 'user', content: choice.text })
-        const [resp] = await Promise.all([
-          page.waitForResponse(r => r.url().includes('/api/chat'), { timeout: 30_000 }),
-          choice.button.click(),
-        ])
-        transcript.push({ role: 'assistant', status: resp.status() })
+        if (choice.text === 'Oui c\'est résolu ✓') {
+          // Ce bouton résout l'état localement, sans appel API (cf. sendQuickReply).
+          await choice.button.click()
+        } else {
+          const [resp] = await Promise.all([
+            page.waitForResponse(r => r.url().includes('/api/chat'), { timeout: 30_000 }),
+            choice.button.click(),
+          ])
+          transcript.push({ role: 'assistant', status: resp.status() })
+        }
       }
       turns++
     }
