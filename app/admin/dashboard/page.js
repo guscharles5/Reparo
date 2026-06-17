@@ -34,6 +34,13 @@ const IC = {
   info:        'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
   globe:       'M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10zM2 12a10 10 0 1 0 20 0 10 10 0 0 0-20 0z',
   robot:       'M12 2a2 2 0 0 1 2 2c0 .74-.4 1.38-1 1.73V7h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h4V5.73c-.6-.35-1-.99-1-1.73a2 2 0 0 1 2-2zM9 12a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM15 12a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM9 16h6',
+  book:        'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15z',
+  upload:      'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+  search:      'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+  folder:      'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z',
+  file:        'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 13h6M9 17h6',
+  trash:       'M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 6V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2',
+  plus:        'M12 5v14M5 12h14',
 }
 
 const Icon = ({ name, size = 15, color = 'currentColor', strokeWidth = 1.75 }) => (
@@ -173,6 +180,7 @@ const NAV = [
   { id: 'users',         label: 'Utilisateurs',  icon: 'users'    },
   { id: 'conversations', label: 'Conversations', icon: 'messages' },
   { id: 'devices',       label: 'Appareils',     icon: 'wrench'   },
+  { id: 'library',       label: 'Bibliothèque de notices', icon: 'book' },
   {
     id: 'admin_settings', label: 'Réglages back-office', icon: 'sliders',
     children: [
@@ -197,6 +205,7 @@ const BREADCRUMBS = {
   users:              ['Utilisateurs'],
   conversations:      ['Conversations'],
   devices:            ['Appareils'],
+  library:            ['Bibliothèque de notices'],
   admin_prefs:        ['Réglages back-office', 'Préférences'],
   admin_appearance:   ['Réglages back-office', 'Apparence'],
   app_general:        ['Réglages application', 'Général'],
@@ -236,6 +245,19 @@ export default function AdminDashboard() {
   const [widgetViz, setWidgetViz]     = useState({
     kpis: true, extraStats: true, chart: true, topDevices: true, recentActivity: true, quickActions: true
   })
+
+  // Bibliothèque de notices
+  const [manuals, setManuals]           = useState([])
+  const [manualsLoaded, setManualsLoaded] = useState(false)
+  const [manualsLoading, setManualsLoading] = useState(false)
+  const [manualSearch, setManualSearch]   = useState('')
+  const [treeExpanded, setTreeExpanded]   = useState({})
+  const [manualForm, setManualForm]       = useState({ type_appareil: '', marque: '', reference_modele: '', nom_modele: '', contenu_texte: '' })
+  const [manualFile, setManualFile]       = useState(null)
+  const [manualSaving, setManualSaving]   = useState(false)
+  const [csvFile, setCsvFile]             = useState(null)
+  const [csvImporting, setCsvImporting]   = useState(false)
+  const [csvResult, setCsvResult]         = useState(null)
 
   // Dropdowns
   const [userMenu, setUserMenu] = useState(false)
@@ -294,6 +316,81 @@ export default function AdminDashboard() {
       showToast('success', 'Paramètres sauvegardés')
     } catch { showToast('error', 'Erreur lors de la sauvegarde') }
     setSaving(false)
+  }
+
+  const fetchManuals = async (q) => {
+    setManualsLoading(true)
+    try {
+      const tok = getToken()
+      const url = '/api/admin/manuals' + (q ? `?q=${encodeURIComponent(q)}` : '')
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${tok}` } })
+      const data = await res.json()
+      setManuals(data.manuals || [])
+    } catch (e) { console.error(e) }
+    setManualsLoaded(true)
+    setManualsLoading(false)
+  }
+
+  useEffect(() => {
+    if (section === 'library' && !manualsLoaded) fetchManuals()
+  }, [section])
+
+  const submitManualForm = async (e) => {
+    e.preventDefault()
+    setManualSaving(true)
+    try {
+      const tok = getToken()
+      let res
+      if (manualFile) {
+        const fd = new FormData()
+        Object.entries(manualForm).forEach(([k, v]) => fd.append(k, v))
+        fd.append('file', manualFile)
+        res = await fetch('/api/admin/manuals/upload', { method: 'POST', headers: { Authorization: `Bearer ${tok}` }, body: fd })
+      } else {
+        res = await fetch('/api/admin/manuals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+          body: JSON.stringify(manualForm),
+        })
+      }
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
+      showToast('success', 'Notice ajoutée')
+      setManualForm({ type_appareil: '', marque: '', reference_modele: '', nom_modele: '', contenu_texte: '' })
+      setManualFile(null)
+      fetchManuals(manualSearch)
+    } catch (e) { showToast('error', e.message || 'Erreur lors de l\'ajout') }
+    setManualSaving(false)
+  }
+
+  const deleteManual = async (id) => {
+    if (!confirm('Supprimer cette notice ?')) return
+    try {
+      const tok = getToken()
+      const res = await fetch(`/api/admin/manuals/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${tok}` } })
+      if (!res.ok) throw new Error()
+      showToast('success', 'Notice supprimée')
+      fetchManuals(manualSearch)
+    } catch { showToast('error', 'Erreur lors de la suppression') }
+  }
+
+  const importCsv = async () => {
+    if (!csvFile) return
+    setCsvImporting(true)
+    setCsvResult(null)
+    try {
+      const tok = getToken()
+      const fd = new FormData()
+      fd.append('file', csvFile)
+      const res = await fetch('/api/admin/manuals/import', { method: 'POST', headers: { Authorization: `Bearer ${tok}` }, body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
+      setCsvResult(data)
+      showToast('success', `${data.inserted}/${data.total} notices importées`)
+      setCsvFile(null)
+      fetchManuals(manualSearch)
+    } catch (e) { showToast('error', e.message || 'Erreur lors de l\'import') }
+    setCsvImporting(false)
   }
 
   const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 4000) }
@@ -826,12 +923,151 @@ export default function AdminDashboard() {
     </div>
   )
 
+  // ── Bibliothèque de notices techniques ────────────────────────────────────
+
+  const renderLibrary = () => {
+    const tree = {}
+    for (const m of manuals) {
+      tree[m.type_appareil] = tree[m.type_appareil] || {}
+      tree[m.type_appareil][m.marque] = tree[m.type_appareil][m.marque] || []
+      tree[m.type_appareil][m.marque].push(m)
+    }
+    const toggleTree = (key) => setTreeExpanded(p => ({ ...p, [key]: !p[key] }))
+
+    return (
+      <div>
+        <SectionHeader title="Bibliothèque de notices" subtitle="Notices techniques utilisées par l'IA pour des réponses précises par modèle" />
+        {toast && <Alert type={toast.type}><Icon name={toast.type === 'success' ? 'check' : 'warning'} size={14} />{toast.msg}</Alert>}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '18px', alignItems: 'start' }}>
+          {/* Arborescence + recherche */}
+          <Card title="Notices enregistrées" action={<Badge label={manuals.length} variant="info" />} noPad>
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
+              <div style={{ position: 'relative' }}>
+                <div style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }}>
+                  <Icon name="search" size={13} color="#94a3b8" />
+                </div>
+                <input
+                  value={manualSearch}
+                  onChange={e => { setManualSearch(e.target.value); fetchManuals(e.target.value) }}
+                  placeholder="Rechercher par référence, marque, type..."
+                  style={{ ...input, paddingLeft: '30px' }}
+                />
+              </div>
+            </div>
+            <div style={{ maxHeight: '480px', overflowY: 'auto', padding: '6px 0' }}>
+              {manualsLoading ? (
+                <div style={{ padding: '18px' }}><Skeleton h="60px" /></div>
+              ) : Object.keys(tree).length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '28px', color: '#94a3b8', fontSize: '13px' }}>Aucune notice trouvée</div>
+              ) : Object.entries(tree).map(([type, marques]) => (
+                <div key={type}>
+                  <button onClick={() => toggleTree(type)} style={{ width: '100%', background: 'none', border: 'none', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                    <Icon name="chevron" size={11} color="#94a3b8" strokeWidth={2} style={{ transform: treeExpanded[type] ? 'rotate(90deg)' : 'none' }} />
+                    <Icon name="folder" size={14} color="#64748b" />
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{type}</span>
+                  </button>
+                  {treeExpanded[type] && Object.entries(marques).map(([marque, refs]) => (
+                    <div key={marque} style={{ paddingLeft: '20px' }}>
+                      <button onClick={() => toggleTree(`${type}__${marque}`)} style={{ width: '100%', background: 'none', border: 'none', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                        <Icon name="chevron" size={10} color="#cbd5e1" strokeWidth={2} style={{ transform: treeExpanded[`${type}__${marque}`] ? 'rotate(90deg)' : 'none' }} />
+                        <Icon name="folder" size={13} color="#94a3b8" />
+                        <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#374151' }}>{marque}</span>
+                        <span style={{ fontSize: '11px', color: '#94a3b8' }}>({refs.length})</span>
+                      </button>
+                      {treeExpanded[`${type}__${marque}`] && refs.map(r => (
+                        <div key={r.id} style={{ paddingLeft: '34px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px 6px 34px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
+                            <Icon name="file" size={12} color="#cbd5e1" />
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: '12.5px', color: '#0f172a', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.reference_modele}</div>
+                              {r.nom_modele && <div style={{ fontSize: '11px', color: '#94a3b8' }}>{r.nom_modele}</div>}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                            {r.url_pdf && <a href={r.url_pdf} target="_blank" rel="noreferrer"><Icon name="external" size={12} color="#94a3b8" /></a>}
+                            <button onClick={() => deleteManual(r.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}>
+                              <Icon name="trash" size={12} color="#dc2626" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Formulaires d'ajout */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <Card title="Ajouter une notice">
+              <form onSubmit={submitManualForm}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <FieldGroup label="Type d'appareil">
+                    <input required value={manualForm.type_appareil} onChange={e => setManualForm(f => ({ ...f, type_appareil: e.target.value }))} placeholder="Lave-linge" style={input} />
+                  </FieldGroup>
+                  <FieldGroup label="Marque">
+                    <input required value={manualForm.marque} onChange={e => setManualForm(f => ({ ...f, marque: e.target.value }))} placeholder="Bosch" style={input} />
+                  </FieldGroup>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <FieldGroup label="Référence modèle">
+                    <input required value={manualForm.reference_modele} onChange={e => setManualForm(f => ({ ...f, reference_modele: e.target.value }))} placeholder="WAT28660FF" style={input} />
+                  </FieldGroup>
+                  <FieldGroup label="Nom du modèle (optionnel)">
+                    <input value={manualForm.nom_modele} onChange={e => setManualForm(f => ({ ...f, nom_modele: e.target.value }))} placeholder="Série 8 — 9kg" style={input} />
+                  </FieldGroup>
+                </div>
+                <FieldGroup label="PDF de la notice" hint="Le texte sera extrait automatiquement et indexé pour la recherche IA.">
+                  <input type="file" accept="application/pdf" onChange={e => setManualFile(e.target.files?.[0] || null)} style={input} />
+                </FieldGroup>
+                <FieldGroup label="Ou saisie manuelle du contenu" hint="Utilisée si aucun PDF n'est fourni.">
+                  <textarea value={manualForm.contenu_texte} onChange={e => setManualForm(f => ({ ...f, contenu_texte: e.target.value }))} rows={6} placeholder="Collez ici le texte de la notice (procédures, codes erreur, pièces...)." style={{ ...input, resize: 'vertical', lineHeight: '1.5' }} />
+                </FieldGroup>
+                <button type="submit" disabled={manualSaving} style={{ ...btnPrimary, opacity: manualSaving ? .7 : 1 }}>
+                  <Icon name="plus" size={13} color="#fff" />{manualSaving ? 'Ajout en cours...' : 'Ajouter la notice'}
+                </button>
+              </form>
+            </Card>
+
+            <Card title="Import CSV en masse">
+              <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#64748b' }}>
+                Colonnes attendues : <code style={{ background: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }}>type_appareil, marque, reference_modele, nom_modele, contenu_texte, url_pdf</code>
+              </p>
+              <FieldGroup>
+                <input type="file" accept=".csv,text/csv" onChange={e => setCsvFile(e.target.files?.[0] || null)} style={input} />
+              </FieldGroup>
+              <button onClick={importCsv} disabled={!csvFile || csvImporting} style={{ ...btnOutline, opacity: (!csvFile || csvImporting) ? .6 : 1 }}>
+                <Icon name="upload" size={13} color={accentColor} />{csvImporting ? 'Import en cours...' : 'Importer le CSV'}
+              </button>
+              {csvResult && (
+                <div style={{ marginTop: '12px' }}>
+                  <Alert type={csvResult.errors?.length ? 'warning' : 'success'}>
+                    {csvResult.inserted}/{csvResult.total} lignes importées.
+                    {csvResult.errors?.length > 0 && ` ${csvResult.errors.length} erreur(s).`}
+                  </Alert>
+                  {csvResult.errors?.length > 0 && (
+                    <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12px', color: '#dc2626' }}>
+                      {csvResult.errors.slice(0, 10).map((e, i) => <li key={i}>{e}</li>)}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </Card>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const RENDERERS = {
     dashboard_overview: renderOverview,
     dashboard_activity: renderActivity,
     users:              renderUsers,
     conversations:      renderConversations,
     devices:            renderDevices,
+    library:            renderLibrary,
     admin_prefs:        renderAdminPrefs,
     admin_appearance:   renderAdminAppearance,
     app_general:        renderAppGeneral,
