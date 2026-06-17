@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import Papa from 'papaparse'
 import { verifyAdminToken } from '../../auth/route'
-import { indexManualContent } from '../../../../../lib/manualSearch'
 
 const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -60,9 +59,6 @@ export async function POST(req) {
       }
 
       inserted++
-      if (row.contenu_texte?.trim()) {
-        indexManualContent(data.id, row.contenu_texte.trim()).catch(e => console.error('[Reparo] indexManualContent error:', e.message))
-      }
     }
 
     return NextResponse.json({ inserted, total: parsed.data.length, errors })

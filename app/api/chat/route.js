@@ -63,8 +63,8 @@ export async function POST(req) {
     let finalSystem = await getSystemPrompt(system)
 
     // Si un modèle a été détecté dans la conversation, injecte les passages
-    // les plus pertinents de sa notice technique (recherche pgvector). Si
-    // aucune notice ne correspond, on continue en mode générique sans erreur.
+    // les plus pertinents de sa notice technique (recherche par mots-clés).
+    // Si aucune notice ne correspond, on continue en mode générique sans erreur.
     const modeleDetecte = extractLatestModeleDetecte(messages)
     if (modeleDetecte) {
       const found = await findRelevantManualPassages(modeleDetecte, latestUserText(messages))

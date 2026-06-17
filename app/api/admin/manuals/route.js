@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../auth/route'
-import { indexManualContent } from '../../../../lib/manualSearch'
 
 const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -50,10 +49,5 @@ export async function POST(req) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  if (contenu_texte?.trim()) {
-    indexManualContent(data.id, contenu_texte).catch(e => console.error('[Reparo] indexManualContent error:', e.message))
-  }
-
   return NextResponse.json({ manual: data })
 }
