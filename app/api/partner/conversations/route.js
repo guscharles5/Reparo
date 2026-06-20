@@ -19,11 +19,12 @@ export async function GET(req) {
     .select('id, ref_externe, appareil_type, appareil_marque, modele, resultat, nps_score, duree_minutes, created_at')
     .eq('partner', partner.nom)
     .order('created_at', { ascending: false })
+    .limit(5000)
 
-  if (appareil) query = query.eq('appareil_type', appareil)
-  if (marque) query = query.eq('appareil_marque', marque)
+  if (appareil) query = query.ilike('appareil_type', `%${appareil}%`)
+  if (marque) query = query.ilike('appareil_marque', `%${marque}%`)
   if (from) query = query.gte('created_at', from)
-  if (to) query = query.lte('created_at', to)
+  if (to) query = query.lte('created_at', `${to}T23:59:59.999Z`)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

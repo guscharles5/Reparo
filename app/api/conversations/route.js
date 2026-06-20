@@ -33,7 +33,15 @@ const notifyPartnerIfNeeded = async (sb, conversation) => {
     timestamp: new Date().toISOString(),
   })
 
-  const result = await sendPartnerWebhook(partnerRow, payload)
+  const result = await sendPartnerWebhook(partnerRow, payload, { timeoutMs: 8000 })
+
+  await sb.from('partner_webhook_logs').insert({
+    partner_id: partnerRow.id,
+    conversation_id: conversation.id,
+    success: !!result.ok,
+    http_status: result.status ?? null,
+    error: result.error || (result.timeout ? 'Délai dépassé' : null),
+  })
 
   if (result.ok) {
     await sb.from('conversations').update({ webhook_envoye: true }).eq('id', conversation.id)
@@ -70,17 +78,24 @@ export async function POST(req) {
   const {
     messages, appareil_type, appareil_marque, id,
     partner, ref_externe, modele, resultat, duree_minutes,
+    nps_score, nps_commentaire,
   } = await req.json()
 
   const sb = getAdmin()
 
   if (id) {
-    const updates = { messages, appareil_type, appareil_marque }
+    const updates = {}
+    if (messages !== undefined) updates.messages = messages
+    if (appareil_type !== undefined) updates.appareil_type = appareil_type
+    if (appareil_marque !== undefined) updates.appareil_marque = appareil_marque
     if (modele !== undefined) updates.modele = modele
     if (resultat !== undefined) updates.resultat = resultat
     if (duree_minutes !== undefined) updates.duree_minutes = duree_minutes
-    if (partner !== undefined) updates.partner = partner
-    if (ref_externe !== undefined) updates.ref_externe = ref_externe
+    // partner/ref_externe ne sont fixés qu'à la création (branche else ci-dessous) :
+    // les accepter ici permettrait à un client de réassigner le webhook d'une
+    // conversation existante vers un autre partenaire.
+    if (nps_score !== undefined) updates.nps_score = nps_score
+    if (nps_commentaire !== undefined) updates.nps_commentaire = nps_commentaire
 
     const { data, error } = await sb
       .from('conversations')

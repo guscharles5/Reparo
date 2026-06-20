@@ -32,6 +32,8 @@ const generateToken = () => {
   return Buffer.from(`${payload}:${sig}`).toString('base64')
 }
 
+const TOKEN_TTL_MS = 8 * 60 * 60 * 1000 // 8h, aligné sur l'expiration de session côté partenaire
+
 export const verifyAdminToken = (token) => {
   try {
     const decoded = Buffer.from(token, 'base64').toString('utf8')
@@ -40,7 +42,10 @@ export const verifyAdminToken = (token) => {
     const sig = parts.pop()
     const payload = parts.join(':')
     const expected = createHmac('sha256', ADMIN_SECRET).update(payload).digest('hex')
-    return sig === expected
+    if (sig !== expected) return false
+    const issuedAt = Number(payload.split(':')[1])
+    if (!issuedAt || Date.now() - issuedAt > TOKEN_TTL_MS) return false
+    return true
   } catch { return false }
 }
 
