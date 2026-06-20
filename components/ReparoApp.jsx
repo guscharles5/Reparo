@@ -297,6 +297,10 @@ export default function ReparoApp() {
   const convIdRef      = useRef(null);  // ID de la conversation en cours dans Supabase
   const convAppareilRef = useRef(null); // ID de l'appareil lié à la conv en cours
   const imageUrlRef    = useRef(null);   // URL Supabase Storage de la dernière photo uploadée
+  const partnerRef     = useRef(null);  // partenaire CRM d'origine (paramètre URL ?partner=)
+  const refExterneRef  = useRef(null);  // référence externe du partenaire (paramètre URL ?ref=)
+  const convStartRef   = useRef(null);  // horodatage de début de la conversation en cours
+  const convResolvedRef = useRef(false); // true dès que [PROBLEME_RESOLU] a été détecté
 
   // Charge les settings admin au démarrage et toutes les 30 secondes
   // Ne déclenche un re-render que si les valeurs ont réellement changé,
@@ -324,6 +328,12 @@ export default function ReparoApp() {
     // Mode invité — "Continuer sans compte"
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
+      // Tracking partenaire — capturé une fois à l'arrivée, conservé pour
+      // toute la session afin d'être associé à chaque conversation persistée.
+      const partner = params.get("partner");
+      const ref = params.get("ref");
+      if (partner) partnerRef.current = partner;
+      if (ref) refExterneRef.current = ref;
       if (params.get("guest") === "1") {
         setAppState("main");
         return;
@@ -361,6 +371,38 @@ export default function ReparoApp() {
   useEffect(() => {
     msgEnd.current?.scrollIntoView({ behavior: "auto", block: "end" });
   }, [messages]);
+
+  // Diagnostic abandonné : si l'utilisateur quitte la page en plein diagnostic
+  // (conversation démarrée, ni résolue ni déjà notifiée), on tente un best-effort
+  // pour notifier le partenaire via le webhook générique.
+  useEffect(() => {
+    const handleUnload = () => {
+      if (!isLoggedIn || !convIdRef.current || convResolvedRef.current) return;
+      const dureeMinutes = convStartRef.current ? Math.round((Date.now() - convStartRef.current) / 60000) : null;
+      getToken().then(token => {
+        if (!token) return;
+        fetch("/api/conversations", {
+          method: "POST",
+          keepalive: true,
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            id: convIdRef.current,
+            messages: messages.filter(m => typeof m.content === "string"),
+            partner: partnerRef.current || undefined,
+            ref_externe: refExterneRef.current || undefined,
+            resultat: "abandonne",
+            duree_minutes: dureeMinutes,
+          }),
+        }).catch(() => {});
+      });
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    window.addEventListener("pagehide", handleUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+      window.removeEventListener("pagehide", handleUnload);
+    };
+  }, [isLoggedIn, messages]);
 
 
 
@@ -465,8 +507,9 @@ export default function ReparoApp() {
     return { category: detectedType, brand: detectedBrand };
   };
 
-  const persistConversation = async (msgs) => {
+  const persistConversation = async (msgs, extra) => {
     if (!msgs || msgs.length < 1 || !isLoggedIn) return;
+    if (!convStartRef.current) convStartRef.current = Date.now();
     const { category, brand } = detectAppareil(msgs, sel.category, sel.brand);
     const cleanMsgs = msgs.filter(m => typeof m.content === "string");
     try {
@@ -480,6 +523,9 @@ export default function ReparoApp() {
           messages: cleanMsgs,
           appareil_type: category || null,
           appareil_marque: brand || null,
+          partner: partnerRef.current || undefined,
+          ref_externe: refExterneRef.current || undefined,
+          ...(extra || {}),
         })
       });
       if (!res.ok) return;
@@ -496,6 +542,7 @@ export default function ReparoApp() {
 
   const goHome = () => {
     convIdRef.current = null; convAppareilRef.current = null;
+    convStartRef.current = null; convResolvedRef.current = false;
     imageUrlRef.current = null;
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); imageUrlRef.current = null; setShowSAV(false); setResolved(false);
@@ -593,8 +640,13 @@ export default function ReparoApp() {
       setShowSaveAppareil(true);
     }
     // Détection résolution
-    if (reply.includes("[PROBLEME_RESOLU]") && convAppareilRef.current) {
-      updateAppareil(convAppareilRef.current, { statut: "ok" });
+    if (reply.includes("[PROBLEME_RESOLU]")) {
+      if (convAppareilRef.current) updateAppareil(convAppareilRef.current, { statut: "ok" });
+      if (!convResolvedRef.current) {
+        convResolvedRef.current = true;
+        const dureeMinutes = convStartRef.current ? Math.round((Date.now() - convStartRef.current) / 60000) : null;
+        persistConversation(msgs, { resultat: "resolu", duree_minutes: dureeMinutes, modele: detected?.modele || undefined });
+      }
     }
   };
 
@@ -1099,7 +1151,14 @@ export default function ReparoApp() {
           <div style={{ color: "white", fontWeight: "800", fontSize: "16px" }}>{sel.category || "Reparo"}</div>
           <div style={{ color: "rgba(255,255,255,.8)", fontSize: "12px" }}>Expert en dépannage électroménager</div>
         </div>
-        {appSettings?.features?.savModal !== false && <button onClick={() => setShowSAV(true)}
+        {appSettings?.features?.savModal !== false && <button onClick={() => {
+          setShowSAV(true);
+          if (convIdRef.current && !convResolvedRef.current) {
+            convResolvedRef.current = true;
+            const dureeMinutes = convStartRef.current ? Math.round((Date.now() - convStartRef.current) / 60000) : null;
+            persistConversation(messages, { resultat: "echec", duree_minutes: dureeMinutes });
+          }
+        }}
           style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "10px", padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.07 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16.92z"/></svg>
           <span style={{ fontSize: "11px", fontWeight: "700", color: "white" }}>SAV</span>

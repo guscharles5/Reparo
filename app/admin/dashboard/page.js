@@ -181,6 +181,7 @@ const NAV = [
   { id: 'conversations', label: 'Conversations', icon: 'messages' },
   { id: 'devices',       label: 'Appareils',     icon: 'wrench'   },
   { id: 'library',       label: 'Bibliothèque de notices', icon: 'book' },
+  { id: 'partners',      label: 'Partenaires', icon: 'globe' },
   {
     id: 'admin_settings', label: 'Réglages back-office', icon: 'sliders',
     children: [
@@ -191,9 +192,10 @@ const NAV = [
   {
     id: 'app_settings', label: "Réglages application", icon: 'monitor',
     children: [
-      { id: 'app_general',    label: 'Général'         },
-      { id: 'app_features',   label: 'Fonctionnalités' },
-      { id: 'app_ai',         label: 'IA & Prompt'     },
+      { id: 'app_general',       label: 'Général'         },
+      { id: 'app_features',      label: 'Fonctionnalités' },
+      { id: 'app_ai',            label: 'IA & Prompt'     },
+      { id: 'app_integrations',  label: 'Intégrations partenaires' },
     ]
   },
   { id: 'rgpd', label: 'RGPD', icon: 'shield' },
@@ -206,11 +208,13 @@ const BREADCRUMBS = {
   conversations:      ['Conversations'],
   devices:            ['Appareils'],
   library:            ['Bibliothèque de notices'],
+  partners:           ['Partenaires'],
   admin_prefs:        ['Réglages back-office', 'Préférences'],
   admin_appearance:   ['Réglages back-office', 'Apparence'],
   app_general:        ['Réglages application', 'Général'],
   app_features:       ['Réglages application', 'Fonctionnalités'],
   app_ai:             ['Réglages application', 'IA & Prompt'],
+  app_integrations:   ['Réglages application', 'Intégrations partenaires'],
   rgpd:               ['RGPD'],
 }
 
@@ -258,6 +262,15 @@ export default function AdminDashboard() {
   const [csvFile, setCsvFile]             = useState(null)
   const [csvImporting, setCsvImporting]   = useState(false)
   const [csvResult, setCsvResult]         = useState(null)
+
+  // Intégrations / dashboard partenaires
+  const [partners, setPartners]           = useState([])
+  const [partnersLoaded, setPartnersLoaded] = useState(false)
+  const [partnerForm, setPartnerForm]     = useState({ nom: '', webhook_url: '', webhook_secret: '', actif: true })
+  const [partnerSaving, setPartnerSaving] = useState(false)
+  const [activePartnerTab, setActivePartnerTab] = useState(null)
+  const [partnerStats, setPartnerStats]   = useState({}) // { [nom]: stats }
+  const [partnerStatsLoading, setPartnerStatsLoading] = useState(false)
 
   // Dropdowns
   const [userMenu, setUserMenu] = useState(false)
@@ -333,7 +346,116 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (section === 'library' && !manualsLoaded) fetchManuals()
+    if ((section === 'partners' || section === 'app_integrations') && !partnersLoaded) fetchPartners()
   }, [section])
+
+  const fetchPartners = async () => {
+    try {
+      const tok = getToken()
+      const res = await fetch('/api/admin/partners', { headers: { Authorization: `Bearer ${tok}` } })
+      const data = await res.json()
+      setPartners(data.partners || [])
+      if (!activePartnerTab && data.partners?.length) setActivePartnerTab(data.partners[0].nom)
+    } catch (e) { console.error(e) }
+    setPartnersLoaded(true)
+  }
+
+  const submitPartnerForm = async (e) => {
+    e.preventDefault()
+    if (!partnerForm.nom.trim()) return
+    setPartnerSaving(true)
+    try {
+      const tok = getToken()
+      const res = await fetch('/api/admin/partners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+        body: JSON.stringify(partnerForm),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setPartners(prev => [data.partner, ...prev])
+      setPartnerForm({ nom: '', webhook_url: '', webhook_secret: '', actif: true })
+      showToast('success', 'Partenaire ajouté')
+    } catch (e) { showToast('error', e.message || "Erreur lors de l'ajout") }
+    setPartnerSaving(false)
+  }
+
+  const togglePartnerActif = async (p) => {
+    try {
+      const tok = getToken()
+      const res = await fetch(`/api/admin/partners/${p.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ ...p, actif: !p.actif }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error()
+      setPartners(prev => prev.map(x => x.id === p.id ? data.partner : x))
+    } catch { showToast('error', 'Erreur lors de la mise à jour') }
+  }
+
+  const deletePartner = async (id) => {
+    if (!confirm('Supprimer ce partenaire ?')) return
+    try {
+      const tok = getToken()
+      await fetch(`/api/admin/partners/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${tok}` } })
+      setPartners(prev => prev.filter(p => p.id !== id))
+      showToast('success', 'Partenaire supprimé')
+    } catch { showToast('error', 'Erreur lors de la suppression') }
+  }
+
+  const fetchPartnerStats = async (nom) => {
+    if (!nom || partnerStats[nom]) return
+    setPartnerStatsLoading(true)
+    try {
+      const tok = getToken()
+      const res = await fetch(`/api/admin/partners/stats?partner=${encodeURIComponent(nom)}`, { headers: { Authorization: `Bearer ${tok}` } })
+      const data = await res.json()
+      setPartnerStats(prev => ({ ...prev, [nom]: data }))
+    } catch (e) { console.error(e) }
+    setPartnerStatsLoading(false)
+  }
+
+  useEffect(() => {
+    if (activePartnerTab) fetchPartnerStats(activePartnerTab)
+  }, [activePartnerTab])
+
+  const exportPartnerCSV = (nom, stats) => {
+    const header = ['ref_externe', 'appareil_type', 'appareil_marque', 'modele', 'resultat', 'duree_minutes', 'created_at']
+    const lines = [header.join(',')]
+    ;(stats.rows || []).forEach(r => {
+      lines.push(header.map(k => `"${(r[k] ?? '').toString().replace(/"/g, '""')}"`).join(','))
+    })
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `reparo-${nom}-diagnostics.csv`
+    a.click(); URL.revokeObjectURL(url)
+  }
+
+  const exportPartnerPDF = async (nom, stats) => {
+    const { jsPDF } = await import('jspdf')
+    await import('jspdf-autotable')
+    const doc = new jsPDF()
+    doc.setFontSize(20); doc.setTextColor(37, 99, 235); doc.text('Reparo', 14, 18)
+    doc.setFontSize(12); doc.setTextColor(15, 23, 42)
+    doc.text(`Rapport partenaire — ${nom}`, 14, 28)
+    doc.setFontSize(10); doc.setTextColor(100, 116, 139)
+    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, 14, 34)
+
+    doc.setFontSize(11); doc.setTextColor(15, 23, 42)
+    doc.text(`Diagnostics : ${stats.totalDiagnostics}`, 14, 46)
+    doc.text(`Taux de résolution : ${stats.resolutionRate}%`, 14, 53)
+    doc.text(`Économies générées estimées : ${stats.economiesGenerees} €`, 14, 60)
+
+    doc.autoTable({
+      startY: 68,
+      head: [['Top pannes', 'Occurrences']],
+      body: (stats.topPannes || []).map(p => [p.type, p.count]),
+    })
+
+    doc.save(`reparo-${nom}-rapport.pdf`)
+  }
 
   const submitManualForm = async (e) => {
     e.preventDefault()
@@ -836,6 +958,109 @@ export default function AdminDashboard() {
     </div>
   )
 
+  const renderAppIntegrations = () => (
+    <div>
+      <SectionHeader
+        title="Intégrations partenaires"
+        subtitle="Configurez les webhooks sortants envoyés à chaque fin de diagnostic, pour n'importe quel CRM partenaire."
+      />
+      {toast && <Alert type={toast.type}><Icon name={toast.type === 'success' ? 'check' : 'warning'} size={14} />{toast.msg}</Alert>}
+
+      <Card title="Ajouter un partenaire">
+        <form onSubmit={submitPartnerForm} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <FieldGroup label="Nom du partenaire" hint="Doit correspondre à la valeur du paramètre URL ?partner= utilisé par ce partenaire.">
+            <input value={partnerForm.nom} onChange={e => setPartnerForm(s => ({ ...s, nom: e.target.value }))} style={input} placeholder="Nom du partenaire" required />
+          </FieldGroup>
+          <FieldGroup label="URL du webhook">
+            <input value={partnerForm.webhook_url} onChange={e => setPartnerForm(s => ({ ...s, webhook_url: e.target.value }))} style={input} placeholder="https://crm-partenaire.example.com/webhooks/reparo" />
+          </FieldGroup>
+          <FieldGroup label="Clé secrète (signature HMAC SHA256)" hint="Envoyée dans l'en-tête X-Reparo-Signature de chaque appel.">
+            <input value={partnerForm.webhook_secret} onChange={e => setPartnerForm(s => ({ ...s, webhook_secret: e.target.value }))} style={input} placeholder="clé secrète partagée" />
+          </FieldGroup>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Toggle checked={partnerForm.actif} onChange={() => setPartnerForm(s => ({ ...s, actif: !s.actif }))} color={accentColor} />
+            <span style={{ fontSize: '13px', color: '#374151' }}>Actif</span>
+          </div>
+          <button type="submit" disabled={partnerSaving} style={{ ...btnPrimary, opacity: partnerSaving ? .7 : 1, alignSelf: 'flex-start' }}>
+            <Icon name="plus" size={13} color="#fff" />{partnerSaving ? 'Ajout...' : 'Ajouter le partenaire'}
+          </button>
+        </form>
+      </Card>
+
+      <div style={{ height: '14px' }} />
+
+      <Card title="Partenaires configurés" noPad>
+        <Table
+          cols={[
+            { key: 'nom', label: 'Partenaire' },
+            { key: 'webhook_url', label: 'Webhook' },
+            { key: 'statut', label: 'Statut' },
+            { key: 'actions', label: '', align: 'right' },
+          ]}
+          rows={partners.map(p => ({
+            nom: p.nom,
+            webhook_url: p.webhook_url || '—',
+            statut: <Badge label={p.actif ? 'Actif' : 'Inactif'} variant={p.actif ? 'success' : 'default'} />,
+            actions: (
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button onClick={() => togglePartnerActif(p)} style={{ ...btnPrimary, background: '#f8fafc', color: '#475569', border: '1.5px solid #e2e8f0', padding: '5px 10px' }}>{p.actif ? 'Désactiver' : 'Activer'}</button>
+                <button onClick={() => deletePartner(p.id)} style={{ ...btnPrimary, background: '#fff1f2', color: '#dc2626', border: '1.5px solid #fca5a5', padding: '5px 10px' }}><Icon name="trash" size={12} color="#dc2626" /></button>
+              </div>
+            ),
+          }))}
+        />
+      </Card>
+    </div>
+  )
+
+  const renderPartners = () => (
+    <div>
+      <SectionHeader title="Partenaires" subtitle="Données de diagnostic isolées par partenaire CRM" />
+      {partners.length === 0 ? (
+        <Alert type="info"><Icon name="info" size={14} />Aucun partenaire configuré. Ajoutez-en un dans Réglages application → Intégrations partenaires.</Alert>
+      ) : (
+        <>
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            {partners.map(p => (
+              <button key={p.id} onClick={() => setActivePartnerTab(p.nom)}
+                style={{ ...btnPrimary, background: activePartnerTab === p.nom ? accentColor : '#f8fafc', color: activePartnerTab === p.nom ? '#fff' : '#475569', border: `1.5px solid ${activePartnerTab === p.nom ? accentColor : '#e2e8f0'}` }}>
+                {p.nom}
+              </button>
+            ))}
+          </div>
+
+          {partnerStatsLoading && !partnerStats[activePartnerTab] ? (
+            <Skeleton h="120px" />
+          ) : partnerStats[activePartnerTab] && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '14px' }}>
+                <button onClick={() => exportPartnerCSV(activePartnerTab, partnerStats[activePartnerTab])} style={{ ...btnPrimary, background: '#f8fafc', color: '#475569', border: '1.5px solid #e2e8f0' }}>
+                  <Icon name="file" size={13} />Export CSV
+                </button>
+                <button onClick={() => exportPartnerPDF(activePartnerTab, partnerStats[activePartnerTab])} style={btnPrimary}>
+                  <Icon name="file" size={13} color="#fff" />Export PDF
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '16px' }}>
+                <StatWidget label="Diagnostics" value={partnerStats[activePartnerTab].totalDiagnostics} accent={accentColor} />
+                <StatWidget label="Taux de résolution" value={`${partnerStats[activePartnerTab].resolutionRate}%`} accent="#16a34a" />
+                <StatWidget label="Économies générées" value={`${partnerStats[activePartnerTab].economiesGenerees} €`} accent="#d97706" />
+              </div>
+
+              <Card title="Top pannes" noPad>
+                <Table
+                  cols={[{ key: 'type', label: 'Type d\'appareil' }, { key: 'count', label: 'Occurrences', align: 'right' }]}
+                  rows={partnerStats[activePartnerTab].topPannes || []}
+                />
+              </Card>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+
   const renderAppAI = () => appCfg && (
     <div>
       <SectionHeader
@@ -1068,11 +1293,13 @@ export default function AdminDashboard() {
     conversations:      renderConversations,
     devices:            renderDevices,
     library:            renderLibrary,
+    partners:           renderPartners,
     admin_prefs:        renderAdminPrefs,
     admin_appearance:   renderAdminAppearance,
     app_general:        renderAppGeneral,
     app_features:       renderAppFeatures,
     app_ai:             renderAppAI,
+    app_integrations:   renderAppIntegrations,
     rgpd:               renderRGPD,
   }
 
