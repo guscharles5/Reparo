@@ -547,6 +547,7 @@ export default function ReparoApp() {
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); imageUrlRef.current = null; setShowSAV(false); setResolved(false);
     setQuickReplies([]); setFeedback(null); setShowSaveAppareil(false); setDetectedAppareil(null); setAppareilSaved(false);
+    setNpsScore(null); setNpsComment(""); setNpsSubmitted(false);
   };
   const goTab = (t) => { setTab(t); if (t === "home") goHome(); };
 
@@ -742,6 +743,16 @@ export default function ReparoApp() {
 
   const [quickReplies, setQuickReplies] = useState([]);
   const [feedback,     setFeedback]     = useState(null);
+  const [npsScore,     setNpsScore]     = useState(null);
+  const [npsComment,   setNpsComment]   = useState("");
+  const [npsSubmitted, setNpsSubmitted] = useState(false);
+
+  const submitNps = async (score) => {
+    setNpsScore(score);
+    setFeedback(score >= 7 ? "positif" : "negatif");
+    setNpsSubmitted(true);
+    await persistConversation(messages, { nps_score: score, nps_commentaire: npsComment || undefined });
+  };
 
   const sendQuickReply = async (reply) => {
     if (reply === "Oui c'est résolu ✓") { setResolved(true); return; }
@@ -1227,11 +1238,30 @@ export default function ReparoApp() {
             </div>
             <div style={{ fontWeight: "700", color: "#16a34a", fontSize: "14px" }}>Parfait ! Ravi d'avoir pu vous aider.</div>
             <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>N'hésitez pas à revenir si la panne persiste.</div>
-            <div style={{ display: "flex", gap: "8px", marginTop: "12px", justifyContent: "center" }}>
-              <button onClick={() => setFeedback("positif")} style={{ flex: 1, background: feedback === "positif" ? "#16a34a" : "#f0fdf4", border: `1.5px solid ${feedback === "positif" ? "#16a34a" : "#86efac"}`, borderRadius: "10px", padding: "8px", fontWeight: "700", fontSize: "14px", cursor: "pointer", color: feedback === "positif" ? "white" : "#16a34a", fontFamily: "Inter,sans-serif" }}>Oui</button>
-              <button onClick={() => setFeedback("negatif")} style={{ flex: 1, background: feedback === "negatif" ? "#e11d48" : "#fff1f2", border: `1.5px solid ${feedback === "negatif" ? "#e11d48" : "#fecdd3"}`, borderRadius: "10px", padding: "8px", fontWeight: "700", fontSize: "14px", cursor: "pointer", color: feedback === "negatif" ? "white" : "#e11d48", fontFamily: "Inter,sans-serif" }}>Non</button>
-            </div>
-            {feedback && <div style={{ fontSize: "12px", marginTop: "8px", color: feedback === "positif" ? "#16a34a" : "#888" }}>{feedback === "positif" ? "Merci ! Ravi d'avoir pu vous aider." : "Merci pour votre retour, nous améliorons Reparo en continu."}</div>}
+            {!npsSubmitted ? (
+              <div style={{ marginTop: "14px" }}>
+                <div style={{ fontSize: "12px", color: "#444", fontWeight: "600", marginBottom: "8px" }}>
+                  Sur 10, quelle est la probabilité que vous recommandiez Reparo ?
+                </div>
+                <div style={{ display: "flex", gap: "4px", justifyContent: "center", flexWrap: "wrap" }}>
+                  {Array.from({ length: 11 }, (_, n) => n).map(n => (
+                    <button key={n} onClick={() => setNpsScore(n)}
+                      style={{ width: "26px", height: "26px", borderRadius: "6px", border: `1.5px solid ${npsScore === n ? PRIMARY : "#ddd"}`, background: npsScore === n ? PRIMARY : "white", color: npsScore === n ? "white" : "#444", fontWeight: "700", fontSize: "12px", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <textarea value={npsComment} onChange={e => setNpsComment(e.target.value)}
+                  placeholder="Un commentaire à ajouter ? (optionnel)" rows={2}
+                  style={{ width: "100%", marginTop: "10px", border: "1.5px solid #ddd", borderRadius: "8px", padding: "8px 10px", fontSize: "12px", fontFamily: "Inter,sans-serif", resize: "vertical", boxSizing: "border-box" }} />
+                <button onClick={() => npsScore !== null && submitNps(npsScore)} disabled={npsScore === null}
+                  style={{ marginTop: "8px", width: "100%", background: npsScore === null ? "#ccc" : PRIMARY, border: "none", borderRadius: "10px", color: "white", padding: "9px", fontWeight: "700", fontSize: "13px", cursor: npsScore === null ? "not-allowed" : "pointer", fontFamily: "Inter,sans-serif" }}>
+                  Envoyer
+                </button>
+              </div>
+            ) : (
+              <div style={{ fontSize: "12px", marginTop: "8px", color: feedback === "positif" ? "#16a34a" : "#888" }}>{feedback === "positif" ? "Merci ! Ravi d'avoir pu vous aider." : "Merci pour votre retour, nous améliorons Reparo en continu."}</div>
+            )}
             <button onClick={() => goHome()} style={{ marginTop: "12px", background: PRIMARY, border: "none", borderRadius: "10px", color: "white", padding: "10px 20px", fontWeight: "700", fontSize: "13px", cursor: "pointer", fontFamily: "Inter,sans-serif", width: "100%" }}>Nouvelle recherche</button>
           </div>
         )}

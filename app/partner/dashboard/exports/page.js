@@ -31,6 +31,7 @@ export default function PartnerExports() {
     ])
     const stats = await statsRes.json()
     const { partner } = await meRes.json()
+    if (!partner) { setExporting(false); return }
 
     const { jsPDF } = await import('jspdf')
     await import('jspdf-autotable')
@@ -42,10 +43,10 @@ export default function PartnerExports() {
     doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, 14, 34)
 
     doc.setFontSize(11); doc.setTextColor(15, 23, 42)
-    doc.text(`Diagnostics ce mois : ${stats.diagnosticsCeMois}`, 14, 46)
-    doc.text(`Taux de résolution autonome : ${stats.resolutionRate}%`, 14, 53)
+    doc.text(`Diagnostics ce mois : ${stats.diagnosticsCeMois ?? '—'}`, 14, 46)
+    doc.text(`Taux de résolution autonome : ${stats.resolutionRate ?? '—'}%`, 14, 53)
     doc.text(`NPS global : ${stats.npsScore ?? '—'} (moyenne ${stats.npsAvg ?? '—'}/10)`, 14, 60)
-    doc.text(`Économies générées estimées : ${stats.economiesGenerees} €`, 14, 67)
+    doc.text(`Économies générées estimées : ${stats.economiesGenerees ?? '—'} €`, 14, 67)
 
     doc.autoTable({
       startY: 76,
