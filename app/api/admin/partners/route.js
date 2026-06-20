@@ -22,14 +22,30 @@ export async function GET(req) {
   return NextResponse.json({ partners: data || [] })
 }
 
-// POST /api/admin/partners — crée un partenaire { nom, webhook_url, webhook_secret, actif, crm_type }
+// POST /api/admin/partners — crée un partenaire { nom, webhook_url, webhook_secret, actif, crm_type, email, password }
+// Si email + password sont fournis, crée également un compte Supabase Auth
+// (rôle "partner") permettant l'accès à /partner/dashboard.
 export async function POST(req) {
   if (!checkAuth(req)) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
 
-  const { nom, webhook_url, webhook_secret, actif, crm_type } = await req.json()
+  const { nom, webhook_url, webhook_secret, actif, crm_type, email, password } = await req.json()
   if (!nom?.trim()) return NextResponse.json({ error: 'Le nom du partenaire est requis' }, { status: 400 })
 
-  const { data, error } = await getAdmin()
+  const admin = getAdmin()
+  let userId = null
+
+  if (email?.trim() && password?.trim()) {
+    const { data: authData, error: authError } = await admin.auth.admin.createUser({
+      email: email.trim(),
+      password: password.trim(),
+      email_confirm: true,
+      user_metadata: { role: 'partner' },
+    })
+    if (authError) return NextResponse.json({ error: authError.message }, { status: 500 })
+    userId = authData.user.id
+  }
+
+  const { data, error } = await admin
     .from('partners')
     .insert({
       nom: nom.trim(),
@@ -37,6 +53,9 @@ export async function POST(req) {
       webhook_secret: webhook_secret || null,
       actif: actif !== false,
       crm_type: CRM_TYPES.includes(crm_type) ? crm_type : 'custom',
+      email: email?.trim() || null,
+      user_id: userId,
+      compte_actif: true,
     })
     .select()
     .single()
