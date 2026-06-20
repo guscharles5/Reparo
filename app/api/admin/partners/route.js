@@ -41,7 +41,12 @@ export async function POST(req) {
       email_confirm: true,
       user_metadata: { role: 'partner' },
     })
-    if (authError) return NextResponse.json({ error: authError.message }, { status: 500 })
+    if (authError) {
+      const msg = /already.*registered/i.test(authError.message)
+        ? 'Cet email est déjà utilisé par un autre compte (client ou partenaire). Choisissez un autre email pour ce partenaire.'
+        : authError.message
+      return NextResponse.json({ error: msg }, { status: 409 })
+    }
     userId = authData.user.id
   }
 
