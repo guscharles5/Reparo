@@ -1,7 +1,7 @@
 // app/api/conversations/route.js
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { sendPartnerWebhook } from '../../../lib/partnerWebhook'
+import { sendPartnerWebhook, buildWebhookPayload } from '../../../lib/partnerWebhook'
 
 // Client admin — bypasse RLS complètement
 const getAdmin = () => createClient(
@@ -22,7 +22,7 @@ const notifyPartnerIfNeeded = async (sb, conversation) => {
 
   if (!partnerRow?.actif || !partnerRow?.webhook_url) return
 
-  const result = await sendPartnerWebhook(partnerRow, {
+  const payload = buildWebhookPayload(partnerRow.crm_type, {
     partner: conversation.partner,
     ref_externe: conversation.ref_externe || null,
     resultat: conversation.resultat,
@@ -32,6 +32,8 @@ const notifyPartnerIfNeeded = async (sb, conversation) => {
     duree_minutes: conversation.duree_minutes ?? null,
     timestamp: new Date().toISOString(),
   })
+
+  const result = await sendPartnerWebhook(partnerRow, payload)
 
   if (result.ok) {
     await sb.from('conversations').update({ webhook_envoye: true }).eq('id', conversation.id)

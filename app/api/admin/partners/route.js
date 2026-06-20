@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../auth/route'
+import { CRM_TYPES } from '../../../../lib/partnerWebhook'
 
 const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -21,16 +22,22 @@ export async function GET(req) {
   return NextResponse.json({ partners: data || [] })
 }
 
-// POST /api/admin/partners — crée un partenaire { nom, webhook_url, webhook_secret, actif }
+// POST /api/admin/partners — crée un partenaire { nom, webhook_url, webhook_secret, actif, crm_type }
 export async function POST(req) {
   if (!checkAuth(req)) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
 
-  const { nom, webhook_url, webhook_secret, actif } = await req.json()
+  const { nom, webhook_url, webhook_secret, actif, crm_type } = await req.json()
   if (!nom?.trim()) return NextResponse.json({ error: 'Le nom du partenaire est requis' }, { status: 400 })
 
   const { data, error } = await getAdmin()
     .from('partners')
-    .insert({ nom: nom.trim(), webhook_url: webhook_url || null, webhook_secret: webhook_secret || null, actif: actif !== false })
+    .insert({
+      nom: nom.trim(),
+      webhook_url: webhook_url || null,
+      webhook_secret: webhook_secret || null,
+      actif: actif !== false,
+      crm_type: CRM_TYPES.includes(crm_type) ? crm_type : 'custom',
+    })
     .select()
     .single()
 

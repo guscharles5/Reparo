@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../../auth/route'
+import { CRM_TYPES } from '../../../../../lib/partnerWebhook'
 
 const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -15,11 +16,11 @@ const checkAuth = (req) => {
 export async function PUT(req, { params }) {
   if (!checkAuth(req)) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
 
-  const { nom, webhook_url, webhook_secret, actif } = await req.json()
+  const { nom, webhook_url, webhook_secret, actif, crm_type } = await req.json()
 
   const { data, error } = await getAdmin()
     .from('partners')
-    .update({ nom, webhook_url, webhook_secret, actif })
+    .update({ nom, webhook_url, webhook_secret, actif, crm_type: CRM_TYPES.includes(crm_type) ? crm_type : 'custom' })
     .eq('id', params.id)
     .select()
     .single()
