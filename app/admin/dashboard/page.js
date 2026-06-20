@@ -218,6 +218,100 @@ const BREADCRUMBS = {
   rgpd:               ['RGPD'],
 }
 
+// ── Presets CRM ──────────────────────────────────────────────────────────────
+// Le crm_type d'un partenaire ne change QUE la forme du payload webhook
+// (mapping de champs propre à chaque CRM) — aucun nom de partenaire n'y est lié.
+const CRM_PRESETS = [
+  {
+    value: 'salesforce',
+    label: 'Salesforce Service Cloud',
+    description: "Événement de plateforme (Platform Event) Reparo__DiagnosticEvent__e.",
+    examplePayload: {
+      type: 'Reparo__DiagnosticEvent__e',
+      Reparo__Partner__c: 'nom-du-partenaire',
+      Reparo__RefExterne__c: 'SAV-12345',
+      Reparo__Resultat__c: 'resolu',
+      Reparo__Appareil__c: 'Lave-linge',
+      Reparo__Marque__c: 'Bosch',
+      Reparo__Modele__c: 'WAT28660FF',
+      Reparo__DureeMinutes__c: 12,
+      Reparo__Timestamp__c: '2026-06-20T20:30:00Z',
+    },
+    configSteps: [
+      "Créer un Platform Event nommé Reparo__DiagnosticEvent__e dans Setup > Platform Events.",
+      "Ajouter les champs personnalisés : Partner__c, RefExterne__c, Resultat__c, Appareil__c, Marque__c, Modele__c, DureeMinutes__c (Number), Timestamp__c (DateTime).",
+      "Exposer une URL de réception (Apex REST endpoint ou API Platform Event) et la renseigner comme URL du webhook côté Reparo.",
+      "Vérifier la signature HMAC SHA256 reçue dans l'en-tête X-Reparo-Signature avec la clé secrète partagée avant de traiter l'événement.",
+    ],
+  },
+  {
+    value: 'hubspot',
+    label: 'HubSpot',
+    description: "Mise à jour de propriétés personnalisées via l'API HubSpot.",
+    examplePayload: {
+      properties: {
+        reparo_partner: 'nom-du-partenaire',
+        reparo_ref_externe: 'SAV-12345',
+        reparo_resultat: 'resolu',
+        reparo_appareil: 'Lave-linge',
+        reparo_marque: 'Bosch',
+        reparo_modele: 'WAT28660FF',
+        reparo_duree_minutes: 12,
+        reparo_timestamp: '2026-06-20T20:30:00Z',
+      }
+    },
+    configSteps: [
+      "Créer les propriétés personnalisées reparo_partner, reparo_ref_externe, reparo_resultat, reparo_appareil, reparo_marque, reparo_modele, reparo_duree_minutes, reparo_timestamp (sur l'objet de votre choix : ticket, deal, contact...).",
+      "Configurer une Custom Workflow Action ou un endpoint relais qui reçoit ce payload et appelle l'API HubSpot (PATCH /crm/v3/objects/{objectType}/{id}) pour mettre à jour ces propriétés.",
+      "Renseigner l'URL de ce relais comme URL du webhook côté Reparo.",
+      "Vérifier la signature HMAC SHA256 reçue dans l'en-tête X-Reparo-Signature avec la clé secrète partagée.",
+    ],
+  },
+  {
+    value: 'zendesk',
+    label: 'Zendesk',
+    description: "Création/mise à jour d'un ticket avec champs personnalisés.",
+    examplePayload: {
+      ticket: {
+        comment: { body: 'Diagnostic Reparo — Resultat: resolu' },
+        custom_fields: [
+          { id: 'reparo_partner', value: 'nom-du-partenaire' },
+          { id: 'reparo_resultat', value: 'resolu' },
+          { id: 'reparo_appareil', value: 'Lave-linge' },
+          { id: 'reparo_modele', value: 'WAT28660FF' },
+          { id: 'reparo_duree_minutes', value: 12 },
+        ]
+      }
+    },
+    configSteps: [
+      "Créer les champs personnalisés de ticket reparo_partner, reparo_resultat, reparo_appareil, reparo_modele, reparo_duree_minutes dans Admin Center > Champs de ticket, et noter leurs IDs numériques.",
+      "Configurer un relais (middleware ou Zendesk App) qui reçoit ce payload et appelle l'API Zendesk (POST /api/v2/tickets.json) avec les IDs réels des champs.",
+      "Renseigner l'URL de ce relais comme URL du webhook côté Reparo.",
+      "Vérifier la signature HMAC SHA256 reçue dans l'en-tête X-Reparo-Signature avec la clé secrète partagée.",
+    ],
+  },
+  {
+    value: 'custom',
+    label: 'Custom (URL libre)',
+    description: "Payload JSON générique, structure stable, à adapter librement côté récepteur.",
+    examplePayload: {
+      partner: 'nom-du-partenaire',
+      ref_externe: 'SAV-12345',
+      resultat: 'resolu',
+      appareil: 'Lave-linge',
+      marque: 'Bosch',
+      modele: 'WAT28660FF',
+      duree_minutes: 12,
+      timestamp: '2026-06-20T20:30:00Z',
+    },
+    configSteps: [
+      "Exposer un endpoint HTTP POST capable de recevoir un JSON brut.",
+      "Vérifier la signature HMAC SHA256 reçue dans l'en-tête X-Reparo-Signature avec la clé secrète partagée.",
+      "Renseigner l'URL de cet endpoint comme URL du webhook côté Reparo.",
+    ],
+  },
+]
+
 // ── Page principale ─────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const router = useRouter()
@@ -266,8 +360,10 @@ export default function AdminDashboard() {
   // Intégrations / dashboard partenaires
   const [partners, setPartners]           = useState([])
   const [partnersLoaded, setPartnersLoaded] = useState(false)
-  const [partnerForm, setPartnerForm]     = useState({ nom: '', webhook_url: '', webhook_secret: '', actif: true })
+  const [partnerForm, setPartnerForm]     = useState({ nom: '', webhook_url: '', webhook_secret: '', actif: true, crm_type: 'custom' })
   const [partnerSaving, setPartnerSaving] = useState(false)
+  const [testingPartnerId, setTestingPartnerId] = useState(null)
+  const [testResults, setTestResults]     = useState({}) // { [id]: { result, message, httpStatus } }
   const [activePartnerTab, setActivePartnerTab] = useState(null)
   const [partnerStats, setPartnerStats]   = useState({}) // { [nom]: stats }
   const [partnerStatsLoading, setPartnerStatsLoading] = useState(false)
@@ -374,7 +470,7 @@ export default function AdminDashboard() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setPartners(prev => [data.partner, ...prev])
-      setPartnerForm({ nom: '', webhook_url: '', webhook_secret: '', actif: true })
+      setPartnerForm({ nom: '', webhook_url: '', webhook_secret: '', actif: true, crm_type: 'custom' })
       showToast('success', 'Partenaire ajouté')
     } catch (e) { showToast('error', e.message || "Erreur lors de l'ajout") }
     setPartnerSaving(false)
@@ -402,6 +498,69 @@ export default function AdminDashboard() {
       setPartners(prev => prev.filter(p => p.id !== id))
       showToast('success', 'Partenaire supprimé')
     } catch { showToast('error', 'Erreur lors de la suppression') }
+  }
+
+  const testPartnerWebhook = async (p) => {
+    setTestingPartnerId(p.id)
+    try {
+      const tok = getToken()
+      const res = await fetch('/api/admin/partners/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ id: p.id }),
+      })
+      const data = await res.json()
+      setTestResults(prev => ({ ...prev, [p.id]: data }))
+    } catch (e) {
+      setTestResults(prev => ({ ...prev, [p.id]: { result: 'echec', message: e.message } }))
+    }
+    setTestingPartnerId(null)
+  }
+
+  const downloadCrmDoc = async (crmType) => {
+    const preset = CRM_PRESETS.find(c => c.value === crmType) || CRM_PRESETS[CRM_PRESETS.length - 1]
+    const { jsPDF } = await import('jspdf')
+    const doc = new jsPDF()
+    let y = 18
+
+    doc.setFontSize(20); doc.setTextColor(37, 99, 235); doc.text('Reparo', 14, y); y += 10
+    doc.setFontSize(14); doc.setTextColor(15, 23, 42)
+    doc.text(`Documentation technique — ${preset.label}`, 14, y); y += 8
+    doc.setFontSize(10); doc.setTextColor(100, 116, 139)
+    doc.text(preset.description, 14, y); y += 10
+
+    doc.setFontSize(12); doc.setTextColor(15, 23, 42)
+    doc.text('Format du payload webhook', 14, y); y += 6
+    doc.setFontSize(9); doc.setFont(undefined, 'courier')
+    const payloadLines = doc.splitTextToSize(JSON.stringify(preset.examplePayload, null, 2), 180)
+    doc.text(payloadLines, 14, y); y += payloadLines.length * 4.2 + 8
+    doc.setFont(undefined, 'normal')
+
+    doc.setFontSize(12); doc.setTextColor(15, 23, 42)
+    doc.text('Instructions de configuration côté CRM', 14, y); y += 6
+    doc.setFontSize(9.5); doc.setTextColor(51, 65, 85)
+    preset.configSteps.forEach((step, i) => {
+      const lines = doc.splitTextToSize(`${i + 1}. ${step}`, 180)
+      if (y > 270) { doc.addPage(); y = 18 }
+      doc.text(lines, 14, y); y += lines.length * 5 + 2
+    })
+    y += 4
+
+    if (y > 250) { doc.addPage(); y = 18 }
+    doc.setFontSize(12); doc.setTextColor(15, 23, 42)
+    doc.text('Exemple de test avec curl', 14, y); y += 6
+    const curlExample = [
+      'curl -X POST "https://votre-endpoint.example.com/webhook" \\',
+      '  -H "Content-Type: application/json" \\',
+      '  -H "X-Reparo-Signature: <hmac_sha256_du_corps_avec_votre_cle_secrete>" \\',
+      `  -d '${JSON.stringify(preset.examplePayload)}'`,
+    ].join('\n')
+    doc.setFontSize(9); doc.setFont(undefined, 'courier')
+    const curlLines = doc.splitTextToSize(curlExample, 180)
+    doc.text(curlLines, 14, y)
+    doc.setFont(undefined, 'normal')
+
+    doc.save(`reparo-doc-webhook-${preset.value}.pdf`)
   }
 
   const fetchPartnerStats = async (nom) => {
@@ -971,6 +1130,19 @@ export default function AdminDashboard() {
           <FieldGroup label="Nom du partenaire" hint="Doit correspondre à la valeur du paramètre URL ?partner= utilisé par ce partenaire.">
             <input value={partnerForm.nom} onChange={e => setPartnerForm(s => ({ ...s, nom: e.target.value }))} style={input} placeholder="Nom du partenaire" required />
           </FieldGroup>
+          <FieldGroup label="Type de CRM" hint="Adapte automatiquement le format du payload webhook envoyé.">
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {CRM_PRESETS.map(c => {
+                const act = partnerForm.crm_type === c.value
+                return (
+                  <button key={c.value} type="button" onClick={() => setPartnerForm(s => ({ ...s, crm_type: c.value }))}
+                    style={{ ...btnPrimary, background: act ? accentColor : '#f8fafc', color: act ? '#fff' : '#475569', border: `1.5px solid ${act ? accentColor : '#e2e8f0'}` }}>
+                    {act && <Icon name="check" size={12} color="#fff" />}{c.label}
+                  </button>
+                )
+              })}
+            </div>
+          </FieldGroup>
           <FieldGroup label="URL du webhook">
             <input value={partnerForm.webhook_url} onChange={e => setPartnerForm(s => ({ ...s, webhook_url: e.target.value }))} style={input} placeholder="https://crm-partenaire.example.com/webhooks/reparo" />
           </FieldGroup>
@@ -989,25 +1161,58 @@ export default function AdminDashboard() {
 
       <div style={{ height: '14px' }} />
 
+      <Card title="Documentation technique par preset">
+        <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#64748b' }}>Format du payload, instructions de configuration côté CRM et exemple curl, pour chaque type de CRM supporté.</p>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {CRM_PRESETS.map(c => (
+            <button key={c.value} onClick={() => downloadCrmDoc(c.value)} style={{ ...btnPrimary, background: '#f8fafc', color: '#475569', border: '1.5px solid #e2e8f0' }}>
+              <Icon name="file" size={13} />Télécharger la doc technique — {c.label}
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      <div style={{ height: '14px' }} />
+
       <Card title="Partenaires configurés" noPad>
         <Table
           cols={[
             { key: 'nom', label: 'Partenaire' },
+            { key: 'crm', label: 'Type de CRM' },
             { key: 'webhook_url', label: 'Webhook' },
             { key: 'statut', label: 'Statut' },
+            { key: 'test', label: 'Test' },
             { key: 'actions', label: '', align: 'right' },
           ]}
-          rows={partners.map(p => ({
-            nom: p.nom,
-            webhook_url: p.webhook_url || '—',
-            statut: <Badge label={p.actif ? 'Actif' : 'Inactif'} variant={p.actif ? 'success' : 'default'} />,
-            actions: (
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button onClick={() => togglePartnerActif(p)} style={{ ...btnPrimary, background: '#f8fafc', color: '#475569', border: '1.5px solid #e2e8f0', padding: '5px 10px' }}>{p.actif ? 'Désactiver' : 'Activer'}</button>
-                <button onClick={() => deletePartner(p.id)} style={{ ...btnPrimary, background: '#fff1f2', color: '#dc2626', border: '1.5px solid #fca5a5', padding: '5px 10px' }}><Icon name="trash" size={12} color="#dc2626" /></button>
-              </div>
-            ),
-          }))}
+          rows={partners.map(p => {
+            const tr = testResults[p.id]
+            const testBadge = !tr ? null : tr.result === 'succes'
+              ? <Badge label={`Succès (${tr.httpStatus})`} variant="success" />
+              : tr.result === 'timeout'
+              ? <Badge label="Timeout" variant="warning" />
+              : <Badge label="Échec" variant="danger" />
+            return {
+              nom: p.nom,
+              crm: CRM_PRESETS.find(c => c.value === p.crm_type)?.label || 'Custom (URL libre)',
+              webhook_url: p.webhook_url || '—',
+              statut: <Badge label={p.actif ? 'Actif' : 'Inactif'} variant={p.actif ? 'success' : 'default'} />,
+              test: (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button onClick={() => testPartnerWebhook(p)} disabled={testingPartnerId === p.id || !p.webhook_url}
+                    style={{ ...btnPrimary, background: '#f8fafc', color: '#475569', border: '1.5px solid #e2e8f0', padding: '5px 10px', opacity: testingPartnerId === p.id ? .6 : 1 }}>
+                    {testingPartnerId === p.id ? 'Test en cours...' : 'Tester le webhook'}
+                  </button>
+                  {testBadge}
+                </div>
+              ),
+              actions: (
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <button onClick={() => togglePartnerActif(p)} style={{ ...btnPrimary, background: '#f8fafc', color: '#475569', border: '1.5px solid #e2e8f0', padding: '5px 10px' }}>{p.actif ? 'Désactiver' : 'Activer'}</button>
+                  <button onClick={() => deletePartner(p.id)} style={{ ...btnPrimary, background: '#fff1f2', color: '#dc2626', border: '1.5px solid #fca5a5', padding: '5px 10px' }}><Icon name="trash" size={12} color="#dc2626" /></button>
+                </div>
+              ),
+            }
+          })}
         />
       </Card>
     </div>
