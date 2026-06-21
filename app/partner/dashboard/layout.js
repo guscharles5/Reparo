@@ -13,6 +13,7 @@ const NAV = [
   { id: '',            label: 'Accueil',     icon: 'home' },
   { id: 'diagnostics', label: 'Diagnostics', icon: 'messages' },
   { id: 'nps',         label: 'NPS',         icon: 'activity' },
+  { id: 'sav',         label: 'Mon SAV',     icon: 'bell' },
   { id: 'exports',     label: 'Exports',     icon: 'file' },
 ]
 

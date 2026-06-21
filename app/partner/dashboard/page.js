@@ -26,7 +26,7 @@ export default function PartnerHome() {
             <StatWidget label="Économies générées" value={`${stats.economiesGenerees} €`} accent="#d97706" />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '14px', marginBottom: '18px' }}>
             <Card title="Évolution sur 6 mois">
               <BarChart data={stats.evolution6Mois} color="#2563eb" />
             </Card>
@@ -37,6 +37,44 @@ export default function PartnerHome() {
               />
             </Card>
           </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '18px' }}>
+            <Card title="Mode Bienvenue">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <StatWidget label="Utilisateurs" value={stats.bienvenue?.utilisateursUniques || 0} accent="#475569" />
+                <StatWidget label="Conversion Diagnostic" value={`${stats.bienvenue?.tauxConversionDiagnostic ?? '—'}${stats.bienvenue?.tauxConversionDiagnostic != null ? '%' : ''}`} accent="#2563eb" />
+              </div>
+            </Card>
+            <Card title="Escalades vers mon SAV">
+              <StatWidget label="Total escalades reçues" value={stats.escalades?.total || 0} accent="#d97706" />
+              <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {['rdv', 'rappel', 'chat'].map(c => (
+                  <div key={c} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#475569' }}>
+                    <span style={{ textTransform: 'capitalize' }}>{c}</span>
+                    <strong>{stats.escalades?.parCanal?.[c] || 0}</strong>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+
+          <Card title="NPS segmenté par parcours">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
+              <StatWidget label="Bienvenue" value={stats.npsParParcours?.bienvenue ?? '—'} accent="#475569" />
+              <StatWidget label="Résolu seul" value={stats.npsParParcours?.resolu ?? '—'} accent="#16a34a" />
+              <StatWidget label="Escaladé" value={stats.npsParParcours?.escalade ?? '—'} accent="#d97706" />
+              <StatWidget label="Abandonné" value={stats.npsParParcours?.abandonne ?? '—'} accent="#dc2626" />
+            </div>
+          </Card>
+
+          <div style={{ height: '14px' }} />
+
+          <Card title="Valeur générée ce mois">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <StatWidget label="Interventions évitées ce mois" value={stats.interventionsEviteesCeMois || 0} sub={`${stats.interventionsEviteesTotal || 0} au total`} accent="#16a34a" />
+              <StatWidget label="Économies ce mois" value={`${stats.economiesCeMois || 0} €`} sub={`Cumul total : ${stats.economiesGenerees} €`} accent="#d97706" />
+            </div>
+          </Card>
         </>
       )}
     </div>
