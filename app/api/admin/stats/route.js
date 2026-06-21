@@ -132,6 +132,16 @@ export async function GET(req) {
     .select('*', { count: 'exact', head: true })
     .gte('created_at', weekAgo)
 
+  // Historique d'entretien global — top types réalisés + taux de complétion des rappels
+  const { data: entretiensData } = await sb.from('entretiens').select('type_entretien')
+  const entretienTypeMap = {}
+  ;(entretiensData || []).forEach(e => { entretienTypeMap[e.type_entretien] = (entretienTypeMap[e.type_entretien] || 0) + 1 })
+  const topEntretiens = Object.entries(entretienTypeMap).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([type, count]) => ({ type, count }))
+
+  const { count: totalRappels } = await sb.from('rappels').select('*', { count: 'exact', head: true })
+  const { count: rappelsCompletes } = await sb.from('rappels').select('*', { count: 'exact', head: true }).eq('statut', 'complete')
+  const tauxCompletionRappels = totalRappels > 0 ? Math.round(((rappelsCompletes || 0) / totalRappels) * 100) : 0
+
   return NextResponse.json({
     totalUsers,
     newUsersThisWeek,
@@ -146,5 +156,6 @@ export async function GET(req) {
     modeBienvenue: { total: bienvenueCount, npsAvg: avg(npsBienvenue) },
     modeDiagnostic: { total: diagnosticCount, npsAvg: avg(npsDiagnostic) },
     escalades: { total: escaladesSav, parCanal: escaladesParCanal },
+    entretiens: { total: entretiensData?.length || 0, topTypes: topEntretiens, tauxCompletionRappels },
   })
 }

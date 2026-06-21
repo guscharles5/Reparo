@@ -698,6 +698,17 @@ export default function AdminDashboard() {
             </Card>
           </div>
         )}
+
+        {!loading && stats && (
+          <div style={{ marginTop: '18px' }}>
+            <Card title="Historique d'entretien global" noPad action={<Badge label={`Taux de complétion rappels : ${stats.entretiens?.tauxCompletionRappels ?? 0}%`} variant="info" />}>
+              <Table
+                cols={[{ key: 'type', label: 'Type d\'entretien' }, { key: 'count', label: 'Réalisations', align: 'right' }]}
+                rows={(stats.entretiens?.topTypes || []).map(e => ({ type: e.type, count: <strong>{e.count}</strong> }))}
+              />
+            </Card>
+          </div>
+        )}
       </div>
     )
   }
