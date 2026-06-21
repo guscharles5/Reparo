@@ -27,6 +27,7 @@ const NAV = [
   { id: 'devices',       label: 'Appareils',     icon: 'wrench'   },
   { id: 'library',       label: 'Bibliothèque de notices', icon: 'book' },
   { id: 'partners',      label: 'Partenaires', icon: 'globe' },
+  { id: 'releases',      label: 'Releases', icon: 'upload' },
   {
     id: 'admin_settings', label: 'Réglages back-office', icon: 'sliders',
     children: [
@@ -54,6 +55,7 @@ const BREADCRUMBS = {
   devices:            ['Appareils'],
   library:            ['Bibliothèque de notices'],
   partners:           ['Partenaires'],
+  releases:           ['Releases'],
   admin_prefs:        ['Réglages back-office', 'Préférences'],
   admin_appearance:   ['Réglages back-office', 'Apparence'],
   app_general:        ['Réglages application', 'Général'],
@@ -213,6 +215,22 @@ export default function AdminDashboard() {
   const [partnerStats, setPartnerStats]   = useState({}) // { [nom]: stats }
   const [partnerStatsLoading, setPartnerStatsLoading] = useState(false)
 
+  // Releases (release management multi-tenant)
+  const [releases, setReleases]             = useState([])
+  const [releasesLoaded, setReleasesLoaded] = useState(false)
+  const [releasesLoading, setReleasesLoading] = useState(false)
+  const [activeReleaseId, setActiveReleaseId] = useState(null)
+  const [releaseDetail, setReleaseDetail]   = useState(null)
+  const [releaseDetailLoading, setReleaseDetailLoading] = useState(false)
+  const [forcingPartnerId, setForcingPartnerId] = useState(null)
+  const [showReleaseForm, setShowReleaseForm] = useState(false)
+  const [releaseForm, setReleaseForm] = useState({
+    version: '', titre: '', type: 'mineure', resume: '',
+    ce_qui_change: '', ce_qui_ne_change_pas: '', impact_technique: '',
+    actions_requises: 'Aucune', date_disponibilite: '', date_limite_autorisation: '',
+  })
+  const [releaseSaving, setReleaseSaving] = useState(false)
+
   // Dropdowns
   const [userMenu, setUserMenu] = useState(false)
   const [notifDrop, setNotifDrop] = useState(false)
@@ -288,6 +306,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (section === 'library' && !manualsLoaded) fetchManuals()
     if ((section === 'partners' || section === 'app_integrations') && !partnersLoaded) fetchPartners()
+    if (section === 'releases' && !releasesLoaded) fetchReleases()
   }, [section])
 
   const fetchPartners = async () => {
@@ -545,6 +564,92 @@ export default function AdminDashboard() {
       fetchManuals(manualSearch)
     } catch (e) { showToast('error', e.message || 'Erreur lors de l\'import') }
     setCsvImporting(false)
+  }
+
+  // ── Releases (release management multi-tenant) ────────────────────────────
+
+  const fetchReleases = async () => {
+    setReleasesLoading(true)
+    try {
+      const tok = getToken()
+      const res = await fetch('/api/admin/releases', { headers: { Authorization: `Bearer ${tok}` } })
+      const data = await res.json()
+      setReleases(data.releases || [])
+    } catch (e) { console.error(e) }
+    setReleasesLoaded(true)
+    setReleasesLoading(false)
+  }
+
+  const fetchReleaseDetail = async (id) => {
+    setActiveReleaseId(id)
+    setReleaseDetailLoading(true)
+    try {
+      const tok = getToken()
+      const res = await fetch(`/api/admin/releases/${id}`, { headers: { Authorization: `Bearer ${tok}` } })
+      const data = await res.json()
+      setReleaseDetail(data)
+    } catch (e) { console.error(e) }
+    setReleaseDetailLoading(false)
+  }
+
+  const parseJsonArrayField = (text) =>
+    text.split('\n').map(l => l.trim()).filter(Boolean)
+
+  const parseImpactField = (text) => {
+    const obj = {}
+    text.split('\n').forEach(line => {
+      const idx = line.indexOf(':')
+      if (idx === -1) return
+      const key = line.slice(0, idx).trim()
+      const value = line.slice(idx + 1).trim()
+      if (key) obj[key] = value
+    })
+    return obj
+  }
+
+  const submitReleaseForm = async (e) => {
+    e.preventDefault()
+    if (!releaseForm.version.trim() || !releaseForm.titre.trim()) return
+    setReleaseSaving(true)
+    try {
+      const tok = getToken()
+      const res = await fetch('/api/admin/releases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({
+          ...releaseForm,
+          ce_qui_change: parseJsonArrayField(releaseForm.ce_qui_change),
+          ce_qui_ne_change_pas: parseJsonArrayField(releaseForm.ce_qui_ne_change_pas),
+          impact_technique: parseImpactField(releaseForm.impact_technique),
+          date_disponibilite: releaseForm.date_disponibilite || undefined,
+          date_limite_autorisation: releaseForm.date_limite_autorisation || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setReleases(prev => [{ ...data.release, partenairesSummary: {} }, ...prev])
+      setReleaseForm({ version: '', titre: '', type: 'mineure', resume: '', ce_qui_change: '', ce_qui_ne_change_pas: '', impact_technique: '', actions_requises: 'Aucune', date_disponibilite: '', date_limite_autorisation: '' })
+      setShowReleaseForm(false)
+      showToast('success', 'Release créée')
+    } catch (e) { showToast('error', e.message || 'Erreur lors de la création') }
+    setReleaseSaving(false)
+  }
+
+  const forceDeployPartner = async (releaseId, partnerId) => {
+    setForcingPartnerId(partnerId)
+    try {
+      const tok = getToken()
+      const res = await fetch(`/api/admin/releases/${releaseId}/force`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ partnerId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      showToast('success', 'Déploiement forcé')
+      await fetchReleaseDetail(releaseId)
+    } catch (e) { showToast('error', e.message || 'Erreur lors du déploiement forcé') }
+    setForcingPartnerId(null)
   }
 
   const showToast = (type, msg) => { setToast({ type, msg }); setTimeout(() => setToast(null), 4000) }
@@ -1221,6 +1326,153 @@ export default function AdminDashboard() {
     </div>
   )
 
+  const RELEASE_TYPE_BADGE = { mineure: 'default', majeure: 'info', critique: 'danger' }
+  const RELEASE_GLOBAL_BADGE = { preparation: 'default', envoyee: 'warning', deployee: 'success' }
+  const RELEASE_PARTNER_BADGE = { en_attente: 'warning', autorisee: 'info', reportee: 'default', deployee: 'success', forcee: 'success' }
+  const RELEASE_PARTNER_LABEL = { en_attente: 'En attente', autorisee: 'Autorisée', reportee: 'Reportée', deployee: 'Déployée', forcee: 'Déployée (forcée)' }
+
+  const renderReleases = () => {
+    if (activeReleaseId) {
+      const back = () => { setActiveReleaseId(null); setReleaseDetail(null) }
+      if (releaseDetailLoading || !releaseDetail) {
+        return (
+          <div>
+            <SectionHeader title="Release" action={<button onClick={back} style={btnOutline}>Retour</button>} />
+            <Skeleton h="200px" />
+          </div>
+        )
+      }
+      const { release, partenaires } = releaseDetail
+      return (
+        <div>
+          <SectionHeader
+            title={`${release.titre} (${release.version})`}
+            subtitle={release.resume}
+            action={<button onClick={back} style={btnOutline}>Retour aux releases</button>}
+          />
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <Badge label={release.type} variant={RELEASE_TYPE_BADGE[release.type] || 'default'} />
+            <Badge label={release.statut_global} variant={RELEASE_GLOBAL_BADGE[release.statut_global] || 'default'} />
+          </div>
+          <Card title="Statut par partenaire" noPad>
+            <Table
+              cols={[
+                { key: 'nom', label: 'Partenaire' },
+                { key: 'statut', label: 'Statut' },
+                { key: 'date_autorisation', label: 'Autorisation' },
+                { key: 'date_deploiement', label: 'Déploiement' },
+                { key: 'actions', label: '', align: 'right' },
+              ]}
+              rows={(partenaires || []).map(p => ({
+                nom: p.nom,
+                statut: <Badge label={RELEASE_PARTNER_LABEL[p.statut] || p.statut} variant={RELEASE_PARTNER_BADGE[p.statut] || 'default'} />,
+                date_autorisation: p.date_autorisation ? new Date(p.date_autorisation).toLocaleString('fr-FR') : '—',
+                date_deploiement: p.date_deploiement ? new Date(p.date_deploiement).toLocaleString('fr-FR') : '—',
+                actions: p.statut === 'en_attente' ? (
+                  <button
+                    onClick={() => forceDeployPartner(release.id, p.partner_id)}
+                    disabled={forcingPartnerId === p.partner_id}
+                    style={{ ...btnPrimary, background: '#dc2626', opacity: forcingPartnerId === p.partner_id ? .7 : 1 }}
+                  >
+                    Forcer le déploiement
+                  </button>
+                ) : null,
+              }))}
+            />
+          </Card>
+        </div>
+      )
+    }
+
+    return (
+      <div>
+        <SectionHeader
+          title="Releases"
+          subtitle="Gestion des mises à jour de l'application mère déployées vers les back-offices partenaires"
+          action={<button onClick={() => setShowReleaseForm(s => !s)} style={btnPrimary}><Icon name="plus" size={13} color="#fff" />Nouvelle release</button>}
+        />
+        {toast && <Alert type={toast.type}><Icon name={toast.type === 'success' ? 'check' : 'warning'} size={14} />{toast.msg}</Alert>}
+
+        {showReleaseForm && (
+          <Card title="Créer une release">
+            <form onSubmit={submitReleaseForm}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: '10px' }}>
+                <FieldGroup label="Version">
+                  <input required value={releaseForm.version} onChange={e => setReleaseForm(f => ({ ...f, version: e.target.value }))} placeholder="2.4.0" style={input} />
+                </FieldGroup>
+                <FieldGroup label="Titre">
+                  <input required value={releaseForm.titre} onChange={e => setReleaseForm(f => ({ ...f, titre: e.target.value }))} placeholder="Amélioration du diagnostic IA" style={input} />
+                </FieldGroup>
+                <FieldGroup label="Type">
+                  <select value={releaseForm.type} onChange={e => setReleaseForm(f => ({ ...f, type: e.target.value }))} style={input}>
+                    <option value="mineure">Mineure</option>
+                    <option value="majeure">Majeure</option>
+                    <option value="critique">Critique</option>
+                  </select>
+                </FieldGroup>
+              </div>
+              <FieldGroup label="Résumé">
+                <input value={releaseForm.resume} onChange={e => setReleaseForm(f => ({ ...f, resume: e.target.value }))} placeholder="Résumé court de la release" style={input} />
+              </FieldGroup>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <FieldGroup label="Ce qui change" hint="Une ligne par élément">
+                  <textarea value={releaseForm.ce_qui_change} onChange={e => setReleaseForm(f => ({ ...f, ce_qui_change: e.target.value }))} rows={4} style={{ ...input, resize: 'vertical' }} />
+                </FieldGroup>
+                <FieldGroup label="Ce qui ne change pas" hint="Une ligne par élément">
+                  <textarea value={releaseForm.ce_qui_ne_change_pas} onChange={e => setReleaseForm(f => ({ ...f, ce_qui_ne_change_pas: e.target.value }))} rows={4} style={{ ...input, resize: 'vertical' }} />
+                </FieldGroup>
+              </div>
+              <FieldGroup label="Impact technique" hint="Une ligne par champ, format clé: valeur">
+                <textarea value={releaseForm.impact_technique} onChange={e => setReleaseForm(f => ({ ...f, impact_technique: e.target.value }))} rows={3} placeholder={'api: aucune rupture\nbdd: migration automatique'} style={{ ...input, resize: 'vertical' }} />
+              </FieldGroup>
+              <FieldGroup label="Actions requises">
+                <input value={releaseForm.actions_requises} onChange={e => setReleaseForm(f => ({ ...f, actions_requises: e.target.value }))} style={input} />
+              </FieldGroup>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <FieldGroup label="Date de disponibilité">
+                  <input type="datetime-local" value={releaseForm.date_disponibilite} onChange={e => setReleaseForm(f => ({ ...f, date_disponibilite: e.target.value }))} style={input} />
+                </FieldGroup>
+                <FieldGroup label="Date limite d'autorisation" hint="Utile pour les releases majeures">
+                  <input type="datetime-local" value={releaseForm.date_limite_autorisation} onChange={e => setReleaseForm(f => ({ ...f, date_limite_autorisation: e.target.value }))} style={input} />
+                </FieldGroup>
+              </div>
+              <button type="submit" disabled={releaseSaving} style={{ ...btnPrimary, opacity: releaseSaving ? .7 : 1 }}>
+                <Icon name="save" size={13} color="#fff" />{releaseSaving ? 'Création...' : 'Créer la release'}
+              </button>
+            </form>
+          </Card>
+        )}
+
+        <div style={{ height: '14px' }} />
+
+        {releasesLoading ? (
+          <Skeleton h="160px" />
+        ) : (
+          <Card title="Toutes les releases" noPad>
+            <Table
+              cols={[
+                { key: 'version', label: 'Version' },
+                { key: 'titre', label: 'Titre' },
+                { key: 'type', label: 'Type' },
+                { key: 'statut_global', label: 'Statut' },
+                { key: 'partenaires', label: 'Partenaires' },
+                { key: 'actions', label: '', align: 'right' },
+              ]}
+              rows={releases.map(r => ({
+                version: r.version,
+                titre: r.titre,
+                type: <Badge label={r.type} variant={RELEASE_TYPE_BADGE[r.type] || 'default'} />,
+                statut_global: <Badge label={r.statut_global} variant={RELEASE_GLOBAL_BADGE[r.statut_global] || 'default'} />,
+                partenaires: Object.entries(r.partenairesSummary || {}).map(([s, c]) => `${RELEASE_PARTNER_LABEL[s] || s}: ${c}`).join(' · ') || '—',
+                actions: <button onClick={() => fetchReleaseDetail(r.id)} style={btnOutline}>Voir le détail</button>,
+              }))}
+            />
+          </Card>
+        )}
+      </div>
+    )
+  }
+
   const renderAppAI = () => appCfg && (
     <div>
       <SectionHeader
@@ -1454,6 +1706,7 @@ export default function AdminDashboard() {
     devices:            renderDevices,
     library:            renderLibrary,
     partners:           renderPartners,
+    releases:           renderReleases,
     admin_prefs:        renderAdminPrefs,
     admin_appearance:   renderAdminAppearance,
     app_general:        renderAppGeneral,
