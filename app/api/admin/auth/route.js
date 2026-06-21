@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 
 const ADMIN_EMAIL    = process.env.ADMIN_EMAIL
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
@@ -25,6 +25,14 @@ const isRateLimited = (ip) => {
 }
 
 const resetAttempts = (ip) => attempts.delete(ip)
+
+// Comparaison à temps constant (résiste aux attaques par mesure de timing) :
+// on compare des empreintes HMAC de longueur fixe plutôt que les chaînes brutes.
+const safeEqual = (a, b) => {
+  const ha = createHmac('sha256', ADMIN_SECRET).update(a || '').digest()
+  const hb = createHmac('sha256', ADMIN_SECRET).update(b || '').digest()
+  return timingSafeEqual(ha, hb)
+}
 
 const generateToken = () => {
   const payload = `${ADMIN_EMAIL}:${Date.now()}`
@@ -69,7 +77,7 @@ export async function POST(req) {
     return NextResponse.json({ error: 'Email et mot de passe requis' }, { status: 400 })
   }
 
-  if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+  if (!safeEqual(email, ADMIN_EMAIL) || !safeEqual(password, ADMIN_PASSWORD)) {
     return NextResponse.json({ error: 'Email ou mot de passe incorrect' }, { status: 401 })
   }
 

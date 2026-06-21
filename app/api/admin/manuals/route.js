@@ -21,6 +21,7 @@ export async function GET(req) {
     .from('manuals')
     .select('id, type_appareil, marque, reference_modele, nom_modele, url_pdf, date_ajout')
     .order('type_appareil').order('marque').order('reference_modele')
+    .limit(5000)
 
   if (q) {
     query = query.or(`reference_modele.ilike.%${q}%,nom_modele.ilike.%${q}%,marque.ilike.%${q}%,type_appareil.ilike.%${q}%`)
