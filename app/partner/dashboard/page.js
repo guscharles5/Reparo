@@ -70,9 +70,13 @@ export default function PartnerHome() {
           <div style={{ height: '14px' }} />
 
           <Card title="Valeur générée ce mois">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
               <StatWidget label="Interventions évitées ce mois" value={stats.interventionsEviteesCeMois || 0} sub={`${stats.interventionsEviteesTotal || 0} au total`} accent="#16a34a" />
               <StatWidget label="Économies ce mois" value={`${stats.economiesCeMois || 0} €`} sub={`Cumul total : ${stats.economiesGenerees} €`} accent="#d97706" />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <StatWidget label="Adoption calendrier d'entretien" value={stats.tauxAdoptionCalendrier != null ? `${stats.tauxAdoptionCalendrier}%` : '—'} accent="#2563eb" />
+              <StatWidget label="Économies entretien préventif" value={`${stats.economiesEntretienPreventif || 0} €`} sub="Pannes évitées grâce aux rappels" accent="#16a34a" />
             </div>
           </Card>
         </>

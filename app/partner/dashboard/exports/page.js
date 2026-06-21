@@ -50,9 +50,11 @@ export default function PartnerExports() {
     doc.text(`Économies générées ce mois : ${stats.economiesCeMois ?? '—'} €`, 14, 74)
     doc.text(`Économies cumulées depuis le partenariat : ${stats.economiesGenerees ?? '—'} €`, 14, 81)
     doc.text(`Escalades vers le SAV : ${stats.escalades?.total ?? 0}`, 14, 88)
+    doc.text(`Adoption calendrier d'entretien : ${stats.tauxAdoptionCalendrier ?? '—'}%`, 14, 95)
+    doc.text(`Économies entretien préventif : ${stats.economiesEntretienPreventif ?? 0} €`, 14, 102)
 
     doc.autoTable({
-      startY: 96,
+      startY: 112,
       head: [['Top pannes', 'Occurrences']],
       body: (stats.topPannes || []).map(p => [p.type, p.count]),
     })

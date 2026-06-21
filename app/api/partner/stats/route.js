@@ -24,5 +24,20 @@ export async function GET(req) {
   })
   const topPannes = Object.entries(panneMap).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([type, count]) => ({ type, count }))
 
-  return NextResponse.json({ ...kpis, topPannes })
+  // Calendrier d'entretien — attribué via appareils.partner (renseigné à
+  // l'enregistrement de l'appareil), pour éviter une jointure approximative
+  // par user_id.
+  const { data: appareilsPartenaire } = await admin.from('appareils').select('id').eq('partner', partner.nom)
+  const appareilIds = (appareilsPartenaire || []).map(a => a.id)
+
+  let tauxAdoptionCalendrier = null
+  let economiesEntretienPreventif = 0
+  if (appareilIds.length > 0) {
+    const { count: totalRappels } = await admin.from('rappels').select('*', { count: 'exact', head: true }).in('appareil_id', appareilIds)
+    const { count: rappelsCompletes } = await admin.from('rappels').select('*', { count: 'exact', head: true }).in('appareil_id', appareilIds).eq('statut', 'complete')
+    tauxAdoptionCalendrier = totalRappels > 0 ? Math.round(((rappelsCompletes || 0) / totalRappels) * 100) : 0
+    economiesEntretienPreventif = (rappelsCompletes || 0) * (partner.cout_intervention_evitee ?? 80)
+  }
+
+  return NextResponse.json({ ...kpis, topPannes, tauxAdoptionCalendrier, economiesEntretienPreventif })
 }
