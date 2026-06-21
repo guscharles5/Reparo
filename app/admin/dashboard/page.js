@@ -1,11 +1,16 @@
 'use client'
 
+// Fichier : page.js
+// Rôle : Tableau de bord back-office complet pour les administrateurs Reparo — statistiques globales, gestion des utilisateurs/conversations/appareils, bibliothèque de notices, gestion des partenaires (webhooks CRM, impersonation), configuration globale multi-tenant et release management
+// Dépendances : ../../../components/shared/admin-ui, /api/admin/stats, /api/admin/settings, /api/admin/manuals, /api/admin/partners, /api/admin/config, /api/admin/releases, jspdf, jspdf-autotable, tables Supabase (utilisateurs, conversations, appareils, manuels, partenaires, config_globale, releases)
+// Dernière modification : 2026-06-29
+
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Icon, useOutsideClick, Skeleton, StatWidget, BarChart, Toggle, Badge,
   Card, Table, SectionHeader, Alert, FieldGroup,
-} from '../../../components/adminUi'
+} from '../../../components/shared/admin-ui'
 
 // ── Constantes sidebar ──────────────────────────────────────────────────────
 const SIDEBAR_BG = '#1d2327'

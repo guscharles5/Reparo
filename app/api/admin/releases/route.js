@@ -1,7 +1,7 @@
-// app/api/admin/releases/route.js
-// Liste / création des releases du système de release management. La
-// logique de déploiement dépend du type : mineure = déploiement direct,
-// majeure = autorisation requise, critique = déploiement forcé immédiat.
+// Fichier : route.js
+// Rôle : GET liste toutes les releases avec résumé du statut par partenaire, POST crée une release et initialise les lignes releases_partenaires selon le type (mineure=deployee, majeure=en_attente, critique=forcee)
+// Dépendances : app/api/admin/auth/route.js (verifyAdminToken), Supabase tables releases, releases_partenaires, partners
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../auth/route'

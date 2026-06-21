@@ -1,3 +1,8 @@
+-- Migration : 007_companion_electromenager
+-- Date : 2026-06-24
+-- Description : Ajoute le mode bienvenue/diagnostic et l'escalade SAV sur conversations, crée les tables entretiens et rappels pour l'entretien préventif, et ajoute la configuration SAV connecté sur partners.
+-- Tables modifiées : conversations, entretiens, rappels, partners
+
 -- Vision "Companion Électroménager" : mode bienvenue/diagnostic, entretien
 -- préventif, escalade SAV configurable par partenaire, NPS segmenté.
 

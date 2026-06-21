@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : POST crée une notice avec upload optionnel d'un PDF (multipart, max 25 Mo) stocké dans le bucket Supabase Storage "manuals-pdf", extrait le texte du PDF via pdf-parse pour remplir contenu_texte
+// Dépendances : pdf-parse/lib/pdf-parse.js, app/api/admin/auth/route.js (verifyAdminToken), Supabase table manuals, Supabase Storage bucket manuals-pdf
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 // Import direct du module interne : le point d'entrée "pdf-parse" exécute un

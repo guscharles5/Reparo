@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : GET liste les conversations du partenaire authentifié (filtrables par appareil, marque, période), enrichies du statut calculé
+// Dépendances : lib/partnerAuth.js (getPartnerFromRequest), lib/partnerStats.js (computeStatut), Supabase table conversations
+// Dernière modification : 2026-06-29
 import { NextResponse } from 'next/server'
 import { getPartnerFromRequest } from '../../../../lib/partnerAuth'
 import { computeStatut } from '../../../../lib/partnerStats'

@@ -1,3 +1,8 @@
+-- Migration : 003_partner_integration
+-- Date : 2026-06-20
+-- Description : Ajoute le tracking partenaire/résultat sur conversations et crée la table partners pour la configuration des intégrations CRM/webhook partenaires.
+-- Tables modifiées : conversations, partners
+
 -- Intégration CRM partenaire générique — tracking, webhook sortant et config.
 -- À exécuter dans le SQL editor de Supabase.
 

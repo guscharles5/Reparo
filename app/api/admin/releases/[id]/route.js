@@ -1,6 +1,7 @@
-// app/api/admin/releases/[id]/route.js
-// Détail d'une release (admin) + transition manuelle de statut (ex: envoi
-// d'une release encore en 'preparation').
+// Fichier : route.js
+// Rôle : GET renvoie le détail d'une release (id) avec le statut de déploiement par partenaire, PATCH envoie/déploie une release encore en 'preparation' en créant les lignes releases_partenaires selon le type (mineure/majeure/critique)
+// Dépendances : app/api/admin/auth/route.js (verifyAdminToken), Supabase tables releases, releases_partenaires, partners
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../../auth/route'

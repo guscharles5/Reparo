@@ -1,9 +1,10 @@
 'use client'
-// app/partner/dashboard/releases/page.js — historique des releases de
-// l'application mère concernant ce partenaire, avec actions d'autorisation
-// pour les releases majeures en attente.
+// Fichier : releases/page.js
+// Rôle : Page "Mises à jour" listant l'historique des releases de l'application mère déployées sur le back-office du partenaire, avec actions Autoriser/Reporter pour les releases en attente d'autorisation.
+// Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/releases et /api/partner/releases/[id]
+// Dernière modification : 2026-06-29
 import { useEffect, useState } from 'react'
-import { SectionHeader, Card, Badge, Icon, Alert, btnPrimaryBase } from '../../../../components/adminUi'
+import { SectionHeader, Card, Badge, Icon, Alert, btnPrimaryBase } from '../../../../components/shared/admin-ui'
 import { partnerFetch } from '../../../../lib/partnerClient'
 
 const STATUT_BADGE = {

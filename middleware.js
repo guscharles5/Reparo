@@ -1,3 +1,7 @@
+// Fichier : middleware.js
+// Rôle : protège les routes /partner/dashboard/** en exigeant une session Supabase Auth avec le rôle "partner", sinon redirige vers /partner/login
+// Dépendances : @supabase/auth-helpers-nextjs, /partner/login
+// Dernière modification : 2026-06-29
 import { NextResponse } from 'next/server'
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 

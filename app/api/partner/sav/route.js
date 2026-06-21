@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : PATCH met à jour la configuration SAV du partenaire (connexion, URL RDV, numéro rappel, chat, délai prise en charge) dans la table partners
+// Dépendances : lib/partnerAuth.js (getPartnerFromRequest), Supabase table partners
+// Dernière modification : 2026-06-29
 // app/api/partner/sav/route.js
 // Permet au partenaire de configurer lui-même sa connexion SAV (toggle +
 // canaux). sav_garantie_fabricant reste piloté par l'admin (impacte le

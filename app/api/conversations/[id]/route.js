@@ -1,3 +1,8 @@
+// Fichier : route.js
+// Rôle : DELETE supprime une conversation appartenant à l'utilisateur authentifié
+// Dépendances : @supabase/supabase-js, next/server, table Supabase conversations
+// Dernière modification : 2026-06-29
+
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 

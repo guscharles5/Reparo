@@ -1,4 +1,7 @@
-// app/api/admin/settings/route.js
+// Fichier : route.js
+// Rôle : GET récupère les réglages applicatifs admin (langue, prompt système override, feature flags, message de maintenance) avec valeurs par défaut, POST enregistre/upsert ces réglages
+// Dépendances : app/api/admin/auth/route.js (verifyAdminToken), Supabase table admin_settings
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../auth/route'

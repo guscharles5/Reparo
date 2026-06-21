@@ -1,4 +1,8 @@
-// app/api/entretiens/route.js
+// Fichier : route.js
+// Rôle : GET retourne l'historique d'entretien de l'utilisateur (filtrable par appareil_id) ; POST enregistre un entretien réalisé via Reparo, complète les rappels en_attente correspondants et programme le rappel suivant
+// Dépendances : @supabase/supabase-js, next/server, lib/maintenanceSchedule (nextDueDateFor), tables Supabase entretiens, appareils, rappels
+// Dernière modification : 2026-06-29
+
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { nextDueDateFor } from '../../../lib/maintenanceSchedule'

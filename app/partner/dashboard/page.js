@@ -1,6 +1,10 @@
 'use client'
+// Fichier : page.js
+// Rôle : Page d'accueil ("Accueil") de l'espace partenaire, tableau de bord synthétique avec KPIs (diagnostics, résolution, NPS, économies), évolution sur 6 mois, top pannes, mode Bienvenue, escalades SAV et NPS par parcours.
+// Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/stats
+// Dernière modification : 2026-06-29
 import { useEffect, useState } from 'react'
-import { SectionHeader, Card, StatWidget, BarChart, Skeleton, Table } from '../../../components/adminUi'
+import { SectionHeader, Card, StatWidget, BarChart, Skeleton, Table } from '../../../components/shared/admin-ui'
 import { partnerFetch } from '../../../lib/partnerClient'
 
 export default function PartnerHome() {

@@ -1,6 +1,7 @@
-// app/api/admin/releases/[id]/force/route.js
-// Force le déploiement d'une release pour un partenaire précis, qu'il ait
-// autorisé ou non (typiquement utilisé après dépassement de la date limite).
+// Fichier : route.js
+// Rôle : POST force le déploiement d'une release (paramètre id) pour un partenaire précis (body.partnerId) en passant le statut de releases_partenaires à 'forcee', sans attendre son autorisation
+// Dépendances : app/api/admin/auth/route.js (verifyAdminToken), Supabase table releases_partenaires
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../../../auth/route'

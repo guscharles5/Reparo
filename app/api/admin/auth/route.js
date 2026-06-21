@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : POST authentifie l'admin (email/mot de passe via variables d'env) avec rate limiting (5 tentatives/15min par IP) et génère un token HMAC signé valable 8h ; exporte aussi verifyAdminToken() utilisé par toutes les autres routes admin
+// Dépendances : ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_SECRET (env), crypto (HMAC)
+// Dernière modification : 2026-06-29
 import { NextResponse } from 'next/server'
 import { createHmac, timingSafeEqual } from 'crypto'
 

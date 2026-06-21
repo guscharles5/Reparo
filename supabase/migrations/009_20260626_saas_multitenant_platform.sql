@@ -1,3 +1,8 @@
+-- Migration : 009_saas_multitenant_platform
+-- Date : 2026-06-26
+-- Description : Ajoute les garanties/QR code sur appareils et la personnalisation back-office sur partners, et crée le moteur de configuration à 3 couches (config_globale, config_partenaire) ainsi que le release management (releases, releases_partenaires).
+-- Tables modifiées : appareils, entretiens, partners, config_globale, config_partenaire, releases, releases_partenaires
+
 -- Plateforme SaaS multi-tenant "Companion Électroménager" : moteur de
 -- configuration à 3 couches (app mère / config globale / config partenaire),
 -- release management, garanties par appareil. Aucun nom de partenaire en dur :

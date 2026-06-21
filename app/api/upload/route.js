@@ -1,4 +1,8 @@
-// app/api/upload/route.js
+// Fichier : route.js
+// Rôle : POST valide (type MIME, taille max 8 Mo) et uploade une image envoyée par l'utilisateur authentifié dans le bucket Supabase Storage conversation-images, puis renvoie son URL publique
+// Dépendances : @supabase/supabase-js, next/server, Supabase Storage bucket conversation-images
+// Dernière modification : 2026-06-29
+
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 

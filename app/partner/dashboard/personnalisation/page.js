@@ -1,11 +1,10 @@
 'use client'
-// app/partner/dashboard/personnalisation/page.js — personnalisation
-// applicative (couche 3, config_partenaire) : logo, couleurs, prompt IA,
-// catégories d'appareils visibles, langue par défaut. Chaque champ affiche
-// un badge "Personnalisé" si le partenaire a une valeur propre, sinon
-// "Valeur par défaut" (héritée de la config globale ou de l'app mère).
+// Fichier : personnalisation/page.js
+// Rôle : Page "Personnalisation" applicative pour les utilisateurs finaux du partenaire : identité visuelle, assistant IA (nom, message de bienvenue, prompt), catégories d'appareils visibles et langue par défaut, avec badge "Personnalisé"/"Valeur par défaut" par champ.
+// Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/config, table Supabase config_partenaire
+// Dernière modification : 2026-06-29
 import { useEffect, useState } from 'react'
-import { SectionHeader, Card, FieldGroup, Badge, input, btnPrimaryBase, Icon } from '../../../../components/adminUi'
+import { SectionHeader, Card, FieldGroup, Badge, input, btnPrimaryBase, Icon } from '../../../../components/shared/admin-ui'
 import { partnerFetch } from '../../../../lib/partnerClient'
 
 const CATEGORIES = [

@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : GET liste tous les partenaires configurés, POST crée un partenaire (webhook, crm_type, SAV) et son compte Supabase Auth (rôle "partner") si email/password fournis
+// Dépendances : lib/partnerWebhook.js (CRM_TYPES), app/api/admin/auth/route.js (verifyAdminToken), Supabase table partners, Supabase Auth admin (createUser)
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../auth/route'

@@ -1,5 +1,10 @@
 'use client'
 
+// Fichier : ReparoApp.jsx
+// Rôle : composant principal de l'app cliente Reparo (chat IA, Mode Bienvenue/Diagnostic, gestion des appareils, NPS, escalade SAV)
+// Dépendances : @supabase/supabase-js, /api/chat, /api/conversations, /api/appareils, /api/entretiens, /api/rappels, /api/partner-info, /api/bienvenue-ouverture
+// Dernière modification : 2026-06-29
+
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 

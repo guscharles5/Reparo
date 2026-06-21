@@ -1,6 +1,10 @@
 'use client'
+// Fichier : nps/page.js
+// Rôle : Page de visualisation des statistiques NPS du partenaire connecté (score global, NPS par parcours, évolution mensuelle, commentaires clients filtrables par parcours).
+// Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/nps
+// Dernière modification : 2026-06-29
 import { useEffect, useState } from 'react'
-import { SectionHeader, Card, StatWidget, BarChart, Skeleton } from '../../../../components/adminUi'
+import { SectionHeader, Card, StatWidget, BarChart, Skeleton } from '../../../../components/shared/admin-ui'
 import { partnerFetch } from '../../../../lib/partnerClient'
 
 const PARCOURS_LABELS = { resolu: 'Résolu seul', echec: 'Escaladé', abandonne: 'Abandonné' }

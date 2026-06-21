@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : POST envoie un payload de test (diagnostic fictif) au webhook configuré pour un partenaire (id) et renvoie le statut HTTP de la réponse ou un échec/timeout
+// Dépendances : lib/partnerWebhook.js (sendPartnerWebhook, buildWebhookPayload), app/api/admin/auth/route.js (verifyAdminToken), Supabase table partners
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../../auth/route'

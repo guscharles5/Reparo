@@ -1,7 +1,7 @@
-// app/api/admin/config/overrides/route.js
-// Liste les partenaires ayant une personnalisation active pour une clé de
-// config_globale donnée — utilisé par l'UI admin avant d'appliquer une mise
-// à jour avec portee 'tous' (confirmation explicite d'écrasement).
+// Fichier : route.js
+// Rôle : GET liste les partenaires ayant une personnalisation active (override) pour une clé de config_globale donnée, utilisé par l'UI admin pour confirmer l'écrasement avant une mise à jour de portée 'tous'
+// Dépendances : lib/configResolver.js (partnersWithOverride), app/api/admin/auth/route.js (verifyAdminToken), Supabase table config_partenaire/partners
+// Dernière modification : 2026-06-29
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifyAdminToken } from '../../auth/route'

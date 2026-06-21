@@ -1,5 +1,8 @@
 'use client'
-// app/partner/login/page.js
+// Fichier : login/page.js
+// Rôle : Page de connexion de l'espace partenaire (email/mot de passe via Supabase Auth), vérifie le rôle "partner" et journalise la connexion avant redirection vers le dashboard.
+// Dépendances : @supabase/auth-helpers-nextjs, API /api/partner/login-log, route /partner/dashboard
+// Dernière modification : 2026-06-29
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'

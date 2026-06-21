@@ -1,5 +1,9 @@
 'use client'
 // app/admin/page.js
+// Fichier : page.js
+// Rôle : Écran de connexion réservé aux administrateurs Reparo — formulaire email/mot de passe qui appelle /api/admin/auth et stocke le token admin en sessionStorage avant redirection vers /admin/dashboard
+// Dépendances : /api/admin/auth, next/navigation
+// Dernière modification : 2026-06-29
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'

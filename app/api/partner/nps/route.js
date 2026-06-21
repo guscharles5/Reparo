@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : GET calcule les statistiques NPS du partenaire (moyenne globale, par parcours, évolution sur 6 mois, commentaires), filtrable par parcours
+// Dépendances : lib/partnerAuth.js (getPartnerFromRequest), lib/partnerStats.js (monthKey, last6Months), Supabase table conversations
+// Dernière modification : 2026-06-29
 import { NextResponse } from 'next/server'
 import { getPartnerFromRequest } from '../../../../lib/partnerAuth'
 import { monthKey, last6Months } from '../../../../lib/partnerStats'

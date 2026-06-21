@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : GET récupère une notice (manual) par id, PUT met à jour ses champs (type_appareil, marque, reference_modele, nom_modele, contenu_texte, url_pdf), DELETE supprime la notice
+// Dépendances : app/api/admin/auth/route.js (verifyAdminToken), Supabase table manuals
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../../auth/route'
