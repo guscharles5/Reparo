@@ -28,7 +28,10 @@ export async function GET(req) {
     allUsers.push(...batch)
     if (batch.length < 1000) break
   }
-  const users = { users: allUsers }
+  // Les comptes partenaires sont aussi des utilisateurs Supabase Auth
+  // (role: 'partner') — exclus ici, ce sont des logs de connexion de
+  // l'app Reparo, pas du back-office partenaire.
+  const users = { users: allUsers.filter(u => u.user_metadata?.role !== 'partner') }
   const totalUsers = users.users.length
 
   // Nouveaux utilisateurs cette semaine

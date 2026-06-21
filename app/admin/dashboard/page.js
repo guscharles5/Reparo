@@ -1372,6 +1372,31 @@ export default function AdminDashboard() {
         <Alert type="info"><Icon name="info" size={14} />Aucun partenaire configuré. Ajoutez-en un dans Réglages application → Intégrations partenaires.</Alert>
       ) : (
         <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '16px' }}>
+            <StatWidget label="Partenaires actifs" value={partners.filter(p => p.actif).length} sub={`${partners.length} au total`} accent={accentColor} />
+            <StatWidget label="SAV connecté" value={partners.filter(p => p.sav_connecte).length} accent="#16a34a" />
+            <StatWidget label="Comptes back-office actifs" value={partners.filter(p => p.compte_actif).length} accent="#7c3aed" />
+          </div>
+
+          <Card title="Statut par partenaire" noPad>
+            <Table
+              cols={[
+                { key: 'nom', label: 'Partenaire' },
+                { key: 'actif', label: 'Webhook', align: 'right' },
+                { key: 'compte_actif', label: 'Back-office', align: 'right' },
+                { key: 'sav_connecte', label: 'SAV', align: 'right' },
+              ]}
+              rows={partners.map(p => ({
+                nom: p.nom,
+                actif: <Badge label={p.actif ? 'Actif' : 'Inactif'} variant={p.actif ? 'success' : 'default'} />,
+                compte_actif: <Badge label={p.compte_actif ? 'Actif' : 'Suspendu'} variant={p.compte_actif ? 'success' : 'danger'} />,
+                sav_connecte: <Badge label={p.sav_connecte ? 'Connecté' : 'Déconnecté'} variant={p.sav_connecte ? 'success' : 'default'} />,
+              }))}
+            />
+          </Card>
+
+          <div style={{ height: '16px' }} />
+
           <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
             {partners.map(p => (
               <button key={p.id} onClick={() => setActivePartnerTab(p.nom)}
