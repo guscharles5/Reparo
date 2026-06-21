@@ -456,7 +456,7 @@ export default function ReparoApp() {
       const res = await fetch("/api/appareils", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(appareilData),
+        body: JSON.stringify({ partner: partnerRef.current || undefined, ...appareilData }),
       });
       if (!res.ok) return null;
       const { appareil } = await res.json();

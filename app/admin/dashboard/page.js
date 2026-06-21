@@ -684,6 +684,9 @@ export default function AdminDashboard() {
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#475569', padding: '8px 0', borderTop: '1px solid #f1f5f9' }}>
                 <span>NPS moyen Diagnostic</span><strong>{stats.modeDiagnostic?.npsAvg ?? '—'}</strong>
               </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#475569', padding: '8px 0', borderTop: '1px solid #f1f5f9' }}>
+                <span>Taux d'adoption calendrier d'entretien</span><strong>{stats.entretiens?.tauxCompletionRappels ?? 0}%</strong>
+              </div>
             </Card>
             <Card title="Escalades SAV">
               <StatWidget label="Total escalades" value={stats.escalades?.total || 0} accent="#d97706" />

@@ -35,7 +35,7 @@ export async function POST(req) {
   const uid = await getUserId(req)
   if (!uid) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
 
-  const { type, marque, modele, achat, statut } = await req.json()
+  const { type, marque, modele, achat, statut, partner } = await req.json()
   if (!type || !marque) return NextResponse.json({ error: 'type et marque requis' }, { status: 400 })
 
   // Vérifie si l'appareil existe déjà
@@ -63,6 +63,7 @@ export async function POST(req) {
       statut: statut || 'ok',
       pannes: 0,
       entretien: 'Entretien à jour',
+      partner: partner || null,
     })
     .select()
     .single()
