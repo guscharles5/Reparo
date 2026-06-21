@@ -22,43 +22,45 @@ export async function POST(req) {
     const formData = await req.formData()
     const file = formData.get('file')
     if (!file) return NextResponse.json({ error: 'Fichier CSV manquant' }, { status: 400 })
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Fichier trop volumineux (5 Mo max)' }, { status: 400 })
+    }
 
     const text = await file.text()
     const parsed = Papa.parse(text, { header: true, skipEmptyLines: true })
 
     const admin = getAdmin()
-    let inserted = 0
     const errors = []
+    const rows = []
 
-    for (const [i, row] of parsed.data.entries()) {
+    parsed.data.forEach((row, i) => {
       const type_appareil = row.type_appareil?.trim()
       const marque = row.marque?.trim()
       const reference_modele = row.reference_modele?.trim()
 
       if (!type_appareil || !marque || !reference_modele) {
         errors.push(`Ligne ${i + 2} : type_appareil, marque et reference_modele requis`)
-        continue
+        return
       }
 
-      const { data, error } = await admin
-        .from('manuals')
-        .insert({
-          type_appareil,
-          marque,
-          reference_modele,
-          nom_modele: row.nom_modele?.trim() || null,
-          contenu_texte: row.contenu_texte?.trim() || null,
-          url_pdf: row.url_pdf?.trim() || null,
-        })
-        .select()
-        .single()
+      rows.push({
+        type_appareil,
+        marque,
+        reference_modele,
+        nom_modele: row.nom_modele?.trim() || null,
+        contenu_texte: row.contenu_texte?.trim() || null,
+        url_pdf: row.url_pdf?.trim() || null,
+      })
+    })
 
+    let inserted = 0
+    if (rows.length > 0) {
+      const { data, error } = await admin.from('manuals').insert(rows).select()
       if (error) {
-        errors.push(`Ligne ${i + 2} : ${error.message}`)
-        continue
+        errors.push(`Insertion : ${error.message}`)
+      } else {
+        inserted = data?.length || 0
       }
-
-      inserted++
     }
 
     return NextResponse.json({ inserted, total: parsed.data.length, errors })

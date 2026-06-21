@@ -37,6 +37,9 @@ export async function POST(req) {
     let url_pdf = null
 
     if (file && typeof file === 'object') {
+      if (file.size > 25 * 1024 * 1024) {
+        return NextResponse.json({ error: 'PDF trop volumineux (25 Mo max)' }, { status: 400 })
+      }
       const buffer = Buffer.from(await file.arrayBuffer())
       const fileName = `${reference_modele.replace(/[^a-zA-Z0-9_-]/g, '_')}-${Date.now()}.pdf`
 

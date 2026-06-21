@@ -8,6 +8,34 @@ const getAdmin = () => createClient(
   process.env.SUPABASE_SERVICE_KEY
 )
 
+// Chat accessible en mode invité (sans compte) : pas d'auth obligatoire,
+// donc le rate limiting se fait par IP plutôt que par utilisateur.
+const getClientIp = (req) => req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+
+const callCounts = new Map() // ip -> { count, resetAt }
+const MAX_CALLS = 40
+const WINDOW_MS = 5 * 60 * 1000 // 5 minutes
+
+const isRateLimited = (ip) => {
+  const now = Date.now()
+  const entry = callCounts.get(ip)
+  if (!entry || now > entry.resetAt) {
+    callCounts.set(ip, { count: 1, resetAt: now + WINDOW_MS })
+    return false
+  }
+  if (entry.count >= MAX_CALLS) return true
+  entry.count++
+  return false
+}
+
+const MAX_MESSAGES = 60
+const MAX_PAYLOAD_CHARS = 80000
+
+const isValidMessages = (messages) => {
+  if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGES) return false
+  return JSON.stringify(messages).length <= MAX_PAYLOAD_CHARS
+}
+
 const MODELE_TAG_RE = /\[MODELE_DETECTE:\s*([^|]+)\|([^|]+)\|([^\]]+)\]/i
 
 // Cherche la dernière mention [MODELE_DETECTE: type|marque|modele] émise par
@@ -56,7 +84,15 @@ const getSystemPrompt = async (defaultPrompt) => {
 }
 
 export async function POST(req) {
+  if (isRateLimited(getClientIp(req))) {
+    return NextResponse.json({ error: 'Trop de requêtes, réessayez dans quelques minutes.' }, { status: 429 })
+  }
+
   const { messages, system } = await req.json()
+
+  if (!isValidMessages(messages)) {
+    return NextResponse.json({ error: 'Requête invalide' }, { status: 400 })
+  }
 
   try {
     // Charge le prompt depuis le back-office si défini, sinon utilise celui de l'app
@@ -99,6 +135,7 @@ export async function POST(req) {
 
     return NextResponse.json(data);
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('[Reparo] chat error:', err.message)
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }

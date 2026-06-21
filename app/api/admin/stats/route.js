@@ -18,9 +18,18 @@ export async function GET(req) {
 
   const sb = getAdmin()
 
-  // Total utilisateurs (via auth.users — nécessite service key)
-  const { data: users } = await sb.auth.admin.listUsers()
-  const totalUsers = users?.users?.length || 0
+  // Total utilisateurs (via auth.users — nécessite service key).
+  // listUsers() est paginé (50 par défaut) : on parcourt les pages pour ne
+  // pas sous-compter une fois la base au-delà de la première page.
+  const allUsers = []
+  for (let page = 1; page <= 20; page++) {
+    const { data } = await sb.auth.admin.listUsers({ page, perPage: 1000 })
+    const batch = data?.users || []
+    allUsers.push(...batch)
+    if (batch.length < 1000) break
+  }
+  const users = { users: allUsers }
+  const totalUsers = users.users.length
 
   // Nouveaux utilisateurs cette semaine
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -48,10 +57,10 @@ export async function GET(req) {
     .select('*', { count: 'exact', head: true })
     .gte('created_at', today.toISOString())
 
-  // Conversations par jour (7 derniers jours)
+  // Conversations par jour (7 derniers jours) — pas besoin du contenu des messages
   const { data: allConvs } = await sb
     .from('conversations')
-    .select('created_at, messages')
+    .select('created_at')
     .gte('created_at', weekAgo)
 
   const conversationsPerDay = []
@@ -63,27 +72,28 @@ export async function GET(req) {
     conversationsPerDay.push({ label, value })
   }
 
-  // Taux de résolution — on cherche [PROBLEME_RESOLU] dans les messages
-  const resolvedCount = (allConvs || []).filter(c =>
-    c.messages?.some(m => typeof m.content === 'string' && m.content.includes('[PROBLEME_RESOLU]'))
-  ).length
+  // Taux de résolution — utilise la colonne "resultat" (déjà renseignée à
+  // "resolu" par l'app dès que [PROBLEME_RESOLU] est détecté), au lieu de
+  // re-parser le JSON des messages de chaque conversation.
+  const { count: resolvedCount } = await sb
+    .from('conversations')
+    .select('*', { count: 'exact', head: true })
+    .eq('resultat', 'resolu')
   const resolutionRate = totalConversations > 0
-    ? Math.round((resolvedCount / Math.max(totalConversations, 1)) * 100)
+    ? Math.round(((resolvedCount || 0) / Math.max(totalConversations, 1)) * 100)
     : 0
 
-  // Top appareils
+  // Top appareils — colonnes légères uniquement (pas le JSON des messages)
   const { data: appareils } = await sb
     .from('conversations')
-    .select('appareil_type, appareil_marque, messages')
+    .select('appareil_type, appareil_marque, resultat')
 
   const appareilMap = {}
   ;(appareils || []).forEach(c => {
     const key = `${c.appareil_type || 'Autre'}__${c.appareil_marque || ''}`
     if (!appareilMap[key]) appareilMap[key] = { type: c.appareil_type, marque: c.appareil_marque, count: 0, resolved: 0 }
     appareilMap[key].count++
-    if (c.messages?.some(m => typeof m.content === 'string' && m.content.includes('[PROBLEME_RESOLU]'))) {
-      appareilMap[key].resolved++
-    }
+    if (c.resultat === 'resolu') appareilMap[key].resolved++
   })
 
   const topAppareils = Object.values(appareilMap)
