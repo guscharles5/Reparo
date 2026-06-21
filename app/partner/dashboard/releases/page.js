@@ -127,11 +127,34 @@ export default function PartnerReleases() {
                   {Object.keys(impact).length > 0 && (
                     <div style={{ marginBottom: '12px' }}>
                       <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '6px' }}>Impact technique</div>
-                      <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '7px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {Object.entries(impact).map(([k, v]) => (
-                          <div key={k} style={{ fontSize: '12.5px', color: '#374151' }}><strong>{k}</strong> : {String(v)}</div>
-                        ))}
-                      </div>
+                      {(impact.nouvelles_tables || impact.nouvelles_routes || impact.routes_modifiees) ? (
+                        <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '7px', padding: '10px 12px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                          {[
+                            ['Nouvelles tables', impact.nouvelles_tables],
+                            ['Nouvelles routes API', impact.nouvelles_routes],
+                            ['Routes API modifiées', impact.routes_modifiees],
+                          ].map(([label, items]) => (
+                            <div key={label}>
+                              <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '4px' }}>{label}</div>
+                              {(items || []).length === 0 ? (
+                                <div style={{ fontSize: '12px', color: '#94a3b8' }}>—</div>
+                              ) : (
+                                <ul style={{ margin: 0, paddingLeft: '14px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                  {(items || []).map((item, i) => (
+                                    <li key={i} style={{ fontSize: '12.5px', color: '#374151' }}>{item}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '7px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {Object.entries(impact).map(([k, v]) => (
+                            <div key={k} style={{ fontSize: '12.5px', color: '#374151' }}><strong>{k}</strong> : {String(v)}</div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 

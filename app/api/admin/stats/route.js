@@ -99,6 +99,31 @@ export async function GET(req) {
   let escaladesSav = 0
   const escaladesParCanal = { rdv: 0, rappel: 0, chat: 0 }
 
+  // Conversion Mode Bienvenue -> Mode Diagnostic : on a besoin de user_id +
+  // created_at par conversation (colonnes légères supplémentaires).
+  const { data: convsForConversion } = await sb
+    .from('conversations')
+    .select('user_id, mode, created_at')
+    .not('user_id', 'is', null)
+
+  let tauxConversionBienvenueDiagnostic = null
+  if (convsForConversion && convsForConversion.length > 0) {
+    const byUser = {}
+    convsForConversion.forEach(c => {
+      if (!byUser[c.user_id]) byUser[c.user_id] = []
+      byUser[c.user_id].push(c)
+    })
+    const bienvenueUserIds = Object.keys(byUser).filter(uid => byUser[uid].some(c => c.mode === 'bienvenue'))
+    if (bienvenueUserIds.length > 0) {
+      const convertedCount = bienvenueUserIds.filter(uid => {
+        const convs = byUser[uid]
+        const firstBienvenue = convs.filter(c => c.mode === 'bienvenue').sort((a, b) => new Date(a.created_at) - new Date(b.created_at))[0]
+        return convs.some(c => c.mode === 'diagnostic' && new Date(c.created_at) > new Date(firstBienvenue.created_at))
+      }).length
+      tauxConversionBienvenueDiagnostic = Math.round((convertedCount / bienvenueUserIds.length) * 100)
+    }
+  }
+
   ;(appareils || []).forEach(c => {
     const key = `${c.appareil_type || 'Autre'}__${c.appareil_marque || ''}`
     if (!appareilMap[key]) appareilMap[key] = { type: c.appareil_type, marque: c.appareil_marque, count: 0, resolved: 0 }
@@ -158,6 +183,7 @@ export async function GET(req) {
     recentUsers,
     modeBienvenue: { total: bienvenueCount, npsAvg: avg(npsBienvenue) },
     modeDiagnostic: { total: diagnosticCount, npsAvg: avg(npsDiagnostic) },
+    tauxConversionBienvenueDiagnostic,
     escalades: { total: escaladesSav, parCanal: escaladesParCanal },
     entretiens: { total: entretiensData?.length || 0, topTypes: topEntretiens, tauxCompletionRappels },
   })
