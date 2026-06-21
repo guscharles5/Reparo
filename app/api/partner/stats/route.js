@@ -15,7 +15,11 @@ export async function GET(req) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const list = rows || []
-  const kpis = buildKpis(list, partner.cout_intervention_evitee)
+  const { count: ouverturesLien } = await admin
+    .from('bienvenue_ouvertures')
+    .select('*', { count: 'exact', head: true })
+    .eq('partner_nom', partner.nom)
+  const kpis = buildKpis(list, partner.cout_intervention_evitee, ouverturesLien || 0)
 
   const panneMap = {}
   list.forEach(r => {

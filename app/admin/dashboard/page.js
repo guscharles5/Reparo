@@ -862,9 +862,10 @@ export default function AdminDashboard() {
         {!loading && stats && (
           <div style={{ marginTop: '18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
             <Card title="Mode Bienvenue vs Mode Diagnostic">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                 <StatWidget label="Entrées Bienvenue" value={stats.modeBienvenue?.total || 0} accent="#475569" />
                 <StatWidget label="Entrées Diagnostic" value={stats.modeDiagnostic?.total || 0} accent={accentColor} />
+                <StatWidget label="Taux d'ouverture lien" value={stats.modeBienvenue?.tauxOuverture != null ? `${stats.modeBienvenue.tauxOuverture}%` : '—'} sub={`${stats.modeBienvenue?.ouverturesLien || 0} ouvertures`} accent="#7c3aed" />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#475569', padding: '8px 0', borderTop: '1px solid #f1f5f9' }}>
                 <span>NPS moyen Bienvenue</span><strong>{stats.modeBienvenue?.npsAvg ?? '—'}</strong>

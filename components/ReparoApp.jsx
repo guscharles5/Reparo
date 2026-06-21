@@ -342,6 +342,15 @@ export default function ReparoApp() {
       const modeleParam = params.get("modele");
       const deviceKey = appareilParam && modeleParam ? `reparo_bienvenue_vu_${partner || ""}_${appareilParam}_${modeleParam}` : null;
       const dejaVu = deviceKey ? window.localStorage.getItem(deviceKey) === "1" : true;
+      if (params.get("mode") === "bienvenue" && partner && appareilParam && modeleParam) {
+        // Ouverture du lien loguée à chaque visite (même déjà vue), pour un
+        // vrai taux d'ouverture — distinct de l'activation de l'écran ci-dessous.
+        fetch("/api/bienvenue-ouverture", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ partner, appareil: appareilParam, modele: modeleParam }),
+        }).catch(() => {});
+      }
       if (params.get("mode") === "bienvenue" && partner && appareilParam && modeleParam && !dejaVu) {
         window.localStorage.setItem(deviceKey, "1");
         setBienvenue({ appareil: appareilParam, modele: modeleParam });
