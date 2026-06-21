@@ -336,11 +336,15 @@ export default function ReparoApp() {
       const ref = params.get("ref");
       if (partner) partnerRef.current = partner;
       if (ref) refExterneRef.current = ref;
-      if (params.get("mode") === "bienvenue") {
-        setBienvenue({
-          appareil: params.get("appareil") || "",
-          modele: params.get("modele") || "",
-        });
+      // Mode Bienvenue : les 4 conditions doivent être réunies (mode, partner,
+      // modele, et première visite sur cet appareil) — sinon Mode Diagnostic.
+      const appareilParam = params.get("appareil");
+      const modeleParam = params.get("modele");
+      const deviceKey = appareilParam && modeleParam ? `reparo_bienvenue_vu_${partner || ""}_${appareilParam}_${modeleParam}` : null;
+      const dejaVu = deviceKey ? window.localStorage.getItem(deviceKey) === "1" : true;
+      if (params.get("mode") === "bienvenue" && partner && appareilParam && modeleParam && !dejaVu) {
+        window.localStorage.setItem(deviceKey, "1");
+        setBienvenue({ appareil: appareilParam, modele: modeleParam });
       }
       if (params.get("guest") === "1") {
         setAppState("main");
@@ -637,7 +641,28 @@ export default function ReparoApp() {
     const cat = s.category || s.type || "";
     const br  = s.brand || s.marque || "";
     const mo  = s.model || s.modele || "";
-    return { cat, br, mo, ctx: [cat, br, mo].filter(Boolean).join(" ") || null };
+    const base = [cat, br, mo].filter(Boolean).join(" ") || null;
+    const ctx = base && entretienHintRef.current ? `${base}. ${entretienHintRef.current}` : base;
+    return { cat, br, mo, ctx };
+  };
+
+  // Historique d'entretien de l'appareil sur lequel un diagnostic démarre —
+  // injecté dans le contexte IA pour que le diagnostic s'appuie sur les
+  // entretiens déjà réalisés (ex: "dernier détartrage il y a 3 mois").
+  const entretienHintRef = useRef("");
+  const loadEntretienHint = async (appareilId) => {
+    entretienHintRef.current = "";
+    try {
+      const token = await getToken();
+      if (!token || !appareilId) return;
+      const res = await fetch(`/api/entretiens?appareil_id=${appareilId}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      const { entretiens: list } = await res.json();
+      if (!list || list.length === 0) return;
+      const last = [...list].sort((a, b) => new Date(b.date_realisation) - new Date(a.date_realisation))[0];
+      const moisEcoules = Math.max(0, Math.round((Date.now() - new Date(last.date_realisation).getTime()) / (30 * 24 * 3600 * 1000)));
+      entretienHintRef.current = `Dernier entretien enregistré côté utilisateur : ${last.type_entretien}, il y a ${moisEcoules} mois.`;
+    } catch (e) { console.error("[Reparo] loadEntretienHint:", e.message); }
   };
 
   const handleReplyDetection = (reply, msgs) => {
@@ -1511,6 +1536,7 @@ export default function ReparoApp() {
                     setSel({ category: a.type, brand: a.marque, model: a.modele });
                     convIdRef.current = null; convAppareilRef.current = a.id;
                     setMessages([]); setTab("home"); setScreen("chat");
+                    loadEntretienHint(a.id);
                   }
                 }} style={{ background: a.statut === "en_cours" ? "#fffbeb" : ACCENT, color: a.statut === "en_cours" ? "#d97706" : "white", border: a.statut === "en_cours" ? "1.5px solid #fcd34d" : "none", borderRadius: "10px", padding: "8px 10px", fontSize: "11px", fontWeight: "700", cursor: "pointer", fontFamily: "Inter,sans-serif", flexShrink: 0, textAlign: "center", lineHeight: "1.3" }}>
                   {a.statut === "en_cours" ? "Reprendre le diagnostic" : "Nouveau diagnostic"}
@@ -1657,10 +1683,12 @@ export default function ReparoApp() {
                 {/* Actions */}
                 <button onClick={() => {
                   setSel({ category: selectedAppareil.type, brand: selectedAppareil.marque, model: selectedAppareil.modele });
+                  convAppareilRef.current = selectedAppareil.id;
                   setSelectedAppareil(null);
                   setMessages([]);
                   convIdRef.current = null;
                   setTab("home"); setScreen("chat");
+                  loadEntretienHint(selectedAppareil.id);
                 }} style={{ width: "100%", background: ACCENT, border: "none", borderRadius: "12px", color: "white", padding: "13px", fontWeight: "700", fontSize: "14px", cursor: "pointer", fontFamily: "Inter,sans-serif", marginBottom: "8px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
                   Nouveau diagnostic
                 </button>

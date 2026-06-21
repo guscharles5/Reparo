@@ -14,6 +14,9 @@ const NAV = [
   { id: 'diagnostics', label: 'Diagnostics', icon: 'messages' },
   { id: 'nps',         label: 'NPS',         icon: 'activity' },
   { id: 'sav',         label: 'Mon SAV',     icon: 'bell' },
+  { id: 'personnalisation', label: 'Personnalisation', icon: 'palette' },
+  { id: 'backoffice',  label: 'Mon espace',  icon: 'monitor' },
+  { id: 'releases',    label: 'Mises à jour', icon: 'refresh' },
   { id: 'exports',     label: 'Exports',     icon: 'file' },
 ]
 

@@ -18,6 +18,10 @@ export async function GET(req) {
       sav_chat_url: partner.sav_chat_url,
       sav_delai_prise_en_charge: partner.sav_delai_prise_en_charge,
       sav_garantie_fabricant: !!partner.sav_garantie_fabricant,
+      backoffice_nom: partner.backoffice_nom,
+      backoffice_logo_url: partner.backoffice_logo_url,
+      backoffice_couleur: partner.backoffice_couleur,
+      backoffice_kpis_ordre: partner.backoffice_kpis_ordre || [],
     }
   })
 }
