@@ -243,7 +243,8 @@ export default function AdminDashboard() {
   const [showReleaseForm, setShowReleaseForm] = useState(false)
   const [releaseForm, setReleaseForm] = useState({
     version: '', titre: '', type: 'mineure', resume: '',
-    ce_qui_change: '', ce_qui_ne_change_pas: '', impact_technique: '',
+    ce_qui_change: '', ce_qui_ne_change_pas: '',
+    impact_nouvelles_tables: '', impact_nouvelles_routes: '', impact_routes_modifiees: '',
     actions_requises: 'Aucune', date_disponibilite: '', date_limite_autorisation: '',
   })
   const [releaseSaving, setReleaseSaving] = useState(false)
@@ -682,17 +683,8 @@ export default function AdminDashboard() {
   const parseJsonArrayField = (text) =>
     text.split('\n').map(l => l.trim()).filter(Boolean)
 
-  const parseImpactField = (text) => {
-    const obj = {}
-    text.split('\n').forEach(line => {
-      const idx = line.indexOf(':')
-      if (idx === -1) return
-      const key = line.slice(0, idx).trim()
-      const value = line.slice(idx + 1).trim()
-      if (key) obj[key] = value
-    })
-    return obj
-  }
+  const parseCsvField = (text) =>
+    text.split(',').map(v => v.trim()).filter(Boolean)
 
   const submitReleaseForm = async (e) => {
     e.preventDefault()
@@ -707,7 +699,11 @@ export default function AdminDashboard() {
           ...releaseForm,
           ce_qui_change: parseJsonArrayField(releaseForm.ce_qui_change),
           ce_qui_ne_change_pas: parseJsonArrayField(releaseForm.ce_qui_ne_change_pas),
-          impact_technique: parseImpactField(releaseForm.impact_technique),
+          impact_technique: {
+            nouvelles_tables: parseCsvField(releaseForm.impact_nouvelles_tables),
+            nouvelles_routes: parseCsvField(releaseForm.impact_nouvelles_routes),
+            routes_modifiees: parseCsvField(releaseForm.impact_routes_modifiees),
+          },
           date_disponibilite: releaseForm.date_disponibilite || undefined,
           date_limite_autorisation: releaseForm.date_limite_autorisation || undefined,
         }),
@@ -715,7 +711,7 @@ export default function AdminDashboard() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setReleases(prev => [{ ...data.release, partenairesSummary: {} }, ...prev])
-      setReleaseForm({ version: '', titre: '', type: 'mineure', resume: '', ce_qui_change: '', ce_qui_ne_change_pas: '', impact_technique: '', actions_requises: 'Aucune', date_disponibilite: '', date_limite_autorisation: '' })
+      setReleaseForm({ version: '', titre: '', type: 'mineure', resume: '', ce_qui_change: '', ce_qui_ne_change_pas: '', impact_nouvelles_tables: '', impact_nouvelles_routes: '', impact_routes_modifiees: '', actions_requises: 'Aucune', date_disponibilite: '', date_limite_autorisation: '' })
       setShowReleaseForm(false)
       showToast('success', 'Release créée')
     } catch (e) { showToast('error', e.message || 'Erreur lors de la création') }
@@ -878,6 +874,14 @@ export default function AdminDashboard() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#475569', padding: '8px 0', borderTop: '1px solid #f1f5f9' }}>
                 <span>Taux d'adoption calendrier d'entretien</span><strong>{stats.entretiens?.tauxCompletionRappels ?? 0}%</strong>
+              </div>
+              <div style={{ marginTop: '12px' }}>
+                <StatWidget
+                  label="Conversion Bienvenue → Diagnostic"
+                  value={stats.tauxConversionBienvenueDiagnostic != null ? `${stats.tauxConversionBienvenueDiagnostic}%` : '—'}
+                  sub="Utilisateurs Bienvenue ayant ensuite lancé un Diagnostic"
+                  accent={accentColor}
+                />
               </div>
             </Card>
             <Card title="Escalades SAV">
@@ -1534,8 +1538,18 @@ export default function AdminDashboard() {
                   <textarea value={releaseForm.ce_qui_ne_change_pas} onChange={e => setReleaseForm(f => ({ ...f, ce_qui_ne_change_pas: e.target.value }))} rows={4} style={{ ...input, resize: 'vertical' }} />
                 </FieldGroup>
               </div>
-              <FieldGroup label="Impact technique" hint="Une ligne par champ, format clé: valeur">
-                <textarea value={releaseForm.impact_technique} onChange={e => setReleaseForm(f => ({ ...f, impact_technique: e.target.value }))} rows={3} placeholder={'api: aucune rupture\nbdd: migration automatique'} style={{ ...input, resize: 'vertical' }} />
+              <FieldGroup label="Impact technique" hint="Listes séparées par des virgules">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                  <FieldGroup label="Nouvelles tables">
+                    <input value={releaseForm.impact_nouvelles_tables} onChange={e => setReleaseForm(f => ({ ...f, impact_nouvelles_tables: e.target.value }))} placeholder="table_a, table_b" style={input} />
+                  </FieldGroup>
+                  <FieldGroup label="Nouvelles routes API">
+                    <input value={releaseForm.impact_nouvelles_routes} onChange={e => setReleaseForm(f => ({ ...f, impact_nouvelles_routes: e.target.value }))} placeholder="/api/x, /api/y" style={input} />
+                  </FieldGroup>
+                  <FieldGroup label="Routes API modifiées">
+                    <input value={releaseForm.impact_routes_modifiees} onChange={e => setReleaseForm(f => ({ ...f, impact_routes_modifiees: e.target.value }))} placeholder="/api/z" style={input} />
+                  </FieldGroup>
+                </div>
               </FieldGroup>
               <FieldGroup label="Actions requises">
                 <input value={releaseForm.actions_requises} onChange={e => setReleaseForm(f => ({ ...f, actions_requises: e.target.value }))} style={input} />

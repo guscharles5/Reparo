@@ -40,9 +40,10 @@ export default function PartnerHome() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '18px' }}>
             <Card title="Mode Bienvenue">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                 <StatWidget label="Utilisateurs" value={stats.bienvenue?.utilisateursUniques || 0} accent="#475569" />
                 <StatWidget label="Conversion Diagnostic" value={`${stats.bienvenue?.tauxConversionDiagnostic ?? '—'}${stats.bienvenue?.tauxConversionDiagnostic != null ? '%' : ''}`} accent="#2563eb" />
+                <StatWidget label="Taux de rétention" value={`${stats.bienvenue?.tauxRetention ?? '—'}${stats.bienvenue?.tauxRetention != null ? '%' : ''}`} sub="2e conversation sous 30 jours" accent="#16a34a" />
               </div>
             </Card>
             <Card title="Escalades vers mon SAV">

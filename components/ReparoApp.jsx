@@ -1426,12 +1426,13 @@ export default function ReparoApp() {
               {partnerInfo?.savConnecte && failedAttemptsRef.current >= 3 ? (
                 <>
                   <div style={{ fontSize: "13px", color: "#444", marginBottom: "14px", lineHeight: "1.5" }}>
-                    Votre problème nécessite l'intervention d'un expert {partnerInfo.nom}. J'ai transmis tout le contexte à votre équipe — vous n'aurez rien à répéter.
+                    Votre problème nécessite un expert {partnerInfo?.nom || "Reparo"}. J'ai transmis tout le contexte à votre équipe — vous n'aurez rien à répéter.
                   </div>
                   <div style={{ background: "#f8fafc", borderRadius: "10px", padding: "12px 14px", marginBottom: "14px", border: "1px solid #eee", fontSize: "12px", color: "#555", lineHeight: "1.6" }}>
                     <div><strong>Appareil :</strong> {sel.brand || "—"} {sel.category || ""}{sel.model ? ` (${sel.model})` : ""}</div>
                     <div><strong>Étapes tentées :</strong> {failedAttemptsRef.current}</div>
                     <div><strong>Symptôme :</strong> {typeof messages[0]?.content === "string" ? messages[0].content.slice(0, 100) : "—"}</div>
+                    <div><strong>Photos envoyées :</strong> {messages.filter(m => Array.isArray(m.content) && m.content.some(c => c?.type === "image")).length > 0 ? `${messages.filter(m => Array.isArray(m.content) && m.content.some(c => c?.type === "image")).length}` : "Aucune photo envoyée"}</div>
                   </div>
                   {/* Garantie fabricant : SAV fabricant en premier + SAV partenaire affiché aussi */}
                   {garantieType === "fabricant" && (
