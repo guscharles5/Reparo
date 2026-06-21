@@ -205,7 +205,7 @@ export default function AdminDashboard() {
   // Intégrations / dashboard partenaires
   const [partners, setPartners]           = useState([])
   const [partnersLoaded, setPartnersLoaded] = useState(false)
-  const [partnerForm, setPartnerForm]     = useState({ nom: '', webhook_url: '', webhook_secret: '', actif: true, crm_type: 'custom', email: '', password: '' })
+  const [partnerForm, setPartnerForm]     = useState({ nom: '', webhook_url: '', webhook_secret: '', actif: true, crm_type: 'custom', email: '', password: '', sav_connecte: false, sav_rdv_url: '', sav_rappel_numero: '', sav_chat_url: '', sav_delai_prise_en_charge: '', sav_garantie_fabricant: false })
   const [partnerSaving, setPartnerSaving] = useState(false)
   const [testingPartnerId, setTestingPartnerId] = useState(null)
   const [testResults, setTestResults]     = useState({}) // { [id]: { result, message, httpStatus } }
@@ -670,6 +670,45 @@ export default function AdminDashboard() {
             />
           </Card>
         )}
+
+        {!loading && stats && (
+          <div style={{ marginTop: '18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
+            <Card title="Mode Bienvenue vs Mode Diagnostic">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <StatWidget label="Entrées Bienvenue" value={stats.modeBienvenue?.total || 0} accent="#475569" />
+                <StatWidget label="Entrées Diagnostic" value={stats.modeDiagnostic?.total || 0} accent={accentColor} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#475569', padding: '8px 0', borderTop: '1px solid #f1f5f9' }}>
+                <span>NPS moyen Bienvenue</span><strong>{stats.modeBienvenue?.npsAvg ?? '—'}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#475569', padding: '8px 0', borderTop: '1px solid #f1f5f9' }}>
+                <span>NPS moyen Diagnostic</span><strong>{stats.modeDiagnostic?.npsAvg ?? '—'}</strong>
+              </div>
+            </Card>
+            <Card title="Escalades SAV">
+              <StatWidget label="Total escalades" value={stats.escalades?.total || 0} accent="#d97706" />
+              <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {['rdv', 'rappel', 'chat'].map(c => (
+                  <div key={c} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#475569' }}>
+                    <span style={{ textTransform: 'capitalize' }}>{c}</span>
+                    <strong>{stats.escalades?.parCanal?.[c] || 0}</strong>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {!loading && stats && (
+          <div style={{ marginTop: '18px' }}>
+            <Card title="Historique d'entretien global" noPad action={<Badge label={`Taux de complétion rappels : ${stats.entretiens?.tauxCompletionRappels ?? 0}%`} variant="info" />}>
+              <Table
+                cols={[{ key: 'type', label: 'Type d\'entretien' }, { key: 'count', label: 'Réalisations', align: 'right' }]}
+                rows={(stats.entretiens?.topTypes || []).map(e => ({ type: e.type, count: <strong>{e.count}</strong> }))}
+              />
+            </Card>
+          </div>
+        )}
       </div>
     )
   }
@@ -1032,6 +1071,30 @@ export default function AdminDashboard() {
             <Toggle checked={partnerForm.actif} onChange={() => setPartnerForm(s => ({ ...s, actif: !s.actif }))} color={accentColor} />
             <span style={{ fontSize: '13px', color: '#374151' }}>Actif</span>
           </div>
+
+          <div style={{ height: '4px' }} />
+          <div style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '.4px' }}>Connexion SAV</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Toggle checked={partnerForm.sav_connecte} onChange={() => setPartnerForm(s => ({ ...s, sav_connecte: !s.sav_connecte }))} color={accentColor} />
+            <span style={{ fontSize: '13px', color: '#374151' }}>SAV connecté</span>
+          </div>
+          <FieldGroup label="URL prise de RDV technicien">
+            <input value={partnerForm.sav_rdv_url} onChange={e => setPartnerForm(s => ({ ...s, sav_rdv_url: e.target.value }))} style={input} placeholder="https://partenaire.example.com/rdv" />
+          </FieldGroup>
+          <FieldGroup label="Numéro de rappel">
+            <input value={partnerForm.sav_rappel_numero} onChange={e => setPartnerForm(s => ({ ...s, sav_rappel_numero: e.target.value }))} style={input} placeholder="0123456789" />
+          </FieldGroup>
+          <FieldGroup label="URL chat humain">
+            <input value={partnerForm.sav_chat_url} onChange={e => setPartnerForm(s => ({ ...s, sav_chat_url: e.target.value }))} style={input} placeholder="https://partenaire.example.com/chat" />
+          </FieldGroup>
+          <FieldGroup label="Délai de prise en charge affiché au client">
+            <input value={partnerForm.sav_delai_prise_en_charge} onChange={e => setPartnerForm(s => ({ ...s, sav_delai_prise_en_charge: e.target.value }))} style={input} placeholder="sous 24h" />
+          </FieldGroup>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Toggle checked={partnerForm.sav_garantie_fabricant} onChange={() => setPartnerForm(s => ({ ...s, sav_garantie_fabricant: !s.sav_garantie_fabricant }))} color={accentColor} />
+            <span style={{ fontSize: '13px', color: '#374151' }}>Garantie fabricant gérée (affiche aussi le SAV fabricant)</span>
+          </div>
+
           <button type="submit" disabled={partnerSaving} style={{ ...btnPrimary, opacity: partnerSaving ? .7 : 1, alignSelf: 'flex-start' }}>
             <Icon name="plus" size={13} color="#fff" />{partnerSaving ? 'Ajout...' : 'Ajouter le partenaire'}
           </button>

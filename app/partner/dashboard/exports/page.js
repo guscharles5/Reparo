@@ -46,10 +46,13 @@ export default function PartnerExports() {
     doc.text(`Diagnostics ce mois : ${stats.diagnosticsCeMois ?? '—'}`, 14, 46)
     doc.text(`Taux de résolution autonome : ${stats.resolutionRate ?? '—'}%`, 14, 53)
     doc.text(`NPS global : ${stats.npsScore ?? '—'} (moyenne ${stats.npsAvg ?? '—'}/10)`, 14, 60)
-    doc.text(`Économies générées estimées : ${stats.economiesGenerees ?? '—'} €`, 14, 67)
+    doc.text(`Interventions évitées ce mois : ${stats.interventionsEviteesCeMois ?? '—'}`, 14, 67)
+    doc.text(`Économies générées ce mois : ${stats.economiesCeMois ?? '—'} €`, 14, 74)
+    doc.text(`Économies cumulées depuis le partenariat : ${stats.economiesGenerees ?? '—'} €`, 14, 81)
+    doc.text(`Escalades vers le SAV : ${stats.escalades?.total ?? 0}`, 14, 88)
 
     doc.autoTable({
-      startY: 76,
+      startY: 96,
       head: [['Top pannes', 'Occurrences']],
       body: (stats.topPannes || []).map(p => [p.type, p.count]),
     })

@@ -78,7 +78,8 @@ export async function POST(req) {
   const {
     messages, appareil_type, appareil_marque, id,
     partner, ref_externe, modele, resultat, duree_minutes,
-    nps_score, nps_commentaire,
+    nps_score, nps_commentaire, mode, escalade_sav, canal_escalade,
+    garantie_type, nps_parcours,
   } = await req.json()
 
   const sb = getAdmin()
@@ -96,6 +97,12 @@ export async function POST(req) {
     // conversation existante vers un autre partenaire.
     if (nps_score !== undefined) updates.nps_score = nps_score
     if (nps_commentaire !== undefined) updates.nps_commentaire = nps_commentaire
+    if (escalade_sav !== undefined) updates.escalade_sav = escalade_sav
+    if (canal_escalade !== undefined) updates.canal_escalade = canal_escalade
+    if (garantie_type !== undefined) updates.garantie_type = garantie_type
+    if (nps_parcours !== undefined) updates.nps_parcours = nps_parcours
+    // mode n'est fixé qu'à la création (branche else) : une conversation ne
+    // change pas de mode bienvenue/diagnostic après coup.
 
     const { data, error } = await sb
       .from('conversations')
@@ -115,6 +122,7 @@ export async function POST(req) {
       .insert({
         user_id: uid, messages, appareil_type, appareil_marque,
         partner: partner || null, ref_externe: ref_externe || null,
+        mode: mode === 'bienvenue' ? 'bienvenue' : 'diagnostic',
       })
       .select()
       .single()

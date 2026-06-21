@@ -86,15 +86,36 @@ export async function GET(req) {
   // Top appareils — colonnes légères uniquement (pas le JSON des messages)
   const { data: appareils } = await sb
     .from('conversations')
-    .select('appareil_type, appareil_marque, resultat')
+    .select('appareil_type, appareil_marque, resultat, mode, escalade_sav, canal_escalade, nps_score, nps_parcours')
 
   const appareilMap = {}
+  let bienvenueCount = 0
+  let diagnosticCount = 0
+  const npsBienvenue = []
+  const npsDiagnostic = []
+  let escaladesSav = 0
+  const escaladesParCanal = { rdv: 0, rappel: 0, chat: 0 }
+
   ;(appareils || []).forEach(c => {
     const key = `${c.appareil_type || 'Autre'}__${c.appareil_marque || ''}`
     if (!appareilMap[key]) appareilMap[key] = { type: c.appareil_type, marque: c.appareil_marque, count: 0, resolved: 0 }
     appareilMap[key].count++
     if (c.resultat === 'resolu') appareilMap[key].resolved++
+
+    if (c.mode === 'bienvenue') {
+      bienvenueCount++
+      if (typeof c.nps_score === 'number') npsBienvenue.push(c.nps_score)
+    } else {
+      diagnosticCount++
+      if (typeof c.nps_score === 'number') npsDiagnostic.push(c.nps_score)
+    }
+    if (c.escalade_sav) {
+      escaladesSav++
+      if (c.canal_escalade && escaladesParCanal[c.canal_escalade] !== undefined) escaladesParCanal[c.canal_escalade]++
+    }
   })
+
+  const avg = (arr) => arr.length > 0 ? Math.round((arr.reduce((s, n) => s + n, 0) / arr.length) * 10) / 10 : null
 
   const topAppareils = Object.values(appareilMap)
     .sort((a, b) => b.count - a.count)
@@ -111,6 +132,16 @@ export async function GET(req) {
     .select('*', { count: 'exact', head: true })
     .gte('created_at', weekAgo)
 
+  // Historique d'entretien global — top types réalisés + taux de complétion des rappels
+  const { data: entretiensData } = await sb.from('entretiens').select('type_entretien')
+  const entretienTypeMap = {}
+  ;(entretiensData || []).forEach(e => { entretienTypeMap[e.type_entretien] = (entretienTypeMap[e.type_entretien] || 0) + 1 })
+  const topEntretiens = Object.entries(entretienTypeMap).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([type, count]) => ({ type, count }))
+
+  const { count: totalRappels } = await sb.from('rappels').select('*', { count: 'exact', head: true })
+  const { count: rappelsCompletes } = await sb.from('rappels').select('*', { count: 'exact', head: true }).eq('statut', 'complete')
+  const tauxCompletionRappels = totalRappels > 0 ? Math.round(((rappelsCompletes || 0) / totalRappels) * 100) : 0
+
   return NextResponse.json({
     totalUsers,
     newUsersThisWeek,
@@ -122,5 +153,9 @@ export async function GET(req) {
     totalAppareils: totalAppareils || 0,
     appareilsThisWeek: appareilsThisWeek || 0,
     recentUsers,
+    modeBienvenue: { total: bienvenueCount, npsAvg: avg(npsBienvenue) },
+    modeDiagnostic: { total: diagnosticCount, npsAvg: avg(npsDiagnostic) },
+    escalades: { total: escaladesSav, parCanal: escaladesParCanal },
+    entretiens: { total: entretiensData?.length || 0, topTypes: topEntretiens, tauxCompletionRappels },
   })
 }

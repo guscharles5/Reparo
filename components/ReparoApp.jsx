@@ -288,6 +288,7 @@ export default function ReparoApp() {
   const [appareilSaved, setAppareilSaved] = useState(false); // confirmation après enregistrement
   const [selectedAppareil, setSelectedAppareil] = useState(null); // fiche appareil ouverte
   const [appSettings, setAppSettings] = useState(null); // settings chargés depuis le back-office
+  const [bienvenue, setBienvenue] = useState(null); // { appareil, modele } si ?mode=bienvenue, sinon null
   const synthRef    = useRef(null);
   const voiceRecRef = useRef(null);
   const fileRef    = useRef();
@@ -301,6 +302,7 @@ export default function ReparoApp() {
   const refExterneRef  = useRef(null);  // référence externe du partenaire (paramètre URL ?ref=)
   const convStartRef   = useRef(null);  // horodatage de début de la conversation en cours
   const convResolvedRef = useRef(false); // true dès que [PROBLEME_RESOLU] a été détecté
+  const modeRef = useRef("diagnostic"); // 'bienvenue' | 'diagnostic' — mode de la conv en cours, fixé à la création
 
   // Charge les settings admin au démarrage et toutes les 30 secondes
   // Ne déclenche un re-render que si les valeurs ont réellement changé,
@@ -334,6 +336,12 @@ export default function ReparoApp() {
       const ref = params.get("ref");
       if (partner) partnerRef.current = partner;
       if (ref) refExterneRef.current = ref;
+      if (params.get("mode") === "bienvenue") {
+        setBienvenue({
+          appareil: params.get("appareil") || "",
+          modele: params.get("modele") || "",
+        });
+      }
       if (params.get("guest") === "1") {
         setAppState("main");
         return;
@@ -525,6 +533,7 @@ export default function ReparoApp() {
           appareil_marque: brand || null,
           partner: partnerRef.current || undefined,
           ref_externe: refExterneRef.current || undefined,
+          mode: !convIdRef.current ? modeRef.current : undefined,
           ...(extra || {}),
         })
       });
@@ -746,16 +755,34 @@ export default function ReparoApp() {
   const [npsScore,     setNpsScore]     = useState(null);
   const [npsComment,   setNpsComment]   = useState("");
   const [npsSubmitted, setNpsSubmitted] = useState(false);
+  const failedAttemptsRef = useRef(0); // étapes tentées sans succès dans la conv en cours
+  const [partnerInfo, setPartnerInfo] = useState(null); // config SAV du partenaire d'origine (/api/partner-info)
+  const [garantieType, setGarantieType] = useState(null); // 'fabricant' | 'partenaire' | null — répondu par l'utilisateur
 
-  const submitNps = async (score) => {
+  useEffect(() => {
+    if (!partnerRef.current) return;
+    fetch(`/api/partner-info?nom=${encodeURIComponent(partnerRef.current)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setPartnerInfo(d?.partner || null))
+      .catch(() => {});
+  }, []);
+
+  const npsFollowUpQuestion = (score) => {
+    if (score <= 6) return "Qu'est-ce qui n'a pas fonctionné ?";
+    if (score <= 8) return "Qu'est-ce qu'on pourrait améliorer ?";
+    return "Qu'est-ce qui vous a le plus aidé ?";
+  };
+
+  const submitNps = async (score, parcours) => {
     setNpsScore(score);
     setFeedback(score >= 7 ? "positif" : "negatif");
     setNpsSubmitted(true);
-    await persistConversation(messages, { nps_score: score, nps_commentaire: npsComment || undefined });
+    await persistConversation(messages, { nps_score: score, nps_commentaire: npsComment || undefined, nps_parcours: parcours || "resolu" });
   };
 
   const sendQuickReply = async (reply) => {
     if (reply === "Oui c'est résolu ✓") { setResolved(true); return; }
+    if (reply.includes("marche pas") || reply.includes("comprends pas")) failedAttemptsRef.current += 1;
     setQuickReplies([]);
     const { ctx } = getContext(sel);
     const msgs = [...messages, { role: "user", content: reply }];
@@ -1167,7 +1194,14 @@ export default function ReparoApp() {
           if (convIdRef.current && !convResolvedRef.current) {
             convResolvedRef.current = true;
             const dureeMinutes = convStartRef.current ? Math.round((Date.now() - convStartRef.current) / 60000) : null;
-            persistConversation(messages, { resultat: "echec", duree_minutes: dureeMinutes });
+            const canal = partnerInfo?.savConnecte ? "rdv" : undefined;
+            persistConversation(messages, {
+              resultat: "echec",
+              duree_minutes: dureeMinutes,
+              escalade_sav: failedAttemptsRef.current >= 3,
+              canal_escalade: canal,
+              garantie_type: garantieType || undefined,
+            });
           }
         }}
           style={{ background: "rgba(255,255,255,.2)", border: "none", borderRadius: "10px", padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", flexShrink: 0 }}>
@@ -1251,10 +1285,15 @@ export default function ReparoApp() {
                     </button>
                   ))}
                 </div>
+                {npsScore !== null && (
+                  <div style={{ fontSize: "12px", color: "#444", fontWeight: "600", margin: "10px 0 6px", textAlign: "left" }}>
+                    {npsFollowUpQuestion(npsScore)}
+                  </div>
+                )}
                 <textarea value={npsComment} onChange={e => setNpsComment(e.target.value)}
-                  placeholder="Un commentaire à ajouter ? (optionnel)" rows={2}
+                  placeholder="Votre réponse (optionnel)" rows={2}
                   style={{ width: "100%", marginTop: "10px", border: "1.5px solid #ddd", borderRadius: "8px", padding: "8px 10px", fontSize: "12px", fontFamily: "Inter,sans-serif", resize: "vertical", boxSizing: "border-box" }} />
-                <button onClick={() => npsScore !== null && submitNps(npsScore)} disabled={npsScore === null}
+                <button onClick={() => npsScore !== null && submitNps(npsScore, convResolvedRef.current ? "resolu" : "abandonne")} disabled={npsScore === null}
                   style={{ marginTop: "8px", width: "100%", background: npsScore === null ? "#ccc" : PRIMARY, border: "none", borderRadius: "10px", color: "white", padding: "9px", fontWeight: "700", fontSize: "13px", cursor: npsScore === null ? "not-allowed" : "pointer", fontFamily: "Inter,sans-serif" }}>
                   Envoyer
                 </button>
@@ -1359,7 +1398,39 @@ export default function ReparoApp() {
             <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}><div style={{ width: "40px", height: "4px", background: "#e0e0e0", borderRadius: "2px" }} /></div>
             <div style={{ padding: "12px 20px 0" }}>
               <div style={{ fontWeight: "800", fontSize: "17px", color: "#222", marginBottom: "4px" }}>Service après-vente</div>
-              <div style={{ fontSize: "13px", color: "#888", marginBottom: "16px" }}>Contactez un expert pour votre réparation</div>
+              {partnerInfo?.savConnecte && failedAttemptsRef.current >= 3 ? (
+                <>
+                  <div style={{ fontSize: "13px", color: "#444", marginBottom: "14px", lineHeight: "1.5" }}>
+                    Votre problème nécessite l'intervention d'un expert {partnerInfo.nom}. J'ai transmis tout le contexte à votre équipe — vous n'aurez rien à répéter.
+                  </div>
+                  <div style={{ background: "#f8fafc", borderRadius: "10px", padding: "12px 14px", marginBottom: "14px", border: "1px solid #eee", fontSize: "12px", color: "#555", lineHeight: "1.6" }}>
+                    <div><strong>Appareil :</strong> {sel.brand || "—"} {sel.category || ""}{sel.model ? ` (${sel.model})` : ""}</div>
+                    <div><strong>Étapes tentées :</strong> {failedAttemptsRef.current}</div>
+                    <div><strong>Symptôme :</strong> {typeof messages[0]?.content === "string" ? messages[0].content.slice(0, 100) : "—"}</div>
+                  </div>
+                  {/* Garantie fabricant : SAV fabricant en premier + SAV partenaire affiché aussi */}
+                  {garantieType === "fabricant" && (
+                    <div style={{ marginBottom: "10px" }}>
+                      <div style={{ fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "6px" }}>SAV fabricant (garantie)</div>
+                      {Object.entries(SAV_MARQUES).filter(([name]) => name === sel.brand).map(([name, d]) => <SAVCard key={name} brand={name} data={d} highlight />)}
+                    </div>
+                  )}
+                  <div style={{ fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "6px" }}>SAV {partnerInfo.nom}{partnerInfo.savDelaiPriseEnCharge ? ` — réponse ${partnerInfo.savDelaiPriseEnCharge}` : ""}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
+                    {partnerInfo.savRdvUrl && <a href={partnerInfo.savRdvUrl} target="_blank" rel="noopener noreferrer"
+                      onClick={() => persistConversation(messages, { canal_escalade: "rdv" })}
+                      style={{ background: PRIMARY, borderRadius: "10px", padding: "12px", textAlign: "center", color: "white", fontWeight: "700", fontSize: "13px", textDecoration: "none" }}>Prendre rendez-vous</a>}
+                    {partnerInfo.savRappelNumero && <a href={`tel:${partnerInfo.savRappelNumero}`}
+                      onClick={() => persistConversation(messages, { canal_escalade: "rappel" })}
+                      style={{ background: "white", border: `1.5px solid ${PRIMARY}`, borderRadius: "10px", padding: "12px", textAlign: "center", color: PRIMARY, fontWeight: "700", fontSize: "13px", textDecoration: "none" }}>Être rappelé — {partnerInfo.savRappelNumero}</a>}
+                    {partnerInfo.savChatUrl && <a href={partnerInfo.savChatUrl} target="_blank" rel="noopener noreferrer"
+                      onClick={() => persistConversation(messages, { canal_escalade: "chat" })}
+                      style={{ background: "white", border: "1.5px solid #eee", borderRadius: "10px", padding: "12px", textAlign: "center", color: "#444", fontWeight: "700", fontSize: "13px", textDecoration: "none" }}>Discuter avec un conseiller</a>}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: "13px", color: "#888", marginBottom: "16px" }}>Contactez un expert pour votre réparation</div>
+              )}
               <div style={{ display: "flex", background: "#f1f5f9", borderRadius: "10px", padding: "4px", marginBottom: "16px" }}>
                 {["marque", "revendeur"].map(t => (
                   <button key={t} onClick={() => setSavTab(t)} style={{ flex: 1, background: savTab === t ? "white" : "transparent", border: "none", borderRadius: "8px", padding: "8px", fontWeight: "700", fontSize: "13px", color: savTab === t ? PRIMARY : "#888", cursor: "pointer", fontFamily: "Inter,sans-serif", boxShadow: savTab === t ? "0 1px 4px rgba(0,0,0,.1)" : "none" }}>
@@ -1383,6 +1454,21 @@ export default function ReparoApp() {
       )}
     </div>
   );
+
+  const [entretiens, setEntretiens] = useState([]);
+  useEffect(() => {
+    if (!selectedAppareil) { setEntretiens([]); return; }
+    (async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const res = await fetch(`/api/entretiens?appareil_id=${selectedAppareil.id}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) return;
+        const { entretiens: list } = await res.json();
+        setEntretiens(list || []);
+      } catch(e) { console.error("[Reparo] loadEntretiens:", e.message); }
+    })();
+  }, [selectedAppareil?.id]);
 
   // ── APPAREILS ────────────────────────────────────────
   const Appareils = () => {
@@ -1541,6 +1627,31 @@ export default function ReparoApp() {
                         </div>
                       ))
                   }
+                </div>
+
+                {/* Historique d'entretien */}
+                <div style={{ marginBottom: "16px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "8px", textTransform: "uppercase", letterSpacing: ".5px" }}>Historique d'entretien</div>
+                  {entretiens.length === 0
+                    ? <div style={{ fontSize: "13px", color: "#aaa", textAlign: "center", padding: "16px 0" }}>Aucun entretien enregistré</div>
+                    : entretiens.map(e => (
+                        <div key={e.id} style={{ display: "flex", justifyContent: "space-between", background: "#f8fafc", borderRadius: "10px", padding: "9px 12px", marginBottom: "6px", border: "1px solid #eee" }}>
+                          <div style={{ fontSize: "12px", color: "#444", fontWeight: "600" }}>{e.type_entretien}</div>
+                          <div style={{ fontSize: "11px", color: "#aaa" }}>{new Date(e.date_realisation).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}</div>
+                        </div>
+                      ))
+                  }
+                </div>
+
+                {/* QR code appareil */}
+                <div style={{ marginBottom: "16px", textAlign: "center" }}>
+                  <div style={{ fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "8px", textTransform: "uppercase", letterSpacing: ".5px" }}>Accès rapide</div>
+                  <img alt="QR code de l'appareil"
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`${typeof window !== "undefined" ? window.location.origin : ""}?appareil=${selectedAppareil.id}&modele=${encodeURIComponent(selectedAppareil.modele || "")}`)}`}
+                    style={{ width: "140px", height: "140px", borderRadius: "10px", border: "1px solid #eee" }} />
+                  <div style={{ fontSize: "12px", color: "#888", marginTop: "8px", lineHeight: "1.5" }}>
+                    Collez ce QR code sur votre appareil pour un accès immédiat en cas de panne
+                  </div>
                 </div>
 
                 {/* Actions */}
@@ -1875,6 +1986,38 @@ export default function ReparoApp() {
         if (typeof window !== "undefined") window.location.href = "/auth/login"
         return null
       })()}
+
+      {/* MODE BIENVENUE */}
+      {appState === "main" && bienvenue && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 300, background: PRIMARY, display: "flex", flexDirection: "column", padding: "48px 24px 32px", maxWidth: "480px", left: "50%", transform: "translateX(-50%)", overflowY: "auto" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <div style={{ fontSize: "24px", fontWeight: "900", color: "white", lineHeight: "1.35", marginBottom: "16px" }}>
+              Bienvenue ! Je suis l'assistant {partnerInfo?.nom || partnerRef.current || "Reparo"}.
+              {bienvenue.appareil && ` Je vois que vous venez de recevoir votre ${bienvenue.appareil}${bienvenue.modele ? ` ${bienvenue.modele}` : ""}.`}
+              {" "}Je suis là pour vous aider à en prendre soin.
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <button onClick={() => { modeRef.current = "bienvenue"; setBienvenue(null); setTab("home"); setScreen("home"); }}
+              style={{ background: "white", border: "none", borderRadius: "16px", padding: "16px", fontWeight: "800", fontSize: "15px", color: PRIMARY, cursor: "pointer", fontFamily: "Inter,sans-serif" }}>
+              Prise en main de mon appareil
+            </button>
+            <button onClick={() => { modeRef.current = "bienvenue"; setBienvenue(null); setTab("appareils"); }}
+              style={{ background: "rgba(255,255,255,.15)", border: "1.5px solid rgba(255,255,255,.4)", borderRadius: "16px", padding: "16px", fontWeight: "800", fontSize: "15px", color: "white", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>
+              Entretien préventif
+            </button>
+            <button onClick={() => {
+              modeRef.current = "diagnostic";
+              setSel({ category: bienvenue.appareil || "", model: bienvenue.modele || "" });
+              setBienvenue(null);
+              convIdRef.current = null;
+              setMessages([]); setTab("home"); setScreen("chat");
+            }} style={{ background: "transparent", border: "none", color: "rgba(255,255,255,.8)", fontSize: "14px", cursor: "pointer", fontFamily: "Inter,sans-serif", padding: "10px" }}>
+              J'ai déjà un problème
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* MAIN */}
       {appState === "main" && (

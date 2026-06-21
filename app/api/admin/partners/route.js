@@ -28,7 +28,11 @@ export async function GET(req) {
 export async function POST(req) {
   if (!checkAuth(req)) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
 
-  const { nom, webhook_url, webhook_secret, actif, crm_type, email, password } = await req.json()
+  const {
+    nom, webhook_url, webhook_secret, actif, crm_type, email, password,
+    sav_connecte, sav_rdv_url, sav_rappel_numero, sav_chat_url,
+    sav_delai_prise_en_charge, sav_garantie_fabricant,
+  } = await req.json()
   if (!nom?.trim()) return NextResponse.json({ error: 'Le nom du partenaire est requis' }, { status: 400 })
 
   const admin = getAdmin()
@@ -61,6 +65,12 @@ export async function POST(req) {
       email: email?.trim() || null,
       user_id: userId,
       compte_actif: true,
+      sav_connecte: !!sav_connecte,
+      sav_rdv_url: sav_rdv_url || null,
+      sav_rappel_numero: sav_rappel_numero || null,
+      sav_chat_url: sav_chat_url || null,
+      sav_delai_prise_en_charge: sav_delai_prise_en_charge || null,
+      sav_garantie_fabricant: !!sav_garantie_fabricant,
     })
     .select()
     .single()
