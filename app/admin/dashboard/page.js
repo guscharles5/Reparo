@@ -41,6 +41,7 @@ const NAV = [
       { id: 'app_general',       label: 'Général'         },
       { id: 'app_features',      label: 'Fonctionnalités' },
       { id: 'app_ai',            label: 'IA & Prompt'     },
+      { id: 'app_config_globale', label: 'Configuration globale' },
       { id: 'app_integrations',  label: 'Intégrations partenaires' },
     ]
   },
@@ -61,6 +62,7 @@ const BREADCRUMBS = {
   app_general:        ['Réglages application', 'Général'],
   app_features:       ['Réglages application', 'Fonctionnalités'],
   app_ai:             ['Réglages application', 'IA & Prompt'],
+  app_config_globale: ['Réglages application', 'Configuration globale'],
   app_integrations:   ['Réglages application', 'Intégrations partenaires'],
   rgpd:               ['RGPD'],
 }
@@ -215,6 +217,21 @@ export default function AdminDashboard() {
   const [partnerStats, setPartnerStats]   = useState({}) // { [nom]: stats }
   const [partnerStatsLoading, setPartnerStatsLoading] = useState(false)
 
+  // Configuration globale (couche 2 — config_globale)
+  const [configGlobale, setConfigGlobale] = useState({}) // { [cle]: row }
+  const [configGlobaleLoaded, setConfigGlobaleLoaded] = useState(false)
+  const [configForm, setConfigForm] = useState({
+    prompt_ia_defaut: '',
+    couleur_primaire_defaut: '#2563eb',
+    couleur_secondaire_defaut: '#0f172a',
+    logo_url_defaut: '',
+    categories_appareils_defaut: ['lave-linge', 'refrigerateur', 'four', 'lave-vaisselle', 'seche-linge', 'micro-ondes'],
+    cout_intervention_evitee_defaut: 80,
+    sav_delai_prise_en_charge_defaut: 'sous 24h',
+  })
+  const [configSaving, setConfigSaving] = useState({}) // { [cle]: bool }
+  const [configScopeModal, setConfigScopeModal] = useState(null) // { cle, valeur, overrides }
+
   // Releases (release management multi-tenant)
   const [releases, setReleases]             = useState([])
   const [releasesLoaded, setReleasesLoaded] = useState(false)
@@ -307,7 +324,77 @@ export default function AdminDashboard() {
     if (section === 'library' && !manualsLoaded) fetchManuals()
     if ((section === 'partners' || section === 'app_integrations') && !partnersLoaded) fetchPartners()
     if (section === 'releases' && !releasesLoaded) fetchReleases()
+    if (section === 'app_config_globale' && !configGlobaleLoaded) fetchConfigGlobale()
   }, [section])
+
+  const fetchConfigGlobale = async () => {
+    try {
+      const tok = getToken()
+      const res = await fetch('/api/admin/config', { headers: { Authorization: `Bearer ${tok}` } })
+      const data = await res.json()
+      const byKey = Object.fromEntries((data.config || []).map(r => [r.cle, r]))
+      setConfigGlobale(byKey)
+      setConfigForm(s => ({
+        prompt_ia_defaut: byKey.prompt_ia_defaut?.valeur ?? s.prompt_ia_defaut,
+        couleur_primaire_defaut: byKey.couleur_primaire_defaut?.valeur ?? s.couleur_primaire_defaut,
+        couleur_secondaire_defaut: byKey.couleur_secondaire_defaut?.valeur ?? s.couleur_secondaire_defaut,
+        logo_url_defaut: byKey.logo_url_defaut?.valeur ?? s.logo_url_defaut,
+        categories_appareils_defaut: byKey.categories_appareils_defaut?.valeur ?? s.categories_appareils_defaut,
+        cout_intervention_evitee_defaut: byKey.cout_intervention_evitee_defaut?.valeur ?? s.cout_intervention_evitee_defaut,
+        sav_delai_prise_en_charge_defaut: byKey.sav_delai_prise_en_charge_defaut?.valeur ?? s.sav_delai_prise_en_charge_defaut,
+      }))
+    } catch (e) { console.error(e) }
+    setConfigGlobaleLoaded(true)
+  }
+
+  // Sauvegarde une clé de config_globale. Vérifie d'abord si des partenaires
+  // ont une personnalisation active sur cette clé ; si oui, demande à
+  // l'admin de choisir la portée avant d'appliquer (voir applyConfigUpdate).
+  const saveConfigKey = async (cle, valeur, description) => {
+    setConfigSaving(s => ({ ...s, [cle]: true }))
+    try {
+      const tok = getToken()
+      const oR = await fetch(`/api/admin/config/overrides?cle=${encodeURIComponent(cle)}`, { headers: { Authorization: `Bearer ${tok}` } })
+      const oData = await oR.json()
+
+      if (oData.count > 0) {
+        setConfigSaving(s => ({ ...s, [cle]: false }))
+        setConfigScopeModal({ cle, valeur, description, overrides: oData.partners })
+        return
+      }
+
+      await applyConfigKeyUpdate(cle, valeur, description, 'nouveaux')
+    } catch (e) { showToast('error', e.message || 'Erreur lors de la sauvegarde') }
+    setConfigSaving(s => ({ ...s, [cle]: false }))
+  }
+
+  const applyConfigKeyUpdate = async (cle, valeur, description, portee) => {
+    setConfigSaving(s => ({ ...s, [cle]: true }))
+    try {
+      const tok = getToken()
+      const res = await fetch('/api/admin/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ cle, valeur, description, modifiablePartenaire: true, portee }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setConfigGlobale(s => ({ ...s, [cle]: data.config }))
+      showToast('success', 'Configuration globale mise à jour')
+    } catch (e) { showToast('error', e.message || 'Erreur lors de la sauvegarde') }
+    setConfigSaving(s => ({ ...s, [cle]: false }))
+    setConfigScopeModal(null)
+  }
+
+  const confirmScopeChoice = (portee) => {
+    if (!configScopeModal) return
+    const { cle, valeur, description, overrides } = configScopeModal
+    if (portee === 'tous') {
+      const noms = overrides.map(p => p.nom).join(', ')
+      if (!window.confirm(`Cette action va écraser la personnalisation de ${overrides.length} partenaire(s) pour cette clé : ${noms}.\n\nContinuer ?`)) return
+    }
+    applyConfigKeyUpdate(cle, valeur, description, portee)
+  }
 
   const fetchPartners = async () => {
     try {
@@ -1513,6 +1600,115 @@ export default function AdminDashboard() {
     </div>
   )
 
+  // ── Configuration globale (couche 2 — config_globale) ────────────────────
+  // Chaque clé est sauvegardée indépendamment. Avant d'appliquer une mise à
+  // jour, on vérifie si des partenaires ont une personnalisation active sur
+  // cette clé (config_partenaire) — si oui, l'admin doit choisir la portée
+  // via la modale ci-dessous avant que la mise à jour ne soit appliquée.
+  const renderAppConfigGlobale = () => {
+    const ConfigKeyCard = ({ cle, title, hint, children }) => (
+      <Card title={title}>
+        {hint && <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#94a3b8' }}>{hint}</p>}
+        {children}
+        <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => saveConfigKey(cle, configForm[cle], configGlobale[cle]?.description || title)}
+            disabled={!!configSaving[cle]}
+            style={{ ...btnPrimary, opacity: configSaving[cle] ? .7 : 1 }}
+          >
+            <Icon name="save" size={13} color="#fff" />{configSaving[cle] ? 'Enregistrement...' : 'Enregistrer cette valeur'}
+          </button>
+        </div>
+      </Card>
+    )
+
+    return (
+      <div>
+        <SectionHeader
+          title="Configuration globale"
+          subtitle="Valeurs par défaut (couche 2) appliquées à tous les partenaires sauf personnalisation explicite (couche 3)"
+        />
+        {toast && <Alert type={toast.type}><Icon name={toast.type === 'success' ? 'check' : 'warning'} size={14} />{toast.msg}</Alert>}
+        <Alert type="info"><Icon name="info" size={14} />Si des partenaires ont personnalisé une valeur, vous pourrez choisir d'appliquer le changement uniquement aux nouveaux partenaires, aux partenaires non personnalisés, ou à tous (en écrasant leur personnalisation).</Alert>
+
+        {!configGlobaleLoaded ? <Skeleton h="200px" /> : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <ConfigKeyCard cle="prompt_ia_defaut" title="Prompt IA par défaut" hint="Utilisé si le partenaire n'a pas défini son propre prompt_ia.">
+              <textarea
+                value={configForm.prompt_ia_defaut}
+                onChange={e => setConfigForm(s => ({ ...s, prompt_ia_defaut: e.target.value }))}
+                placeholder="Vous êtes un assistant expert en réparation d'appareils électroménagers..."
+                rows={6}
+                style={{ ...input, resize: 'vertical', lineHeight: '1.6', fontFamily: 'monospace', fontSize: '12px' }}
+              />
+            </ConfigKeyCard>
+
+            <ConfigKeyCard cle="couleur_primaire_defaut" title="Couleur primaire par défaut">
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <input type="color" value={configForm.couleur_primaire_defaut} onChange={e => setConfigForm(s => ({ ...s, couleur_primaire_defaut: e.target.value }))} style={{ width: '40px', height: '34px', border: '1.5px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer' }} />
+                <input value={configForm.couleur_primaire_defaut} onChange={e => setConfigForm(s => ({ ...s, couleur_primaire_defaut: e.target.value }))} style={{ ...input, width: '140px' }} placeholder="#2563eb" />
+              </div>
+            </ConfigKeyCard>
+
+            <ConfigKeyCard cle="couleur_secondaire_defaut" title="Couleur secondaire par défaut">
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <input type="color" value={configForm.couleur_secondaire_defaut} onChange={e => setConfigForm(s => ({ ...s, couleur_secondaire_defaut: e.target.value }))} style={{ width: '40px', height: '34px', border: '1.5px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer' }} />
+                <input value={configForm.couleur_secondaire_defaut} onChange={e => setConfigForm(s => ({ ...s, couleur_secondaire_defaut: e.target.value }))} style={{ ...input, width: '140px' }} placeholder="#0f172a" />
+              </div>
+            </ConfigKeyCard>
+
+            <ConfigKeyCard cle="logo_url_defaut" title="Logo par défaut (URL)">
+              <input value={configForm.logo_url_defaut} onChange={e => setConfigForm(s => ({ ...s, logo_url_defaut: e.target.value }))} style={input} placeholder="https://..." />
+            </ConfigKeyCard>
+
+            <ConfigKeyCard cle="categories_appareils_defaut" title="Catégories d'appareils par défaut" hint="Catégories proposées aux partenaires n'ayant pas personnalisé leur liste.">
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {['lave-linge', 'refrigerateur', 'four', 'lave-vaisselle', 'seche-linge', 'micro-ondes', 'congelateur', 'plaque-cuisson'].map(c => {
+                  const act = configForm.categories_appareils_defaut.includes(c)
+                  return (
+                    <button key={c} type="button"
+                      onClick={() => setConfigForm(s => ({ ...s, categories_appareils_defaut: act ? s.categories_appareils_defaut.filter(x => x !== c) : [...s.categories_appareils_defaut, c] }))}
+                      style={{ ...btnPrimary, background: act ? accentColor : '#f8fafc', color: act ? '#fff' : '#475569', border: `1.5px solid ${act ? accentColor : '#e2e8f0'}` }}>
+                      {act && <Icon name="check" size={12} color="#fff" />}{c}
+                    </button>
+                  )
+                })}
+              </div>
+            </ConfigKeyCard>
+
+            <ConfigKeyCard cle="cout_intervention_evitee_defaut" title="Coût d'intervention évitée par défaut (€)" hint="Utilisé pour le calcul du ROI affiché aux partenaires.">
+              <input type="number" value={configForm.cout_intervention_evitee_defaut} onChange={e => setConfigForm(s => ({ ...s, cout_intervention_evitee_defaut: Number(e.target.value) }))} style={{ ...input, width: '140px' }} placeholder="80" />
+            </ConfigKeyCard>
+
+            <ConfigKeyCard cle="sav_delai_prise_en_charge_defaut" title="Délai de prise en charge SAV par défaut">
+              <input value={configForm.sav_delai_prise_en_charge_defaut} onChange={e => setConfigForm(s => ({ ...s, sav_delai_prise_en_charge_defaut: e.target.value }))} style={input} placeholder="sous 24h" />
+            </ConfigKeyCard>
+          </div>
+        )}
+
+        {configScopeModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+            <div style={{ background: '#fff', borderRadius: '10px', padding: '22px', maxWidth: '460px', width: '90%', boxShadow: '0 12px 32px rgba(0,0,0,.25)' }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Portée de la mise à jour</h3>
+              <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#64748b' }}>
+                {configScopeModal.overrides.length} partenaire(s) ont personnalisé cette valeur : {configScopeModal.overrides.map(p => p.nom).join(', ')}.
+                Choisissez la portée d'application de ce changement.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button onClick={() => confirmScopeChoice('nouveaux')} style={{ ...btnPrimary, background: '#f8fafc', color: '#475569', border: '1.5px solid #e2e8f0', justifyContent: 'flex-start' }}>Nouveaux partenaires uniquement</button>
+                <button onClick={() => confirmScopeChoice('non_personnalises')} style={{ ...btnPrimary, background: '#f8fafc', color: '#475569', border: '1.5px solid #e2e8f0', justifyContent: 'flex-start' }}>Partenaires non personnalisés</button>
+                <button onClick={() => confirmScopeChoice('tous')} style={{ ...btnPrimary, background: '#fff1f2', color: '#dc2626', border: '1.5px solid #fca5a5', justifyContent: 'flex-start' }}>Tous (écraser les personnalisations)</button>
+              </div>
+              <div style={{ marginTop: '14px', textAlign: 'right' }}>
+                <button onClick={() => setConfigScopeModal(null)} style={{ ...btnPrimary, background: 'none', color: '#94a3b8' }}>Annuler</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const renderRGPD = () => (
     <div>
       <SectionHeader title="Conformité RGPD" subtitle="Protection des données — Règlement (UE) 2016/679" />
@@ -1712,6 +1908,7 @@ export default function AdminDashboard() {
     app_general:        renderAppGeneral,
     app_features:       renderAppFeatures,
     app_ai:             renderAppAI,
+    app_config_globale: renderAppConfigGlobale,
     app_integrations:   renderAppIntegrations,
     rgpd:               renderRGPD,
   }
