@@ -16,12 +16,25 @@ const checkAuth = (req) => {
 export async function PUT(req, { params }) {
   if (!checkAuth(req)) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
 
-  const { nom, webhook_url, webhook_secret, actif, crm_type, compte_actif } = await req.json()
+  const {
+    nom, webhook_url, webhook_secret, actif, crm_type, compte_actif,
+    sav_connecte, sav_rdv_url, sav_rappel_numero, sav_chat_url,
+    sav_delai_prise_en_charge, sav_garantie_fabricant,
+  } = await req.json()
   const admin = getAdmin()
 
   const { data, error } = await admin
     .from('partners')
-    .update({ nom, webhook_url, webhook_secret, actif, crm_type: CRM_TYPES.includes(crm_type) ? crm_type : 'custom', compte_actif })
+    .update({
+      nom, webhook_url, webhook_secret, actif,
+      crm_type: CRM_TYPES.includes(crm_type) ? crm_type : 'custom', compte_actif,
+      sav_connecte: !!sav_connecte,
+      sav_rdv_url: sav_rdv_url || null,
+      sav_rappel_numero: sav_rappel_numero || null,
+      sav_chat_url: sav_chat_url || null,
+      sav_delai_prise_en_charge: sav_delai_prise_en_charge || null,
+      sav_garantie_fabricant: !!sav_garantie_fabricant,
+    })
     .eq('id', params.id)
     .select()
     .single()

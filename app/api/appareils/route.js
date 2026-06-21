@@ -1,6 +1,7 @@
 // app/api/appareils/route.js
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { buildInitialRappels } from '../../../lib/maintenanceSchedule'
 
 const getAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -67,5 +68,14 @@ export async function POST(req) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Programme automatiquement le calendrier d'entretien préventif selon le type d'appareil
+  const rappels = buildInitialRappels(type)
+  if (rappels.length > 0) {
+    await getAdmin().from('rappels').insert(
+      rappels.map(r => ({ user_id: uid, appareil_id: data.id, type_rappel: r.type_rappel, date_prevue: r.date_prevue, statut: 'en_attente' }))
+    )
+  }
+
   return NextResponse.json({ appareil: data })
 }

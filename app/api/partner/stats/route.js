@@ -9,7 +9,7 @@ export async function GET(req) {
   const { partner, admin } = ctx
   const { data: rows, error } = await admin
     .from('conversations')
-    .select('id, appareil_type, appareil_marque, modele, resultat, nps_score, created_at')
+    .select('id, appareil_type, appareil_marque, modele, resultat, nps_score, nps_parcours, mode, escalade_sav, canal_escalade, created_at, user_id')
     .eq('partner', partner.nom)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

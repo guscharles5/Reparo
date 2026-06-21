@@ -86,15 +86,36 @@ export async function GET(req) {
   // Top appareils — colonnes légères uniquement (pas le JSON des messages)
   const { data: appareils } = await sb
     .from('conversations')
-    .select('appareil_type, appareil_marque, resultat')
+    .select('appareil_type, appareil_marque, resultat, mode, escalade_sav, canal_escalade, nps_score, nps_parcours')
 
   const appareilMap = {}
+  let bienvenueCount = 0
+  let diagnosticCount = 0
+  const npsBienvenue = []
+  const npsDiagnostic = []
+  let escaladesSav = 0
+  const escaladesParCanal = { rdv: 0, rappel: 0, chat: 0 }
+
   ;(appareils || []).forEach(c => {
     const key = `${c.appareil_type || 'Autre'}__${c.appareil_marque || ''}`
     if (!appareilMap[key]) appareilMap[key] = { type: c.appareil_type, marque: c.appareil_marque, count: 0, resolved: 0 }
     appareilMap[key].count++
     if (c.resultat === 'resolu') appareilMap[key].resolved++
+
+    if (c.mode === 'bienvenue') {
+      bienvenueCount++
+      if (typeof c.nps_score === 'number') npsBienvenue.push(c.nps_score)
+    } else {
+      diagnosticCount++
+      if (typeof c.nps_score === 'number') npsDiagnostic.push(c.nps_score)
+    }
+    if (c.escalade_sav) {
+      escaladesSav++
+      if (c.canal_escalade && escaladesParCanal[c.canal_escalade] !== undefined) escaladesParCanal[c.canal_escalade]++
+    }
   })
+
+  const avg = (arr) => arr.length > 0 ? Math.round((arr.reduce((s, n) => s + n, 0) / arr.length) * 10) / 10 : null
 
   const topAppareils = Object.values(appareilMap)
     .sort((a, b) => b.count - a.count)
@@ -122,5 +143,8 @@ export async function GET(req) {
     totalAppareils: totalAppareils || 0,
     appareilsThisWeek: appareilsThisWeek || 0,
     recentUsers,
+    modeBienvenue: { total: bienvenueCount, npsAvg: avg(npsBienvenue) },
+    modeDiagnostic: { total: diagnosticCount, npsAvg: avg(npsDiagnostic) },
+    escalades: { total: escaladesSav, parCanal: escaladesParCanal },
   })
 }
