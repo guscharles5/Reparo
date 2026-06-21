@@ -124,6 +124,12 @@ export async function GET(req) {
     }
   }
 
+  // Taux d'ouverture lien Bienvenue (global) — ouvertures réellement loguées
+  // par /api/bienvenue-ouverture vs activations effectives de l'écran.
+  const { count: ouverturesLienTotal } = await sb
+    .from('bienvenue_ouvertures')
+    .select('*', { count: 'exact', head: true })
+
   ;(appareils || []).forEach(c => {
     const key = `${c.appareil_type || 'Autre'}__${c.appareil_marque || ''}`
     if (!appareilMap[key]) appareilMap[key] = { type: c.appareil_type, marque: c.appareil_marque, count: 0, resolved: 0 }
@@ -181,7 +187,12 @@ export async function GET(req) {
     totalAppareils: totalAppareils || 0,
     appareilsThisWeek: appareilsThisWeek || 0,
     recentUsers,
-    modeBienvenue: { total: bienvenueCount, npsAvg: avg(npsBienvenue) },
+    modeBienvenue: {
+      total: bienvenueCount,
+      npsAvg: avg(npsBienvenue),
+      ouverturesLien: ouverturesLienTotal || 0,
+      tauxOuverture: (ouverturesLienTotal || 0) > 0 ? Math.round((bienvenueCount / ouverturesLienTotal) * 100) : null,
+    },
     modeDiagnostic: { total: diagnosticCount, npsAvg: avg(npsDiagnostic) },
     tauxConversionBienvenueDiagnostic,
     escalades: { total: escaladesSav, parCanal: escaladesParCanal },
