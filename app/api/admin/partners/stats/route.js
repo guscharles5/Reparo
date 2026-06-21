@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : GET calcule les statistiques isolées d'un partenaire (total diagnostics, taux de résolution, top pannes, économies générées estimées) à partir de ses conversations
+// Dépendances : app/api/admin/auth/route.js (verifyAdminToken), Supabase table conversations
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../../auth/route'

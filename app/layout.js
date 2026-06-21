@@ -1,3 +1,8 @@
+// Fichier : layout.js
+// Rôle : Layout racine Next.js (App Router) — définit le <html>/<head>/<body> et les métadonnées globales (titre, description, viewport) pour toutes les pages, accessible à tous les rôles (public)
+// Dépendances : aucune
+// Dernière modification : 2026-06-29
+
 export const metadata = {
   title: 'Reparo — Dépannage électroménager IA',
   description: 'Diagnostiquez et réparez vos appareils électroménagers avec l\'aide de l\'IA',

@@ -1,6 +1,10 @@
 'use client'
+// Fichier : diagnostics/page.js
+// Rôle : Page listant l'historique des diagnostics réalisés pour la marque du partenaire, avec filtres (appareil, marque, période) et modale de détail par diagnostic.
+// Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/conversations et /api/partner/conversations/[id]
+// Dernière modification : 2026-06-29
 import { useEffect, useState } from 'react'
-import { SectionHeader, Card, Table, Badge, FieldGroup, input } from '../../../../components/adminUi'
+import { SectionHeader, Card, Table, Badge, FieldGroup, input } from '../../../../components/shared/admin-ui'
 import { partnerFetch } from '../../../../lib/partnerClient'
 
 const STATUT_VARIANT = { 'Résolu': 'success', 'Escalade': 'danger', 'Abandonné': 'warning', 'En cours': 'info' }

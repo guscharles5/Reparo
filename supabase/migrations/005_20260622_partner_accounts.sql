@@ -1,3 +1,8 @@
+-- Migration : 005_partner_accounts
+-- Date : 2026-06-22
+-- Description : Ajoute les comptes partenaires liés à Supabase Auth et le NPS sur conversations, crée le journal de connexion partner_login_logs et les policies RLS associées.
+-- Tables modifiées : partners, conversations, partner_login_logs
+
 -- Espace partenaire séparé : comptes partenaires (Supabase Auth), NPS,
 -- journal de connexion et RLS. À exécuter dans le SQL editor de Supabase.
 

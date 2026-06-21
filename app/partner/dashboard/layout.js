@@ -1,10 +1,11 @@
 'use client'
-// app/partner/dashboard/layout.js — coquille commune à toutes les pages de
-// l'espace partenaire : logo + nom du partenaire, navigation, déconnexion
-// automatique après 8h d'inactivité.
+// Fichier : layout.js
+// Rôle : Layout commun à toutes les pages de l'espace partenaire (sidebar de navigation, en-tête avec nom du partenaire, déconnexion automatique après 8h d'inactivité).
+// Dépendances : components/shared/admin-ui, lib/partnerClient (partnerFetch, partnerSignOut), API /api/partner/me
+// Dernière modification : 2026-06-29
 import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Icon } from '../../../components/adminUi'
+import { Icon } from '../../../components/shared/admin-ui'
 import { partnerFetch, partnerSignOut } from '../../../lib/partnerClient'
 
 const INACTIVITY_LIMIT_MS = 8 * 60 * 60 * 1000 // 8h

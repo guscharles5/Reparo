@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : POST importe en masse des notices via un fichier CSV (multipart, champ "file", max 5 Mo), parse les colonnes type_appareil/marque/reference_modele/nom_modele/contenu_texte/url_pdf et insère les lignes valides dans manuals
+// Dépendances : papaparse, app/api/admin/auth/route.js (verifyAdminToken), Supabase table manuals
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import Papa from 'papaparse'

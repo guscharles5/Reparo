@@ -1,4 +1,8 @@
-// app/api/partner-info/route.js
+// Fichier : route.js
+// Rôle : GET retourne (sans auth) les informations publiques de routage SAV d'un partenaire actif identifié par le paramètre nom (rdv, numéro de rappel, chat, délai, garantie fabricant)
+// Dépendances : @supabase/supabase-js, next/server, table Supabase partners
+// Dernière modification : 2026-06-29
+
 // Endpoint public (pas d'auth) consommé par l'app cliente pour afficher le
 // nom du partenaire et son routage SAV quand l'utilisateur arrive via un lien
 // partenaire (?partner=...). Ne retourne que des champs publics — jamais de

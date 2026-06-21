@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : GET renvoie le profil du partenaire authentifié (identité, config CRM/SAV, paramètres back-office)
+// Dépendances : lib/partnerAuth.js (getPartnerFromRequest)
+// Dernière modification : 2026-06-29
 import { NextResponse } from 'next/server'
 import { getPartnerFromRequest } from '../../../../lib/partnerAuth'
 

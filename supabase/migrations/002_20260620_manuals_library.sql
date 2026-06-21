@@ -1,3 +1,8 @@
+-- Migration : 002_manuals_library
+-- Date : 2026-06-20
+-- Description : Crée la table manuals (bibliothèque de notices techniques par modèle d'appareil) avec recherche plein texte, et le bucket de stockage des PDF associés.
+-- Tables modifiées : manuals
+
 -- Bibliothèque de notices techniques — recherche par mots-clés simple
 -- (sans pgvector ni service d'embeddings externe). À exécuter dans le
 -- SQL editor de Supabase.

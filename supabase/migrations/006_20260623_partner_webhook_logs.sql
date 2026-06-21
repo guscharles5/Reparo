@@ -1,3 +1,8 @@
+-- Migration : 006_partner_webhook_logs
+-- Date : 2026-06-23
+-- Description : Crée la table partner_webhook_logs qui journalise les tentatives d'envoi de webhook partenaire (succès et échecs) pour diagnostiquer les livraisons ratées.
+-- Tables modifiées : partner_webhook_logs
+
 -- Journal des tentatives d'envoi de webhook partenaire (succès et échecs),
 -- pour diagnostiquer les livraisons ratées depuis le back-office.
 create table if not exists partner_webhook_logs (

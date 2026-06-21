@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : POST journalise une connexion réussie à l'espace partenaire (partner_id, user_id, ip) dans partner_login_logs
+// Dépendances : lib/partnerAuth.js (getPartnerFromRequest), Supabase table partner_login_logs
+// Dernière modification : 2026-06-29
 import { NextResponse } from 'next/server'
 import { getPartnerFromRequest } from '../../../../lib/partnerAuth'
 

@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : GET calcule le tableau de bord de stats globales admin (utilisateurs, conversations par jour, taux de résolution, top appareils/pannes, conversion bienvenue->diagnostic, escalades SAV, entretiens et rappels)
+// Dépendances : app/api/admin/auth/route.js (verifyAdminToken), Supabase Auth admin (listUsers), Supabase tables conversations, bienvenue_ouvertures, appareils, entretiens, rappels
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../auth/route'

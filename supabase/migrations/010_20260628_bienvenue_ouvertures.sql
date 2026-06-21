@@ -1,3 +1,8 @@
+-- Migration : 010_bienvenue_ouvertures
+-- Date : 2026-06-28
+-- Description : Crée la table bienvenue_ouvertures qui journalise chaque ouverture du lien Mode Bienvenue pour calculer un taux d'ouverture réel.
+-- Tables modifiées : bienvenue_ouvertures
+
 -- Tracking des ouvertures de lien "Mode Bienvenue" (?mode=bienvenue&partner=...).
 -- Distinct de l'activation côté client (gardée par localStorage, une seule
 -- fois par appareil) : ici on logue CHAQUE ouverture du lien, pour calculer

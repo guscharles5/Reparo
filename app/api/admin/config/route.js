@@ -1,7 +1,7 @@
-// app/api/admin/config/route.js
-// Couche 2 — config_globale : valeurs par défaut modifiables uniquement par
-// l'admin, résolues par lib/configResolver.js avant la couche 1 (fallback
-// codé dans l'app) et après la couche 3 (config_partenaire).
+// Fichier : route.js
+// Rôle : GET liste toutes les entrées de config_globale, POST (alias PUT) crée/met à jour une clé de config globale et propage la valeur aux partenaires selon la portée choisie (nouveaux/non_personnalises/tous)
+// Dépendances : lib/configResolver.js (applyConfigUpdate), app/api/admin/auth/route.js (verifyAdminToken), Supabase table config_globale
+// Dernière modification : 2026-06-29
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifyAdminToken } from '../auth/route'

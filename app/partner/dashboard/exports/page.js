@@ -1,6 +1,10 @@
 'use client'
+// Fichier : exports/page.js
+// Rôle : Page "Exports" permettant au partenaire de télécharger ses diagnostics au format CSV et un rapport mensuel PDF (KPIs, NPS, top pannes) prêt pour le COMEX.
+// Dépendances : components/shared/admin-ui, lib/partnerClient, jspdf, jspdf-autotable, API /api/partner/conversations, /api/partner/stats, /api/partner/me
+// Dernière modification : 2026-06-29
 import { useState } from 'react'
-import { SectionHeader, Card, Icon } from '../../../../components/adminUi'
+import { SectionHeader, Card, Icon } from '../../../../components/shared/admin-ui'
 import { partnerFetch } from '../../../../lib/partnerClient'
 
 export default function PartnerExports() {

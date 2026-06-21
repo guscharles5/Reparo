@@ -1,4 +1,8 @@
-// app/api/bienvenue-ouverture/route.js
+// Fichier : route.js
+// Rôle : POST enregistre (sans auth) chaque ouverture d'un lien Mode Bienvenue (partner, appareil, modele) pour calculer un taux d'ouverture réel
+// Dépendances : @supabase/supabase-js, next/server, table Supabase bienvenue_ouvertures
+// Dernière modification : 2026-06-29
+
 // Endpoint public (pas d'auth) appelé par l'app cliente à chaque ouverture
 // d'un lien Mode Bienvenue (?mode=bienvenue&partner=...), indépendamment de
 // l'activation réelle de l'écran (gardée côté client par localStorage).

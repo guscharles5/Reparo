@@ -1,9 +1,10 @@
 'use client'
-// app/partner/dashboard/backoffice/page.js — personnalisation de l'espace
-// back-office du partenaire (couche 3, colonnes réelles backoffice_* sur la
-// table partners — pas config_partenaire, voir migration 20260626).
+// Fichier : backoffice/page.js
+// Rôle : Page "Mon espace" du partenaire connecté pour personnaliser l'identité visuelle (nom, logo, couleur) et l'ordre d'affichage des KPIs de son back-office.
+// Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/me et /api/partner/backoffice, colonnes backoffice_* de la table Supabase partners
+// Dernière modification : 2026-06-29
 import { useEffect, useState } from 'react'
-import { SectionHeader, Card, FieldGroup, Badge, input, btnPrimaryBase, Icon } from '../../../../components/adminUi'
+import { SectionHeader, Card, FieldGroup, Badge, input, btnPrimaryBase, Icon } from '../../../../components/shared/admin-ui'
 import { partnerFetch } from '../../../../lib/partnerClient'
 
 const KPIS = [

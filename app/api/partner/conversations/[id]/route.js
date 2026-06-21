@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : GET renvoie le détail d'une conversation par id, restreint au partenaire authentifié, avec son statut calculé
+// Dépendances : lib/partnerAuth.js (getPartnerFromRequest), lib/partnerStats.js (computeStatut), Supabase table conversations
+// Dernière modification : 2026-06-29
 import { NextResponse } from 'next/server'
 import { getPartnerFromRequest } from '../../../../../lib/partnerAuth'
 import { computeStatut } from '../../../../../lib/partnerStats'

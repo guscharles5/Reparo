@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : GET liste les notices (manuals) avec recherche optionnelle par q (ref, marque, type) et limite à 5000, POST crée une nouvelle notice via saisie manuelle
+// Dépendances : app/api/admin/auth/route.js (verifyAdminToken), Supabase table manuals
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../auth/route'

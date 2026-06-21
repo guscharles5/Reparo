@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : PATCH applique l'action du partenaire ('autoriser' ou 'reporter' de 14 jours) sur sa ligne releases_partenaires, après vérification d'appartenance
+// Dépendances : lib/partnerAuth.js (getPartnerFromRequest), Supabase tables releases_partenaires, releases
+// Dernière modification : 2026-06-29
 // app/api/partner/releases/[id]/route.js
 // Action du partenaire sur sa propre ligne releases_partenaires : autoriser
 // le déploiement immédiatement, ou reporter de 2 semaines. [id] est l'id de

@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : POST génère un magic link Supabase Auth pour qu'un admin se connecte à l'espace /partner/dashboard d'un partenaire donné (id), à des fins de support client
+// Dépendances : app/api/admin/auth/route.js (verifyAdminToken), Supabase table partners, Supabase Auth admin (generateLink)
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../../auth/route'

@@ -1,4 +1,7 @@
-// app/api/admin/settings/public/route.js
+// Fichier : route.js
+// Rôle : GET expose publiquement (sans authentification) les réglages applicatifs non sensibles (langue, feature flags guestMode/photoAnalysis/savModal/maintenanceMode, message de maintenance) lus depuis admin_settings
+// Dépendances : Supabase table admin_settings
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 

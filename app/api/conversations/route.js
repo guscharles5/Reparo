@@ -1,4 +1,8 @@
-// app/api/conversations/route.js
+// Fichier : route.js
+// Rôle : GET liste les 50 dernières conversations de l'utilisateur authentifié ; POST crée une conversation ou met à jour ses champs (résultat, NPS, escalade SAV, etc.) si un id est fourni, déclenche le webhook partenaire de fin de diagnostic et auto-enregistre l'appareil détecté
+// Dépendances : @supabase/supabase-js, next/server, lib/partnerWebhook (sendPartnerWebhook, buildWebhookPayload), tables Supabase conversations, partners, partner_webhook_logs, appareils
+// Dernière modification : 2026-06-29
+
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { sendPartnerWebhook, buildWebhookPayload } from '../../../lib/partnerWebhook'

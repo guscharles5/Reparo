@@ -1,5 +1,10 @@
 'use client'
 
+// Fichier : admin-ui.js
+// Rôle : bibliothèque de composants UI partagés entre le back-office admin (/admin/dashboard) et l'espace partenaire (/partner/dashboard) — même charte graphique sobre
+// Dépendances : react
+// Dernière modification : 2026-06-29
+//
 // Composants UI partagés entre le back-office admin (/admin/dashboard) et
 // l'espace partenaire (/partner/dashboard) — même charte graphique sobre.
 import { useEffect } from 'react'

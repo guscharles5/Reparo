@@ -1,4 +1,8 @@
-// app/api/appareils/route.js
+// Fichier : route.js
+// Rôle : GET liste tous les appareils de l'utilisateur authentifié ; POST crée un appareil (déduplique sur type+marque+modele) et programme automatiquement le calendrier de rappels d'entretien préventif associé
+// Dépendances : @supabase/supabase-js, next/server, lib/maintenanceSchedule (buildInitialRappels), tables Supabase appareils et rappels
+// Dernière modification : 2026-06-29
+
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { buildInitialRappels } from '../../../lib/maintenanceSchedule'

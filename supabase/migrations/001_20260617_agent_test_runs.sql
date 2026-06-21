@@ -1,3 +1,8 @@
+-- Migration : 001_agent_test_runs
+-- Date : 2026-06-17
+-- Description : Crée la table agent_test_runs qui stocke les résultats des agents Playwright simulant des utilisateurs réels lors des tests automatisés.
+-- Tables modifiées : agent_test_runs
+
 -- Table de résultats des agents Playwright simulant des utilisateurs réels.
 -- À exécuter une fois dans le SQL editor de Supabase avant de lancer les tests.
 

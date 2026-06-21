@@ -1,4 +1,8 @@
-// app/api/rappels/route.js
+// Fichier : route.js
+// Rôle : GET retourne les rappels d'entretien (à venir et en attente) de l'utilisateur authentifié, triés par date prévue ; PATCH met à jour le statut d'un rappel (envoye/complete/ignore)
+// Dépendances : @supabase/supabase-js, next/server, table Supabase rappels
+// Dernière modification : 2026-06-29
+
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 

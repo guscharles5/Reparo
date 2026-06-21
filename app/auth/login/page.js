@@ -1,5 +1,9 @@
 'use client'
 // app/auth/login/page.js
+// Fichier : page.js
+// Rôle : Écran de connexion/inscription public pour le client final — propose connexion Google OAuth, connexion/création de compte par email-mot de passe via Supabase Auth, ou accès invité
+// Dépendances : @supabase/supabase-js, Supabase Auth (table auth.users), /auth/callback
+// Dernière modification : 2026-06-29
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 

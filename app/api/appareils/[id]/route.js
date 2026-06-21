@@ -1,3 +1,8 @@
+// Fichier : route.js
+// Rôle : PATCH met à jour les champs autorisés d'un appareil (type, marque, modele, achat, statut, entretien, pannes) appartenant à l'utilisateur authentifié ; DELETE supprime un appareil de l'utilisateur authentifié
+// Dépendances : @supabase/supabase-js, next/server, table Supabase appareils
+// Dernière modification : 2026-06-29
+
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 

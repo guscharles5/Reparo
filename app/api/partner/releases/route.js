@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : GET liste les releases du partenaire authentifié (jointure releases_partenaires/releases), triées par date de disponibilité descendante
+// Dépendances : lib/partnerAuth.js (getPartnerFromRequest), Supabase tables releases_partenaires, releases
+// Dernière modification : 2026-06-29
 // app/api/partner/releases/route.js
 // Liste les releases concernant le partenaire authentifié (jointe avec la
 // release elle-même), ordonnées par date de disponibilité descendante.

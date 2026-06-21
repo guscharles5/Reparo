@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : PATCH met à jour les colonnes back-office (nom, logo, couleur, ordre des KPIs) de la table partners pour le partenaire authentifié
+// Dépendances : lib/partnerAuth.js (getPartnerFromRequest), Supabase table partners
+// Dernière modification : 2026-06-29
 // app/api/partner/backoffice/route.js
 // Permet au partenaire de personnaliser son espace back-office (couche 3,
 // colonnes réelles de la table partners — pas config_partenaire, voir

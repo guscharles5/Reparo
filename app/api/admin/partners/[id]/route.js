@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : PUT met à jour un partenaire (webhook, SAV, crm_type, compte_actif) et bannit/débannit son compte Supabase Auth selon compte_actif, DELETE supprime le partenaire
+// Dépendances : lib/partnerWebhook.js (CRM_TYPES), app/api/admin/auth/route.js (verifyAdminToken), Supabase table partners, Supabase Auth admin (updateUserById)
+// Dernière modification : 2026-06-29
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../../auth/route'

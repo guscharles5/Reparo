@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : GET résout et renvoie les clés de config applicative effectives (avec flag overridden) ; PATCH upsert les surcharges du partenaire dans config_partenaire
+// Dépendances : lib/partnerAuth.js (getPartnerFromRequest), lib/configResolver.js (resolveConfigBatch), Supabase table config_partenaire
+// Dernière modification : 2026-06-29
 // app/api/partner/config/route.js
 // Couche 3 — personnalisation appliquée par le partenaire sur les clés de
 // configuration applicatives (logo, couleurs, prompt IA, etc.), stockée dans

@@ -1,3 +1,7 @@
+// Fichier : route.js
+// Rôle : GET calcule les KPIs globaux du partenaire (conversations, NPS, ouvertures de lien, top pannes, taux d'adoption du calendrier d'entretien, économies préventives)
+// Dépendances : lib/partnerAuth.js (getPartnerFromRequest), lib/partnerStats.js (buildKpis), Supabase tables conversations, bienvenue_ouvertures, appareils, rappels
+// Dernière modification : 2026-06-29
 import { NextResponse } from 'next/server'
 import { getPartnerFromRequest } from '../../../../lib/partnerAuth'
 import { buildKpis } from '../../../../lib/partnerStats'

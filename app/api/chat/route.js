@@ -1,4 +1,8 @@
-// app/api/chat/route.js
+// Fichier : route.js
+// Rôle : POST relaie la conversation de diagnostic (mode invité, rate-limité par IP) vers l'API Claude (Anthropic), en injectant un system prompt configurable depuis le back-office et des extraits de notice technique pertinents si un modèle d'appareil est détecté
+// Dépendances : @supabase/supabase-js, next/server, lib/manualSearch (findRelevantManualPassages), table Supabase admin_settings, API externe Anthropic (api.anthropic.com)
+// Dernière modification : 2026-06-29
+
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { findRelevantManualPassages } from '../../../lib/manualSearch'
