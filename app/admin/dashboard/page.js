@@ -3,12 +3,12 @@
 // Fichier : page.js
 // Rôle : Tableau de bord back-office complet pour les administrateurs Reparo — statistiques globales, gestion des utilisateurs/conversations/appareils, bibliothèque de notices, gestion des partenaires (webhooks CRM, impersonation), configuration globale multi-tenant et release management
 // Dépendances : ../../../components/shared/admin-ui, /api/admin/stats, /api/admin/settings, /api/admin/manuals, /api/admin/partners, /api/admin/config, /api/admin/releases, jspdf, jspdf-autotable, tables Supabase (utilisateurs, conversations, appareils, manuels, partenaires, config_globale, releases)
-// Dernière modification : 2026-06-29
+// Dernière modification : 2026-06-23
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Icon, useOutsideClick, Skeleton, StatWidget, BarChart, Toggle, Badge,
+  Icon, useOutsideClick, Skeleton, StatWidget, BarChart, DonutChart, AreaChart, KpiFlat, Toggle, Badge,
   Card, Table, SectionHeader, Alert, FieldGroup,
 } from '../../../components/shared/admin-ui'
 
@@ -763,59 +763,62 @@ export default function AdminDashboard() {
           action={<button onClick={fetchAll} style={btnOutline}><Icon name="refresh" size={13} color={accentColor} /> Actualiser</button>}
         />
 
-        {/* KPIs principaux */}
+        {/* KPIs principaux — rangée plate façon tableau de bord, sans cartes */}
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '14px', marginBottom: '20px' }}>
-            {[1,2,3,4].map(i => <Skeleton key={i} h="88px" r="8px" />)}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '14px', marginBottom: '24px' }}>
+            {[1,2,3,4].map(i => <Skeleton key={i} h="60px" r="8px" />)}
           </div>
         ) : stats && widgetViz.kpis && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '14px', marginBottom: '20px' }}>
-            <StatWidget label="Utilisateurs inscrits"  value={stats.totalUsers}         sub={`+${stats.newUsersThisWeek} cette semaine`} trend="up"  accent={accentColor} />
-            <StatWidget label="Diagnostics lancés"      value={stats.totalConversations} sub={`${stats.conversationsToday} aujourd'hui`}  accent="#475569" />
-            <StatWidget label="Taux de résolution"      value={`${stats.resolutionRate}%`} sub="Problèmes résolus via l'IA"              accent="#475569" />
-            <StatWidget label="Appareils enregistrés"   value={stats.totalAppareils}     sub={`+${stats.appareilsThisWeek} cette semaine`} trend="up" accent="#475569" />
+          <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', marginBottom: '24px' }}>
+            <KpiFlat value={stats.totalConversations} label="Diagnostics lancés" />
+            <KpiFlat value={`${stats.resolutionRate}%`} label="Taux de résolution" />
+            <KpiFlat value={stats.totalUsers} label="Utilisateurs inscrits" />
+            <KpiFlat value={stats.totalAppareils} label="Appareils enregistrés" />
           </div>
         )}
 
-        {/* 3 nouvelles statistiques sobres */}
-        {!loading && stats && widgetViz.extraStats && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '14px', marginBottom: '20px' }}>
-            <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '18px 20px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '8px' }}>Diagnostics aujourd'hui</div>
-              <div style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a' }}>{stats.conversationsToday}</div>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>conversations lancées</div>
-            </div>
-            <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '18px 20px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '8px' }}>Taux de résolution global</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <div style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a' }}>{stats.resolutionRate}%</div>
-              </div>
-              <div style={{ marginTop: '6px', height: '4px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${stats.resolutionRate}%`, background: '#0f172a', borderRadius: '2px', transition: 'width .6s ease' }} />
-              </div>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>ratio [PROBLEME_RESOLU]</div>
-            </div>
-            <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '18px 20px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '8px' }}>Appareil le plus diagnostiqué</div>
-              {topDevice ? (
-                <>
-                  <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', marginBottom: '2px' }}>{topDevice.type || 'N/A'}</div>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>{topDevice.marque || '—'} · {topDevice.count} diagnostics</div>
-                </>
-              ) : <div style={{ fontSize: '13px', color: '#94a3b8' }}>Aucune donnée</div>}
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px', marginBottom: '18px' }}>
-          {!loading && stats && widgetViz.chart && (
-            <Card title="Activité — 7 derniers jours" action={<Badge label="Conversations" variant="info" />}>
-              <BarChart data={stats.conversationsPerDay} color={accentColor} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '18px', marginBottom: '18px' }}>
+          {!loading && stats && widgetViz.chart && stats.parResultat && (
+            <Card title="Diagnostics par résultat">
+              <DonutChart
+                centerLabel="diagnostics"
+                data={[
+                  { label: 'Résolu',    value: stats.parResultat.resolu,    color: '#16a34a' },
+                  { label: 'Échec',     value: stats.parResultat.echec,     color: '#dc2626' },
+                  { label: 'Abandonné', value: stats.parResultat.abandonne, color: '#d97706' },
+                  { label: 'En cours',  value: stats.parResultat.en_cours,  color: '#cbd5e1' },
+                ]}
+              />
             </Card>
           )}
-          {widgetViz.quickActions && (
+          {!loading && stats && widgetViz.chart && (
+            <Card title="Activité — 7 derniers jours" action={<Badge label="Conversations" variant="info" />}>
+              <AreaChart data={stats.conversationsPerDay} color={accentColor} />
+            </Card>
+          )}
+          {!loading && stats && (
+            <Card title="Appareil le plus diagnostiqué">
+              {topDevice ? (
+                <>
+                  <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginBottom: '4px' }}>{topDevice.type || 'N/A'}</div>
+                  <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>{topDevice.marque || '—'} · {topDevice.count} diagnostics</div>
+                  <div style={{ fontSize: '11px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '6px' }}>Taux de résolution global</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                    <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>{stats.resolutionRate}%</div>
+                  </div>
+                  <div style={{ marginTop: '6px', height: '4px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${stats.resolutionRate}%`, background: '#0f172a', borderRadius: '2px', transition: 'width .6s ease' }} />
+                  </div>
+                </>
+              ) : <div style={{ fontSize: '13px', color: '#94a3b8' }}>Aucune donnée</div>}
+            </Card>
+          )}
+        </div>
+
+        {widgetViz.quickActions && (
+          <div style={{ marginBottom: '18px' }}>
             <Card title="Actions rapides">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '8px' }}>
                 {[
                   { icon: 'sliders', label: 'Préférences admin', to: 'admin_prefs' },
                   { icon: 'robot',   label: 'Configurer le prompt IA', to: 'app_ai' },
@@ -831,8 +834,8 @@ export default function AdminDashboard() {
                 ))}
               </div>
             </Card>
-          )}
-        </div>
+          </div>
+        )}
 
         {!loading && stats && widgetViz.topDevices && (
           <div style={{ marginBottom: '18px' }}>

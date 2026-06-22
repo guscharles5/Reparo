@@ -1,10 +1,10 @@
 'use client'
 // Fichier : statistiques/nps/page.js
-// Rôle : Page de visualisation des statistiques NPS du partenaire connecté (score global, NPS par parcours, évolution mensuelle, commentaires clients filtrables par parcours).
+// Rôle : Page de visualisation des statistiques NPS du partenaire connecté (score global, NPS par parcours, évolution mensuelle en area chart, commentaires clients filtrables par parcours).
 // Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/nps
-// Dernière modification : 2026-06-29
+// Dernière modification : 2026-06-23
 import { useEffect, useState } from 'react'
-import { SectionHeader, Card, StatWidget, BarChart, Skeleton } from '../../../../../components/shared/admin-ui'
+import { SectionHeader, Card, StatWidget, AreaChart, Skeleton } from '../../../../../components/shared/admin-ui'
 import { partnerFetch } from '../../../../../lib/partnerClient'
 
 const PARCOURS_LABELS = { resolu: 'Résolu seul', echec: 'Escaladé', abandonne: 'Abandonné' }
@@ -36,7 +36,7 @@ export default function PartnerNPS() {
           </div>
 
           <Card title="Évolution mensuelle du NPS">
-            <BarChart data={data.evolutionMensuelle} color="#7c3aed" />
+            <AreaChart data={data.evolutionMensuelle} color="#7c3aed" />
           </Card>
 
           <div style={{ height: '14px' }} />

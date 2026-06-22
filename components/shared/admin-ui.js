@@ -1,9 +1,9 @@
 'use client'
 
 // Fichier : admin-ui.js
-// Rôle : bibliothèque de composants UI partagés entre le back-office admin (/admin/dashboard) et l'espace partenaire (/partner/dashboard) — même charte graphique sobre
+// Rôle : bibliothèque de composants UI partagés entre le back-office admin (/admin/dashboard) et l'espace partenaire (/partner/dashboard) — même charte graphique sobre, incluant les graphiques de dashboard (BarChart, DonutChart, AreaChart, KpiFlat)
 // Dépendances : react
-// Dernière modification : 2026-06-29
+// Dernière modification : 2026-06-23
 //
 // Composants UI partagés entre le back-office admin (/admin/dashboard) et
 // l'espace partenaire (/partner/dashboard) — même charte graphique sobre.
@@ -92,6 +92,85 @@ export const BarChart = ({ data, color }) => {
           <div style={{ fontSize: '10px', color: '#94a3b8' }}>{d.label}</div>
         </div>
       ))}
+    </div>
+  )
+}
+
+// KPI plat sans bordure — gros chiffre centré + légende, style tableau de
+// bord (Asana). À utiliser pour une rangée de métriques en tête de page,
+// distinct de StatWidget qui reste utilisé pour les KPI encadrés.
+export const KpiFlat = ({ value, label }) => (
+  <div style={{ textAlign: 'center', padding: '6px 0' }}>
+    <div style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a', lineHeight: 1 }}>{value}</div>
+    <div style={{ fontSize: '13px', color: '#64748b', marginTop: '6px' }}>{label}</div>
+  </div>
+)
+
+// Donut chart en SVG pur (pas de librairie) — data: [{ label, value, color }].
+// Affiche le total (ou centerValue/centerLabel fournis) au centre de l'anneau,
+// et une légende à droite avec la valeur de chaque segment.
+export const DonutChart = ({ data, size = 140, thickness = 18, centerLabel, centerValue }) => {
+  const total = data.reduce((s, d) => s + d.value, 0) || 1
+  const radius = (size - thickness) / 2
+  const circumference = 2 * Math.PI * radius
+  let offset = 0
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '22px', flexWrap: 'wrap' }}>
+      <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+        <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#f1f5f9" strokeWidth={thickness} />
+          {data.map((d, i) => {
+            const dash = (d.value / total) * circumference
+            const seg = (
+              <circle key={i} cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={d.color} strokeWidth={thickness}
+                strokeDasharray={`${dash} ${circumference - dash}`} strokeDashoffset={-offset} strokeLinecap="butt" />
+            )
+            offset += dash
+            return seg
+          })}
+        </svg>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a' }}>{centerValue ?? total}</div>
+          {centerLabel !== undefined && <div style={{ fontSize: '11px', color: '#94a3b8' }}>{centerLabel}</div>}
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {data.map((d, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#475569' }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: d.color, flexShrink: 0 }} />
+            {d.label} <strong style={{ color: '#0f172a' }}>{d.value}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Area chart en SVG pur — data: [{ label, value }], même forme que BarChart,
+// pour permettre de remplacer l'un par l'autre sans changer les données.
+export const AreaChart = ({ data, color = '#2563eb', height = 110 }) => {
+  const max = Math.max(...data.map(d => d.value), 1)
+  const stepX = data.length > 1 ? 100 / (data.length - 1) : 100
+  const points = data.map((d, i) => [i * stepX, height - (d.value / max) * (height - 24) - 6])
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')
+  const areaPath = `${linePath} L ${points[points.length - 1][0]} ${height} L ${points[0][0]} ${height} Z`
+  const gradId = `areaGrad-${color.replace('#', '')}`
+  return (
+    <div>
+      <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" style={{ width: '100%', height: `${height}px`, display: 'block' }}>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill={`url(#${gradId})`} stroke="none" />
+        <path d={linePath} fill="none" stroke={color} strokeWidth="1.5" />
+        {points.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="1.8" fill={color} />)}
+      </svg>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+        {data.map((d, i) => <span key={i} style={{ fontSize: '10px', color: '#94a3b8' }}>{d.label}</span>)}
+      </div>
     </div>
   )
 }
