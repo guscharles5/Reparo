@@ -6,6 +6,14 @@ chronologique inversé.
 ## [Non publié] - 2026-06-22
 
 ### Ajouté
+- Script de simulation `scripts/test-agents.js` (`npm run test:agents` /
+  `npm run test:agents:cleanup`) : crée un partenaire et 3 utilisateurs de
+  test dans Supabase, puis joue 3 scénarios (résolution réussie, escalade
+  SAV, abandon) via les vraies routes `/api/appareils` et
+  `/api/conversations`, contre un serveur local. Les réponses IA sont
+  simulées (pas d'appel Anthropic) pour tester le pipeline de stockage des
+  tags sans coût ni dépendance réseau. Un rapport final vérifie que les
+  champs de diagnostic attendus sont bien renseignés.
 - Prévisualisation en direct sur la page Configuration → Application
   cliente (`app/partner/dashboard/configuration/application-cliente`) :
   une maquette de téléphone reproduit l'écran Mode Bienvenue de
