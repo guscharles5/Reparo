@@ -4,7 +4,7 @@ Date : 2026-06-29
 
 Toutes les routes vivent sous `app/api/**/route.js` (convention App Router
 Next.js). Trois espaces d'auth distincts :
-- **Public** (aucune auth) : `/api/chat`, `/api/partner-info`, `/api/bienvenue-ouverture`.
+- **Public** (aucune auth) : `/api/chat`, `/api/partner-info`, `/api/partner-theme`, `/api/bienvenue-ouverture`.
 - **Utilisateur final** (Supabase Auth) : `/api/appareils`, `/api/conversations`, `/api/entretiens`, `/api/rappels`, `/api/upload`.
 - **Admin** (token HMAC, voir `app/api/admin/auth/route.js`) : tout `/api/admin/**`.
 - **Partenaire** (Supabase Auth, `role: 'partner'`, voir `lib/partnerAuth.js`) : tout `/api/partner/**`.
@@ -58,4 +58,5 @@ Next.js). Trois espaces d'auth distincts :
 
 - `chat/route.js` — POST relaie la conversation de diagnostic (mode invité, rate-limité par IP) vers l'API Claude (Anthropic), en injectant un system prompt configurable depuis le back-office et des extraits de notice technique pertinents si un modèle d'appareil est détecté
 - `partner-info/route.js` — GET retourne (sans auth) les informations publiques de routage SAV d'un partenaire actif identifié par le paramètre nom (rdv, numéro de rappel, chat, délai, garantie fabricant)
+- `partner-theme/route.js` — GET retourne (sans auth) la personnalisation visuelle/contenu d'un partenaire actif identifié par le paramètre nom (logo, couleurs, blocs de l'écran d'accueil construits via le constructeur de page partenaire)
 - `bienvenue-ouverture/route.js` — POST enregistre (sans auth) chaque ouverture d'un lien Mode Bienvenue (partner, appareil, modele) pour calculer un taux d'ouverture réel

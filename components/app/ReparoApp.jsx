@@ -2,7 +2,7 @@
 
 // Fichier : ReparoApp.jsx
 // Rôle : composant principal de l'app cliente Reparo (chat IA, Mode Bienvenue/Diagnostic, gestion des appareils, NPS, escalade SAV)
-// Dépendances : @supabase/supabase-js, /api/chat, /api/conversations, /api/appareils, /api/entretiens, /api/rappels, /api/partner-info, /api/bienvenue-ouverture
+// Dépendances : @supabase/supabase-js, /api/chat, /api/conversations, /api/appareils, /api/entretiens, /api/rappels, /api/partner-info, /api/partner-theme, /api/bienvenue-ouverture
 // Dernière modification : 2026-06-29
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
@@ -158,8 +158,13 @@ const SAV_ENSEIGNES = [
 
 const INIT_APPAREILS = [];
 
-const PRIMARY = "#1B3A6B";
-const ACCENT  = "#2563EB";
+const DEFAULT_PRIMARY = "#1B3A6B";
+const DEFAULT_ACCENT  = "#2563EB";
+// SAVCard (composant hors ReparoApp) garde les couleurs par défaut Reparo —
+// la personnalisation partenaire (PRIMARY/ACCENT locaux) ne s'applique qu'à
+// l'intérieur du composant ReparoApp, voir plus bas.
+const PRIMARY = DEFAULT_PRIMARY;
+const ACCENT  = DEFAULT_ACCENT;
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -797,6 +802,7 @@ export default function ReparoApp() {
   const failedAttemptsRef = useRef(0); // étapes tentées sans succès dans la conv en cours
   const [partnerInfo, setPartnerInfo] = useState(null); // config SAV du partenaire d'origine (/api/partner-info)
   const [garantieType, setGarantieType] = useState(null); // 'fabricant' | 'partenaire' | null — répondu par l'utilisateur
+  const [partnerTheme, setPartnerTheme] = useState(null); // personnalisation visuelle/contenu du partenaire d'origine (/api/partner-theme) — null = pas de partenaire ou défauts Reparo
 
   useEffect(() => {
     if (!partnerRef.current) return;
@@ -804,7 +810,18 @@ export default function ReparoApp() {
       .then(r => r.ok ? r.json() : null)
       .then(d => setPartnerInfo(d?.partner || null))
       .catch(() => {});
+    fetch(`/api/partner-theme?nom=${encodeURIComponent(partnerRef.current)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setPartnerTheme(d?.theme || null))
+      .catch(() => {});
   }, []);
+
+  // Couleurs effectives de l'app cliente : surchargées par la personnalisation
+  // du partenaire d'origine (config_partenaire) si présente, sinon défauts
+  // Reparo (DEFAULT_PRIMARY/DEFAULT_ACCENT) — n'affecte jamais l'app mère ni
+  // les autres partenaires, seulement le rendu de CETTE session cliente.
+  const PRIMARY = partnerTheme?.couleurPrimaire || DEFAULT_PRIMARY;
+  const ACCENT = partnerTheme?.couleurSecondaire || DEFAULT_ACCENT;
 
   const npsFollowUpQuestion = (score) => {
     if (score <= 6) return "Qu'est-ce qui n'a pas fonctionné ?";
@@ -1013,16 +1030,20 @@ export default function ReparoApp() {
           <path d="M15 18l-6-6 6-6"/>
         </svg>
       </button>}
-      <div style={{ background: "rgba(255,255,255,.2)", borderRadius: "10px", width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <svg width="22" height="22" viewBox="-16 -16 32 32" style={{display:"block"}}>
-          <g transform="rotate(-45)">
-            <path d="M-5,-11 L-5,-6 L-1.5,-4 L1.5,-4 L5,-6 L5,-11 Q5,-14 0,-14 Q-5,-14 -5,-11 Z" fill="white"/>
-            <rect x="-2" y="-14" width="4" height="5" rx="1" fill="rgba(255,255,255,0.2)"/>
-            <rect x="-1.8" y="-4" width="3.6" height="14" rx="1.8" fill="white"/>
-            <path d="M-5,11 L-5,6 L-1.5,4 L1.5,4 L5,6 L5,11 Q5,14 0,14 Q-5,14 -5,11 Z" fill="white"/>
-            <rect x="-2" y="9" width="4" height="5" rx="1" fill="rgba(255,255,255,0.2)"/>
-          </g>
-        </svg>
+      <div style={{ background: "rgba(255,255,255,.2)", borderRadius: "10px", width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+        {partnerTheme?.logoUrl ? (
+          <img src={partnerTheme.logoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
+          <svg width="22" height="22" viewBox="-16 -16 32 32" style={{display:"block"}}>
+            <g transform="rotate(-45)">
+              <path d="M-5,-11 L-5,-6 L-1.5,-4 L1.5,-4 L5,-6 L5,-11 Q5,-14 0,-14 Q-5,-14 -5,-11 Z" fill="white"/>
+              <rect x="-2" y="-14" width="4" height="5" rx="1" fill="rgba(255,255,255,0.2)"/>
+              <rect x="-1.8" y="-4" width="3.6" height="14" rx="1.8" fill="white"/>
+              <path d="M-5,11 L-5,6 L-1.5,4 L1.5,4 L5,6 L5,11 Q5,14 0,14 Q-5,14 -5,11 Z" fill="white"/>
+              <rect x="-2" y="9" width="4" height="5" rx="1" fill="rgba(255,255,255,0.2)"/>
+            </g>
+          </svg>
+        )}
       </div>
       <div style={{ flex: 1 }}>
         <div style={{ color: "white", fontWeight: "800", fontSize: "16px" }}>{title}</div>
@@ -2039,6 +2060,27 @@ export default function ReparoApp() {
               {bienvenue.appareil && ` Je vois que vous venez de recevoir votre ${bienvenue.appareil}${bienvenue.modele ? ` ${bienvenue.modele}` : ""}.`}
               {" "}Je suis là pour vous aider à en prendre soin.
             </div>
+            {/* Blocs de contenu construits par le partenaire dans son
+                constructeur de page d'accueil (config_partenaire.blocs_accueil),
+                affichés uniquement sur l'app cliente de ce partenaire. */}
+            {(partnerTheme?.blocsAccueil || []).map((bloc) => {
+              if (bloc.type === "titre") return (
+                <div key={bloc.id} style={{ fontSize: "18px", fontWeight: "800", color: "white", marginBottom: "10px" }}>{bloc.texte}</div>
+              );
+              if (bloc.type === "texte") return (
+                <div key={bloc.id} style={{ fontSize: "14px", color: "rgba(255,255,255,.85)", lineHeight: "1.5", marginBottom: "10px" }}>{bloc.texte}</div>
+              );
+              if (bloc.type === "image" && bloc.url) return (
+                <img key={bloc.id} src={bloc.url} alt="" style={{ width: "100%", borderRadius: "12px", marginBottom: "10px", display: "block" }} />
+              );
+              if (bloc.type === "bouton" && bloc.label) return (
+                <a key={bloc.id} href={bloc.url || "#"} target="_blank" rel="noreferrer"
+                  style={{ display: "block", background: bloc.couleur || "white", color: bloc.couleur ? "white" : PRIMARY, borderRadius: "16px", padding: "14px", fontWeight: "800", fontSize: "14px", textAlign: "center", textDecoration: "none", marginBottom: "10px", fontFamily: "Inter,sans-serif" }}>
+                  {bloc.label}
+                </a>
+              );
+              return null;
+            })}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             <button onClick={() => { modeRef.current = "bienvenue"; setBienvenue(null); setTab("home"); setScreen("home"); }}

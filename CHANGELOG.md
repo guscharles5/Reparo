@@ -6,6 +6,19 @@ chronologique inversé.
 ## [Non publié] - 2026-06-29
 
 ### Ajouté
+- Constructeur de page d'accueil pour le back-office partenaire
+  (`app/partner/dashboard/personnalisation/page.js`) : ajout de blocs
+  réordonnables (titre, texte, image, bouton) façon WordPress/Gutenberg,
+  sans écrire de code, stockés dans `config_partenaire.blocs_accueil`.
+- Nouvel endpoint public `app/api/partner-theme/route.js` qui résout et
+  expose la personnalisation visuelle (logo, couleurs, blocs d'accueil) d'un
+  partenaire pour l'app cliente, sans exposer d'information interne.
+- Application effective de cette personnalisation côté app cliente
+  (`components/app/ReparoApp.jsx`) : logo et couleurs (`PRIMARY`/`ACCENT`)
+  dynamiques par partenaire, rendu des blocs personnalisés sur l'écran
+  d'accueil Mode Bienvenue — strictement limité à l'app cliente du
+  partenaire concerné, sans aucun impact sur l'app mère ni les autres
+  partenaires.
 - Documentation complète du projet : `README.md`, `CLAUDE.md`,
   `CHANGELOG.md`, `.env.example` exhaustif, `docs/architecture.md`,
   `docs/database.md`, `docs/api.md`, `docs/deployment.md`.

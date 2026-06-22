@@ -40,6 +40,20 @@ en dur :
 `resolveConfig(admin, partnerId, cle, fallback)` lit la couche 3 puis la
 couche 2 puis le fallback applicatif, dans cet ordre.
 
+### Constructeur de page d'accueil partenaire
+
+Le partenaire personnalise son écran d'accueil Mode Bienvenue depuis
+`/partner/dashboard/personnalisation` via un constructeur de blocs simple
+(titre, texte, image, bouton — inspiré des blocs Gutenberg de WordPress,
+sans éditeur de code arbitraire pour éviter tout risque d'injection). Ces
+blocs sont stockés dans la clé `blocs_accueil` de `config_partenaire`
+(couche 3) et résolus par l'endpoint public `app/api/partner-theme/route.js`,
+consommé uniquement par `components/app/ReparoApp.jsx`. **Portée
+strictement limitée à ce partenaire** : la personnalisation ne touche que sa
+propre ligne `config_partenaire`, jamais `config_globale` (couche 2) ni le
+code de l'app mère — un autre partenaire ou un visiteur sans `?partner=`
+voit toujours les couleurs et l'écran d'accueil par défaut de Reparo.
+
 ## Mode Bienvenue vs Mode Diagnostic
 
 - **Mode Bienvenue** : activé uniquement si les 4 conditions sont réunies —
