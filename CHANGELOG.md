@@ -6,6 +6,11 @@ chronologique inversé.
 ## [Non publié] - 2026-06-22
 
 ### Ajouté
+- Prévisualisation en direct sur la page Configuration → Application
+  cliente (`app/partner/dashboard/configuration/application-cliente`) :
+  une maquette de téléphone reproduit l'écran Mode Bienvenue de
+  `ReparoApp.jsx` (couleurs, logo, blocs d'accueil, boutons) et se met à
+  jour à chaque frappe, sans appel réseau ni enregistrement préalable.
 - Collecte fiable des statistiques de diagnostic IA pour le back-office :
   - 4 nouveaux tags IA estimés (`[PANNE_DETECTEE]`, `[COMPLEXITE]`,
     `[CAUSE_RACINE]`, `[NOTICE_UTILISEE]`), explicitement marqués comme des

@@ -1,8 +1,8 @@
 'use client'
 // Fichier : configuration/application-cliente/page.js
-// Rôle : Page "Personnalisation" applicative pour les utilisateurs finaux du partenaire : identité visuelle, assistant IA (nom, message de bienvenue, prompt), catégories d'appareils visibles, langue par défaut, et constructeur de blocs (texte/image/bouton) pour l'écran d'accueil Mode Bienvenue — chaque modification ne s'applique qu'à l'app cliente de ce partenaire précis, jamais à l'app mère ni aux autres partenaires.
-// Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/config, table Supabase config_partenaire
-// Dernière modification : 2026-06-29
+// Rôle : Page "Personnalisation" applicative pour les utilisateurs finaux du partenaire : identité visuelle, assistant IA (nom, message de bienvenue, prompt), catégories d'appareils visibles, langue par défaut, et constructeur de blocs (texte/image/bouton) pour l'écran d'accueil Mode Bienvenue — chaque modification ne s'applique qu'à l'app cliente de ce partenaire précis, jamais à l'app mère ni aux autres partenaires. Une maquette de téléphone reproduisant l'écran Mode Bienvenue (components/app/ReparoApp.jsx) se met à jour en direct pendant la saisie, avant tout enregistrement.
+// Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/config, API /api/partner/me, table Supabase config_partenaire
+// Dernière modification : 2026-06-22
 import { useEffect, useState } from 'react'
 import { SectionHeader, Card, FieldGroup, Badge, input, btnPrimaryBase, Icon } from '../../../../../components/shared/admin-ui'
 import { partnerFetch } from '../../../../../lib/partnerClient'
@@ -30,11 +30,74 @@ const OverrideBadge = ({ overridden }) => (
   <Badge label={overridden ? 'Personnalisé' : 'Valeur par défaut'} variant={overridden ? 'info' : 'default'} />
 )
 
+// Maquette de téléphone reproduisant fidèlement l'écran Mode Bienvenue de
+// components/app/ReparoApp.jsx (mêmes couleurs, mêmes blocs, mêmes boutons).
+// Alimentée directement par le state `form` en cours de saisie — aucun appel
+// réseau, donc se met à jour à chaque frappe, avant tout enregistrement.
+const PhonePreview = ({ form, partnerNom }) => {
+  const primary = form.couleur_primaire || '#2563eb'
+  return (
+    <div style={{ width: '280px', flexShrink: 0 }}>
+      <div style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '.4px' }}>
+        Aperçu en direct — Mode Bienvenue
+      </div>
+      <div style={{ background: '#0f172a', borderRadius: '32px', padding: '10px', boxShadow: '0 12px 30px rgba(15,23,42,.25)' }}>
+        <div style={{ background: primary, borderRadius: '24px', height: '560px', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '36px 18px 22px', position: 'relative' }}>
+          <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', width: '70px', height: '16px', background: '#0f172a', borderRadius: '10px' }} />
+
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', overflowY: 'auto' }}>
+            {form.logo_url && (
+              <img src={form.logo_url} alt="" style={{ width: '40px', height: '40px', objectFit: 'contain', marginBottom: '12px', borderRadius: '8px', background: 'rgba(255,255,255,.15)' }} onError={e => { e.currentTarget.style.display = 'none' }} />
+            )}
+            <div style={{ fontSize: '17px', fontWeight: '900', color: 'white', lineHeight: '1.35', marginBottom: '12px' }}>
+              {form.message_bienvenue || `Bienvenue ! Je suis l'assistant ${partnerNom || form.nom_assistant_ia || 'Reparo'}. Je suis là pour vous aider à en prendre soin.`}
+            </div>
+
+            {form.blocs_accueil.map(bloc => {
+              if (bloc.type === 'titre') return (
+                <div key={bloc.id} style={{ fontSize: '13px', fontWeight: '800', color: 'white', marginBottom: '8px' }}>{bloc.texte || '(titre vide)'}</div>
+              )
+              if (bloc.type === 'texte') return (
+                <div key={bloc.id} style={{ fontSize: '11px', color: 'rgba(255,255,255,.85)', lineHeight: '1.5', marginBottom: '8px' }}>{bloc.texte || '(texte vide)'}</div>
+              )
+              if (bloc.type === 'image' && bloc.url) return (
+                <img key={bloc.id} src={bloc.url} alt="" style={{ width: '100%', borderRadius: '10px', marginBottom: '8px', display: 'block' }} onError={e => { e.currentTarget.style.display = 'none' }} />
+              )
+              if (bloc.type === 'bouton' && bloc.label) return (
+                <div key={bloc.id} style={{ display: 'block', background: bloc.couleur || 'white', color: bloc.couleur ? 'white' : primary, borderRadius: '10px', padding: '10px', fontWeight: '800', fontSize: '11px', textAlign: 'center', marginBottom: '8px' }}>
+                  {bloc.label}
+                </div>
+              )
+              return null
+            })}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+            <div style={{ background: 'white', borderRadius: '12px', padding: '11px', fontWeight: '800', fontSize: '12px', color: primary, textAlign: 'center' }}>
+              Prise en main de mon appareil
+            </div>
+            <div style={{ background: 'rgba(255,255,255,.15)', border: '1.5px solid rgba(255,255,255,.4)', borderRadius: '12px', padding: '11px', fontWeight: '800', fontSize: '12px', color: 'white', textAlign: 'center' }}>
+              Entretien préventif
+            </div>
+            <div style={{ color: 'rgba(255,255,255,.8)', fontSize: '11px', textAlign: 'center', padding: '6px' }}>
+              J'ai déjà un problème
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '10px', textAlign: 'center' }}>
+        Aperçu indicatif — non enregistré tant que vous n'avez pas cliqué sur "Enregistrer"
+      </div>
+    </div>
+  )
+}
+
 export default function PartnerPersonnalisation() {
   const [fields, setFields] = useState(null)
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
+  const [partnerNom, setPartnerNom] = useState('')
 
   const load = () => {
     partnerFetch('/api/partner/config').then(async r => {
@@ -56,6 +119,13 @@ export default function PartnerPersonnalisation() {
   }
 
   useEffect(() => { load() }, [])
+  // Nom du partenaire, utilisé uniquement pour reproduire fidèlement la
+  // phrase d'accueil de la maquette de prévisualisation.
+  useEffect(() => {
+    partnerFetch('/api/partner/me').then(async r => {
+      if (r.ok) setPartnerNom((await r.json()).partner?.nom || '')
+    })
+  }, [])
 
   // Constructeur de blocs de l'écran d'accueil (Mode Bienvenue), inspiré des
   // blocs Gutenberg de WordPress : une liste ordonnée de blocs simples
@@ -123,6 +193,9 @@ export default function PartnerPersonnalisation() {
       {toast && (
         <div style={{ marginBottom: '14px', padding: '10px 14px', borderRadius: '7px', fontSize: '13px', background: toast.type === 'success' ? '#f0fdf4' : '#fff1f2', color: toast.type === 'success' ? '#16a34a' : '#dc2626' }}>{toast.msg}</div>
       )}
+
+      <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
 
       <Card title="Identité visuelle">
         <FieldGroup label={<span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>Logo (URL) <OverrideBadge overridden={fields.logo_url.overridden} /></span>}>
@@ -251,6 +324,14 @@ export default function PartnerPersonnalisation() {
           ))}
         </div>
       </Card>
+
+      </div>
+
+      <div style={{ position: 'sticky', top: '20px' }}>
+        <PhonePreview form={form} partnerNom={partnerNom} />
+      </div>
+
+      </div>
     </div>
   )
 }
