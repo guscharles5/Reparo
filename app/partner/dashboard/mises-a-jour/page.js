@@ -1,5 +1,5 @@
 'use client'
-// Fichier : releases/page.js
+// Fichier : mises-a-jour/page.js
 // Rôle : Page "Mises à jour" listant l'historique des releases de l'application mère déployées sur le back-office du partenaire, avec actions Autoriser/Reporter pour les releases en attente d'autorisation.
 // Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/releases et /api/partner/releases/[id]
 // Dernière modification : 2026-06-29

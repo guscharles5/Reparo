@@ -21,7 +21,7 @@ const TOPBAR_BG = '#1d2327'
 // ── Structure de navigation ─────────────────────────────────────────────────
 const NAV = [
   {
-    id: 'dashboard', label: 'Tableau de bord', icon: 'home',
+    id: 'dashboard', label: 'Accueil', icon: 'home',
     children: [
       { id: 'dashboard_overview', label: "Vue d'ensemble" },
       { id: 'dashboard_activity', label: 'Activité récente' },
@@ -32,16 +32,16 @@ const NAV = [
   { id: 'devices',       label: 'Appareils',     icon: 'wrench'   },
   { id: 'library',       label: 'Bibliothèque de notices', icon: 'book' },
   { id: 'partners',      label: 'Partenaires', icon: 'globe' },
-  { id: 'releases',      label: 'Releases', icon: 'upload' },
+  { id: 'releases',      label: 'Mises à jour', icon: 'upload' },
   {
-    id: 'admin_settings', label: 'Réglages back-office', icon: 'sliders',
+    id: 'admin_settings', label: 'Paramètres back-office', icon: 'sliders',
     children: [
       { id: 'admin_prefs',      label: 'Préférences' },
       { id: 'admin_appearance', label: 'Apparence'   },
     ]
   },
   {
-    id: 'app_settings', label: "Réglages application", icon: 'monitor',
+    id: 'app_settings', label: "Configuration", icon: 'monitor',
     children: [
       { id: 'app_general',       label: 'Général'         },
       { id: 'app_features',      label: 'Fonctionnalités' },
@@ -54,21 +54,21 @@ const NAV = [
 ]
 
 const BREADCRUMBS = {
-  dashboard_overview: ['Tableau de bord', "Vue d'ensemble"],
-  dashboard_activity: ['Tableau de bord', 'Activité récente'],
+  dashboard_overview: ['Accueil', "Vue d'ensemble"],
+  dashboard_activity: ['Accueil', 'Activité récente'],
   users:              ['Utilisateurs'],
   conversations:      ['Conversations'],
   devices:            ['Appareils'],
   library:            ['Bibliothèque de notices'],
   partners:           ['Partenaires'],
-  releases:           ['Releases'],
-  admin_prefs:        ['Réglages back-office', 'Préférences'],
-  admin_appearance:   ['Réglages back-office', 'Apparence'],
-  app_general:        ['Réglages application', 'Général'],
-  app_features:       ['Réglages application', 'Fonctionnalités'],
-  app_ai:             ['Réglages application', 'IA & Prompt'],
-  app_config_globale: ['Réglages application', 'Configuration globale'],
-  app_integrations:   ['Réglages application', 'Intégrations partenaires'],
+  releases:           ['Mises à jour'],
+  admin_prefs:        ['Paramètres back-office', 'Préférences'],
+  admin_appearance:   ['Paramètres back-office', 'Apparence'],
+  app_general:        ['Configuration', 'Général'],
+  app_features:       ['Configuration', 'Fonctionnalités'],
+  app_ai:             ['Configuration', 'IA & Prompt'],
+  app_config_globale: ['Configuration', 'Configuration globale'],
+  app_integrations:   ['Configuration', 'Intégrations partenaires'],
   rgpd:               ['RGPD'],
 }
 
@@ -758,7 +758,7 @@ export default function AdminDashboard() {
     return (
       <div>
         <SectionHeader
-          title="Tableau de bord"
+          title="Accueil"
           subtitle={new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           action={<button onClick={fetchAll} style={btnOutline}><Icon name="refresh" size={13} color={accentColor} /> Actualiser</button>}
         />
@@ -1379,7 +1379,7 @@ export default function AdminDashboard() {
     <div>
       <SectionHeader title="Partenaires" subtitle="Données de diagnostic isolées par partenaire CRM" />
       {partners.length === 0 ? (
-        <Alert type="info"><Icon name="info" size={14} />Aucun partenaire configuré. Ajoutez-en un dans Réglages application → Intégrations partenaires.</Alert>
+        <Alert type="info"><Icon name="info" size={14} />Aucun partenaire configuré. Ajoutez-en un dans Configuration → Intégrations partenaires.</Alert>
       ) : (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '16px' }}>
@@ -1509,7 +1509,7 @@ export default function AdminDashboard() {
     return (
       <div>
         <SectionHeader
-          title="Releases"
+          title="Mises à jour"
           subtitle="Gestion des mises à jour de l'application mère déployées vers les back-offices partenaires"
           action={<button onClick={() => setShowReleaseForm(s => !s)} style={btnPrimary}><Icon name="plus" size={13} color="#fff" />Nouvelle release</button>}
         />

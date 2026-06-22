@@ -43,7 +43,7 @@ couche 2 puis le fallback applicatif, dans cet ordre.
 ### Constructeur de page d'accueil partenaire
 
 Le partenaire personnalise son écran d'accueil Mode Bienvenue depuis
-`/partner/dashboard/personnalisation` via un constructeur de blocs simple
+`/partner/dashboard/configuration/application-cliente` via un constructeur de blocs simple
 (titre, texte, image, bouton — inspiré des blocs Gutenberg de WordPress,
 sans éditeur de code arbitraire pour éviter tout risque d'injection). Ces
 blocs sont stockés dans la clé `blocs_accueil` de `config_partenaire`

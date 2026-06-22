@@ -1,5 +1,5 @@
 'use client'
-// Fichier : backoffice/page.js
+// Fichier : parametres-back-office/page.js
 // Rôle : Page "Mon espace" du partenaire connecté pour personnaliser l'identité visuelle (nom, logo, couleur) et l'ordre d'affichage des KPIs de son back-office.
 // Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/me et /api/partner/backoffice, colonnes backoffice_* de la table Supabase partners
 // Dernière modification : 2026-06-29

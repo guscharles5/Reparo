@@ -1,6 +1,6 @@
 'use client'
 // Fichier : page.js
-// Rôle : Page d'accueil ("Accueil") de l'espace partenaire, tableau de bord synthétique avec KPIs (diagnostics, résolution, NPS, économies), évolution sur 6 mois, top pannes, mode Bienvenue, escalades SAV et NPS par parcours.
+// Rôle : Page d'accueil ("Accueil") de l'espace partenaire, vue d'ensemble synthétique avec KPIs (diagnostics, résolution, NPS, économies), évolution sur 6 mois et top pannes — les indicateurs détaillés (Mode Bienvenue, escalades, NPS par parcours, valeur générée) sont dans Statistiques > Indicateurs.
 // Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/stats
 // Dernière modification : 2026-06-29
 import { useEffect, useState } from 'react'
@@ -41,50 +41,6 @@ export default function PartnerHome() {
               />
             </Card>
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '18px' }}>
-            <Card title="Mode Bienvenue">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px' }}>
-                <StatWidget label="Utilisateurs" value={stats.bienvenue?.utilisateursUniques || 0} accent="#475569" />
-                <StatWidget label="Taux d'ouverture lien" value={`${stats.bienvenue?.tauxOuverture ?? '—'}${stats.bienvenue?.tauxOuverture != null ? '%' : ''}`} sub={`${stats.bienvenue?.ouverturesLien || 0} ouvertures`} accent="#7c3aed" />
-                <StatWidget label="Conversion Diagnostic" value={`${stats.bienvenue?.tauxConversionDiagnostic ?? '—'}${stats.bienvenue?.tauxConversionDiagnostic != null ? '%' : ''}`} accent="#2563eb" />
-                <StatWidget label="Taux de rétention" value={`${stats.bienvenue?.tauxRetention ?? '—'}${stats.bienvenue?.tauxRetention != null ? '%' : ''}`} sub="2e conversation sous 30 jours" accent="#16a34a" />
-              </div>
-            </Card>
-            <Card title="Escalades vers mon SAV">
-              <StatWidget label="Total escalades reçues" value={stats.escalades?.total || 0} accent="#d97706" />
-              <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {['rdv', 'rappel', 'chat'].map(c => (
-                  <div key={c} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#475569' }}>
-                    <span style={{ textTransform: 'capitalize' }}>{c}</span>
-                    <strong>{stats.escalades?.parCanal?.[c] || 0}</strong>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-
-          <Card title="NPS segmenté par parcours">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
-              <StatWidget label="Bienvenue" value={stats.npsParParcours?.bienvenue ?? '—'} accent="#475569" />
-              <StatWidget label="Résolu seul" value={stats.npsParParcours?.resolu ?? '—'} accent="#16a34a" />
-              <StatWidget label="Escaladé" value={stats.npsParParcours?.escalade ?? '—'} accent="#d97706" />
-              <StatWidget label="Abandonné" value={stats.npsParParcours?.abandonne ?? '—'} accent="#dc2626" />
-            </div>
-          </Card>
-
-          <div style={{ height: '14px' }} />
-
-          <Card title="Valeur générée ce mois">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-              <StatWidget label="Interventions évitées ce mois" value={stats.interventionsEviteesCeMois || 0} sub={`${stats.interventionsEviteesTotal || 0} au total`} accent="#16a34a" />
-              <StatWidget label="Économies ce mois" value={`${stats.economiesCeMois || 0} €`} sub={`Cumul total : ${stats.economiesGenerees} €`} accent="#d97706" />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-              <StatWidget label="Adoption calendrier d'entretien" value={stats.tauxAdoptionCalendrier != null ? `${stats.tauxAdoptionCalendrier}%` : '—'} accent="#2563eb" />
-              <StatWidget label="Économies entretien préventif" value={`${stats.economiesEntretienPreventif || 0} €`} sub="Pannes évitées grâce aux rappels" accent="#16a34a" />
-            </div>
-          </Card>
         </>
       )}
     </div>

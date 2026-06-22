@@ -1,11 +1,11 @@
 'use client'
-// Fichier : personnalisation/page.js
+// Fichier : configuration/application-cliente/page.js
 // Rôle : Page "Personnalisation" applicative pour les utilisateurs finaux du partenaire : identité visuelle, assistant IA (nom, message de bienvenue, prompt), catégories d'appareils visibles, langue par défaut, et constructeur de blocs (texte/image/bouton) pour l'écran d'accueil Mode Bienvenue — chaque modification ne s'applique qu'à l'app cliente de ce partenaire précis, jamais à l'app mère ni aux autres partenaires.
 // Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/config, table Supabase config_partenaire
 // Dernière modification : 2026-06-29
 import { useEffect, useState } from 'react'
-import { SectionHeader, Card, FieldGroup, Badge, input, btnPrimaryBase, Icon } from '../../../../components/shared/admin-ui'
-import { partnerFetch } from '../../../../lib/partnerClient'
+import { SectionHeader, Card, FieldGroup, Badge, input, btnPrimaryBase, Icon } from '../../../../../components/shared/admin-ui'
+import { partnerFetch } from '../../../../../lib/partnerClient'
 
 const CATEGORIES = [
   { value: 'lave-linge',      label: 'Lave-linge' },
