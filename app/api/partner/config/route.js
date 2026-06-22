@@ -23,6 +23,7 @@ const KEYS = [
   'prompt_ia',
   'categories_appareils_visibles',
   'langue_defaut',
+  'blocs_accueil',
 ]
 
 // Couche 1 — valeurs codées dans l'app mère, utilisées si aucune valeur
@@ -36,6 +37,11 @@ const FALLBACKS = {
   prompt_ia: null,
   categories_appareils_visibles: ['lave-linge', 'refrigerateur', 'four', 'lave-vaisselle', 'seche-linge', 'micro-ondes'],
   langue_defaut: 'fr',
+  // Blocs de contenu de l'écran d'accueil Mode Bienvenue, construits par le
+  // partenaire dans le "constructeur de page" — tableau de { id, type, ... }
+  // où type vaut 'titre' | 'texte' | 'image' | 'bouton'. Rendu uniquement
+  // sur l'app cliente DE CE partenaire, jamais sur l'app mère ni les autres.
+  blocs_accueil: [],
 }
 
 export async function GET(req) {
