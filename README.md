@@ -108,3 +108,4 @@ tests/               → tests end-to-end Playwright
 
 Pour toute question sur ce projet, contacter le mainteneur du dépôt
 (voir les paramètres GitHub du repo pour les accès et l'équipe associée).
+
