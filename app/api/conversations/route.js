@@ -1,7 +1,7 @@
 // Fichier : route.js
-// Rôle : GET liste les 50 dernières conversations de l'utilisateur authentifié ; POST crée une conversation ou met à jour ses champs (résultat, NPS, escalade SAV, etc.) si un id est fourni, déclenche le webhook partenaire de fin de diagnostic et auto-enregistre l'appareil détecté
+// Rôle : GET liste les 50 dernières conversations de l'utilisateur authentifié ; POST crée une conversation ou met à jour ses champs (résultat, NPS, escalade SAV, diagnostic IA, etc.) si un id est fourni, déclenche le webhook partenaire de fin de diagnostic et auto-enregistre l'appareil détecté
 // Dépendances : @supabase/supabase-js, next/server, lib/partnerWebhook (sendPartnerWebhook, buildWebhookPayload), tables Supabase conversations, partners, partner_webhook_logs, appareils
-// Dernière modification : 2026-06-29
+// Dernière modification : 2026-06-22
 
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
@@ -84,6 +84,10 @@ export async function POST(req) {
     partner, ref_externe, modele, resultat, duree_minutes,
     nps_score, nps_commentaire, mode, escalade_sav, canal_escalade,
     garantie_type, nps_parcours,
+    // Champs de diagnostic IA (estimations, voir source_diagnostic) et
+    // appareil_id / nb_tentatives (calculés par le système, jamais par l'IA)
+    appareil_id, panne_categorie, panne_detail, complexite, cause_racine,
+    notice_section, nb_tentatives,
   } = await req.json()
 
   const sb = getAdmin()
@@ -105,6 +109,13 @@ export async function POST(req) {
     if (canal_escalade !== undefined) updates.canal_escalade = canal_escalade
     if (garantie_type !== undefined) updates.garantie_type = garantie_type
     if (nps_parcours !== undefined) updates.nps_parcours = nps_parcours
+    if (appareil_id !== undefined) updates.appareil_id = appareil_id
+    if (panne_categorie !== undefined) updates.panne_categorie = panne_categorie
+    if (panne_detail !== undefined) updates.panne_detail = panne_detail
+    if (complexite !== undefined) updates.complexite = complexite
+    if (cause_racine !== undefined) updates.cause_racine = cause_racine
+    if (notice_section !== undefined) updates.notice_section = notice_section
+    if (nb_tentatives !== undefined) updates.nb_tentatives = nb_tentatives
     // mode n'est fixé qu'à la création (branche else) : une conversation ne
     // change pas de mode bienvenue/diagnostic après coup.
 
@@ -127,6 +138,8 @@ export async function POST(req) {
         user_id: uid, messages, appareil_type, appareil_marque,
         partner: partner || null, ref_externe: ref_externe || null,
         mode: mode === 'bienvenue' ? 'bienvenue' : 'diagnostic',
+        appareil_id: appareil_id || null,
+        nb_tentatives: nb_tentatives || 0,
       })
       .select()
       .single()

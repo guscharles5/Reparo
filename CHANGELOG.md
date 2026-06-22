@@ -3,7 +3,31 @@
 Toutes les modifications notables du projet sont listées ici, par ordre
 chronologique inversé.
 
-## [Non publié] - 2026-06-29
+## [Non publié] - 2026-06-22
+
+### Ajouté
+- Collecte fiable des statistiques de diagnostic IA pour le back-office :
+  - 4 nouveaux tags IA estimés (`[PANNE_DETECTEE]`, `[COMPLEXITE]`,
+    `[CAUSE_RACINE]`, `[NOTICE_UTILISEE]`), explicitement marqués comme des
+    estimations (`source_diagnostic = 'estimation_ia'`) et jamais confondus
+    avec les faits sûrs déjà existants (`resultat`, `duree_minutes`,
+    `garantie_type`, désormais complétés par `nb_tentatives` compté
+    automatiquement côté client et `appareil_id` reliant chaque
+    conversation à son appareil).
+  - Parsing défensif de tous les tags analytics : un tag mal formé ou
+    tronqué est ignoré sans jamais casser l'affichage du chat, et journalisé
+    dans la nouvelle table `tag_parse_errors` (`POST
+    /api/conversations/tag-parse-error`) pour surveillance.
+  - Champ `date_achat` (date précise) sur `appareils`, saisi à
+    l'enregistrement de l'appareil (y compris en Mode Bienvenue), pour
+    calculer la garantie automatiquement plutôt que de la faire deviner par
+    l'IA.
+  - Nouvelles tables `analytics_daily` (agrégat quotidien par partenaire) et
+    `analytics_pannes` (agrégat mensuel par marque/modèle de panne),
+    alimentées par un nouveau cron Vercel quotidien à 2h
+    (`app/api/cron/analytics-daily`, `vercel.json`), upsert idempotent — un
+    re-run ne crée jamais de doublon.
+  - Migration `supabase/migrations/012_20260622_diagnostic_analytics.sql`.
 
 ### Modifié
 - Refonte du naming et de l'architecture de navigation des back-offices

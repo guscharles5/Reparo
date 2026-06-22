@@ -27,9 +27,36 @@ dashboard Supabase (onglet Table Editor → colonne → description) ou via
 | `releases` | Releases de l'app mère (mineure/majeure/critique) | 009 |
 | `releases_partenaires` | Statut de déploiement d'une release par partenaire | 009 |
 | `bienvenue_ouvertures` | Journal des ouvertures du lien Mode Bienvenue | 010 |
+| `tag_parse_errors` | Journal des tags IA mal formés détectés par le parsing défensif côté client (surveillance, jamais bloquant) | 012 |
+| `analytics_daily` | Agrégat quotidien des conversations par partenaire, calculé par le cron Vercel | 012 |
+| `analytics_pannes` | Agrégat mensuel des pannes par marque/modèle, calculé par le cron Vercel | 012 |
 
 Voir `docs/architecture.md` pour la logique des 3 couches de configuration et
 le fonctionnement du Mode Bienvenue / release management.
+
+## Diagnostic IA — estimations vs faits vérifiés
+
+Depuis la migration 012, `conversations` distingue explicitement deux types
+de données :
+
+- **Faits sûrs**, jamais devinés par l'IA : `resultat`, `duree_minutes`,
+  `garantie_type` (confirmé par l'utilisateur via les boutons `[OPTIONS]`),
+  `nb_tentatives` (compté côté client à chaque étape), `appareil_id` (lien
+  explicite vers `appareils`, nécessaire pour `analytics_pannes`).
+- **Estimations IA**, déduites de la description de l'utilisateur, marquées
+  par `source_diagnostic = 'estimation_ia'` : `panne_categorie`,
+  `panne_detail`, `complexite`, `cause_racine`. Exploitables en tendance
+  statistique agrégée, jamais comme vérité individuelle sur une conversation
+  précise — voir le système de tags dans `components/app/ReparoApp.jsx`
+  (`buildSystemPrompt`, `parseDiagnosticTags`).
+
+`appareils.date_achat` (date précise, distincte du champ historique
+`achat` en année libre) permet de calculer la garantie automatiquement,
+sans jamais demander à l'IA de la deviner pendant la conversation.
+
+Le parsing des tags IA est défensif : un tag mal formé ou tronqué est
+ignoré sans casser l'affichage ni la sauvegarde de la conversation, et
+journalisé dans `tag_parse_errors` via `POST /api/conversations/tag-parse-error`.
 
 ## Sécurité (RLS)
 
