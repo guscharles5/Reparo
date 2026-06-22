@@ -3,6 +3,20 @@
 Toutes les modifications notables du projet sont listées ici, par ordre
 chronologique inversé.
 
+## [Non publié] - 2026-06-23
+
+### Ajouté
+- Composants de graphiques partagés dans `components/shared/admin-ui.js` :
+  `DonutChart`, `AreaChart`, `KpiFlat` (SVG pur, sans librairie), dans le
+  style back-office existant (Inter, `#2563eb`) — pas la charte mobile.
+- Page Accueil admin (`app/admin/dashboard/page.js`) redessinée façon
+  tableau de bord : rangée de KPI plats sans bordure, donut "Diagnostics
+  par résultat" (nouveau champ `parResultat` côté
+  `app/api/admin/stats/route.js`), area chart "Activité — 7 derniers jours".
+- Page partenaire Indicateurs : donut pour la répartition des escalades
+  SAV par canal (rdv/rappel/chat). Page partenaire NPS : graphique
+  d'évolution mensuelle en area chart au lieu de barres.
+
 ## [Non publié] - 2026-06-22
 
 ### Ajouté

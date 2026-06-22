@@ -1,10 +1,10 @@
 'use client'
 // Fichier : indicateurs/page.js
-// Rôle : Sous-page "Statistiques > Indicateurs" regroupant les indicateurs détaillés (Mode Bienvenue, escalades SAV, NPS par parcours, valeur générée) et l'export du rapport mensuel PDF prêt pour le COMEX.
+// Rôle : Sous-page "Statistiques > Indicateurs" regroupant les indicateurs détaillés (Mode Bienvenue, escalades SAV avec répartition par canal en donut, NPS par parcours, valeur générée) et l'export du rapport mensuel PDF prêt pour le COMEX.
 // Dépendances : components/shared/admin-ui, lib/partnerClient, jspdf, jspdf-autotable, API /api/partner/stats, /api/partner/me
-// Dernière modification : 2026-06-29
+// Dernière modification : 2026-06-23
 import { useEffect, useState } from 'react'
-import { SectionHeader, Card, StatWidget, Skeleton, Icon } from '../../../../../components/shared/admin-ui'
+import { SectionHeader, Card, StatWidget, DonutChart, Skeleton, Icon } from '../../../../../components/shared/admin-ui'
 import { partnerFetch } from '../../../../../lib/partnerClient'
 
 export default function PartnerIndicateurs() {
@@ -78,15 +78,19 @@ export default function PartnerIndicateurs() {
               </div>
             </Card>
             <Card title="Escalades vers mon SAV">
-              <StatWidget label="Total escalades reçues" value={stats.escalades?.total || 0} accent="#d97706" />
-              <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {['rdv', 'rappel', 'chat'].map(c => (
-                  <div key={c} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#475569' }}>
-                    <span style={{ textTransform: 'capitalize' }}>{c}</span>
-                    <strong>{stats.escalades?.parCanal?.[c] || 0}</strong>
-                  </div>
-                ))}
-              </div>
+              {(stats.escalades?.total || 0) > 0 ? (
+                <DonutChart
+                  centerLabel="escalades"
+                  centerValue={stats.escalades.total}
+                  data={[
+                    { label: 'Rendez-vous', value: stats.escalades?.parCanal?.rdv || 0, color: '#2563eb' },
+                    { label: 'Rappel',      value: stats.escalades?.parCanal?.rappel || 0, color: '#7c3aed' },
+                    { label: 'Chat',        value: stats.escalades?.parCanal?.chat || 0, color: '#d97706' },
+                  ]}
+                />
+              ) : (
+                <StatWidget label="Total escalades reçues" value={0} accent="#d97706" />
+              )}
             </Card>
           </div>
 

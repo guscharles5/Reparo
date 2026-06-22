@@ -1,7 +1,7 @@
 // Fichier : route.js
-// Rôle : GET calcule le tableau de bord de stats globales admin (utilisateurs, conversations par jour, taux de résolution, top appareils/pannes, conversion bienvenue->diagnostic, escalades SAV, entretiens et rappels)
+// Rôle : GET calcule le tableau de bord de stats globales admin (utilisateurs, conversations par jour, taux de résolution, répartition par résultat, top appareils/pannes, conversion bienvenue->diagnostic, escalades SAV, entretiens et rappels)
 // Dépendances : app/api/admin/auth/route.js (verifyAdminToken), Supabase Auth admin (listUsers), Supabase tables conversations, bienvenue_ouvertures, appareils, entretiens, rappels
-// Dernière modification : 2026-06-29
+// Dernière modification : 2026-06-23
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../auth/route'
@@ -102,6 +102,9 @@ export async function GET(req) {
   const npsDiagnostic = []
   let escaladesSav = 0
   const escaladesParCanal = { rdv: 0, rappel: 0, chat: 0 }
+  // Répartition des conversations par résultat — alimente le donut "Accueil".
+  // "en_cours" regroupe les conversations sans résultat encore tranché.
+  const parResultat = { resolu: 0, echec: 0, abandonne: 0, en_cours: 0 }
 
   // Conversion Mode Bienvenue -> Mode Diagnostic : on a besoin de user_id +
   // created_at par conversation (colonnes légères supplémentaires).
@@ -139,6 +142,9 @@ export async function GET(req) {
     if (!appareilMap[key]) appareilMap[key] = { type: c.appareil_type, marque: c.appareil_marque, count: 0, resolved: 0 }
     appareilMap[key].count++
     if (c.resultat === 'resolu') appareilMap[key].resolved++
+
+    if (parResultat[c.resultat] !== undefined) parResultat[c.resultat]++
+    else parResultat.en_cours++
 
     if (c.mode === 'bienvenue') {
       bienvenueCount++
@@ -187,6 +193,7 @@ export async function GET(req) {
     conversationsToday: conversationsToday || 0,
     conversationsPerDay,
     resolutionRate,
+    parResultat,
     topAppareils,
     totalAppareils: totalAppareils || 0,
     appareilsThisWeek: appareilsThisWeek || 0,
