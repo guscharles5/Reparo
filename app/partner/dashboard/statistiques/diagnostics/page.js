@@ -1,11 +1,11 @@
 'use client'
-// Fichier : diagnostics/page.js
-// Rôle : Page listant l'historique des diagnostics réalisés pour la marque du partenaire, avec filtres (appareil, marque, période) et modale de détail par diagnostic.
+// Fichier : statistiques/diagnostics/page.js
+// Rôle : Sous-page "Statistiques > Diagnostics" listant l'historique des diagnostics réalisés pour la marque du partenaire, avec filtres (appareil, marque, période), modale de détail par diagnostic, et export CSV contextuel des données brutes.
 // Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/conversations et /api/partner/conversations/[id]
 // Dernière modification : 2026-06-29
 import { useEffect, useState } from 'react'
-import { SectionHeader, Card, Table, Badge, FieldGroup, input } from '../../../../components/shared/admin-ui'
-import { partnerFetch } from '../../../../lib/partnerClient'
+import { SectionHeader, Card, Table, Badge, FieldGroup, input, Icon } from '../../../../../components/shared/admin-ui'
+import { partnerFetch } from '../../../../../lib/partnerClient'
 
 const STATUT_VARIANT = { 'Résolu': 'success', 'Escalade': 'danger', 'Abandonné': 'warning', 'En cours': 'info' }
 
@@ -14,6 +14,24 @@ export default function PartnerDiagnostics() {
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({ appareil: '', marque: '', from: '', to: '' })
   const [detail, setDetail] = useState(null)
+  const [exporting, setExporting] = useState(false)
+
+  const exportCSV = async () => {
+    setExporting(true)
+    const res = await partnerFetch('/api/partner/conversations')
+    const { conversations: rows } = await res.json()
+    const header = ['ref_externe', 'appareil_type', 'appareil_marque', 'modele', 'resultat', 'nps_score', 'duree_minutes', 'created_at']
+    const lines = [header.join(',')]
+    rows.forEach(r => {
+      lines.push(header.map(k => `"${(r[k] ?? '').toString().replace(/"/g, '""')}"`).join(','))
+    })
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'reparo-diagnostics.csv'
+    a.click(); URL.revokeObjectURL(url)
+    setExporting(false)
+  }
 
   const load = async () => {
     setLoading(true)
@@ -32,7 +50,11 @@ export default function PartnerDiagnostics() {
 
   return (
     <div>
-      <SectionHeader title="Diagnostics" subtitle="Historique des diagnostics réalisés pour votre marque" />
+      <SectionHeader
+        title="Diagnostics"
+        subtitle="Historique des diagnostics réalisés pour votre marque"
+        action={<button onClick={exportCSV} disabled={exporting} style={{ border: '1.5px solid #e2e8f0', borderRadius: '6px', color: '#475569', padding: '8px 16px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', background: '#f8fafc', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Icon name="file" size={13} />Exporter en CSV</button>}
+      />
 
       <Card title="Filtres">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', alignItems: 'end' }}>

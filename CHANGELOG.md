@@ -5,6 +5,30 @@ chronologique inversé.
 
 ## [Non publié] - 2026-06-29
 
+### Modifié
+- Refonte du naming et de l'architecture de navigation des back-offices
+  admin et partenaire, inspirée des conventions SaaS (Salesforce-style) :
+  vocabulaire unifié entre les deux espaces (Accueil, Statistiques,
+  Configuration, Paramètres back-office, Mises à jour).
+  - **Partenaire** (`app/partner/dashboard/`) : nouveau menu groupé avec
+    sous-onglets — **Statistiques** (Diagnostics, Satisfaction (NPS),
+    Indicateurs, ex-`diagnostics/`, `nps/`, et nouvelle page `indicateurs/`
+    regroupant Mode Bienvenue, escalades SAV, NPS par parcours et valeur
+    générée extraits de l'ancien Accueil) et **Configuration** (Application
+    cliente = ex-`personnalisation/`, SAV = ex-`sav/`). Renommage de
+    `backoffice/` en `parametres-back-office/` et de `releases/` en
+    `mises-a-jour/`. Suppression de la page autonome `exports/` : les
+    exports CSV et PDF deviennent des actions contextuelles dans les
+    sous-onglets Statistiques (CSV sur Diagnostics, rapport PDF sur
+    Indicateurs).
+  - **Admin** (`app/admin/dashboard/page.js`) : renommage des entrées de
+    navigation existantes pour aligner le vocabulaire avec le partenaire
+    — "Tableau de bord"→"Accueil", "Releases"→"Mises à jour", "Réglages
+    back-office"→"Paramètres back-office", "Réglages application"→
+    "Configuration" — sans changement de structure pour les sections de
+    gestion d'entités (Utilisateurs, Conversations, Appareils,
+    Bibliothèque de notices, Partenaires, RGPD).
+
 ### Ajouté
 - Constructeur de page d'accueil pour le back-office partenaire
   (`app/partner/dashboard/personnalisation/page.js`) : ajout de blocs

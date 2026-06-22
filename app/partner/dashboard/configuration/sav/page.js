@@ -1,11 +1,11 @@
 'use client'
-// Fichier : sav/page.js
+// Fichier : configuration/sav/page.js
 // Rôle : Page "Mon SAV" permettant au partenaire de configurer ses canaux de prise en charge (RDV technicien, numéro de rappel, chat) utilisés lors d'une escalade depuis Reparo, avec indicateur de statut de connexion.
 // Dépendances : components/shared/admin-ui, lib/partnerClient, API /api/partner/me et /api/partner/sav
 // Dernière modification : 2026-06-29
 import { useEffect, useState } from 'react'
-import { SectionHeader, Card, FieldGroup, Toggle, Badge, input, btnPrimaryBase } from '../../../../components/shared/admin-ui'
-import { partnerFetch } from '../../../../lib/partnerClient'
+import { SectionHeader, Card, FieldGroup, Toggle, Badge, input, btnPrimaryBase } from '../../../../../components/shared/admin-ui'
+import { partnerFetch } from '../../../../../lib/partnerClient'
 
 export default function PartnerSAV() {
   const [partner, setPartner] = useState(null)

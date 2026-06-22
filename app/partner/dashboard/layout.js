@@ -11,18 +11,29 @@ import { partnerFetch, partnerSignOut } from '../../../lib/partnerClient'
 const INACTIVITY_LIMIT_MS = 8 * 60 * 60 * 1000 // 8h
 
 const NAV = [
-  { id: '',            label: 'Accueil',     icon: 'home' },
-  { id: 'diagnostics', label: 'Diagnostics', icon: 'messages' },
-  { id: 'nps',         label: 'NPS',         icon: 'activity' },
-  { id: 'sav',         label: 'Mon SAV',     icon: 'bell' },
-  { id: 'personnalisation', label: 'Personnalisation', icon: 'palette' },
-  { id: 'backoffice',  label: 'Mon espace',  icon: 'monitor' },
-  { id: 'releases',    label: 'Mises à jour', icon: 'refresh' },
-  { id: 'exports',     label: 'Exports',     icon: 'file' },
+  { id: '', label: 'Accueil', icon: 'home' },
+  {
+    id: 'statistiques', label: 'Statistiques', icon: 'activity',
+    children: [
+      { id: 'statistiques/diagnostics', label: 'Diagnostics' },
+      { id: 'statistiques/nps',         label: 'Satisfaction (NPS)' },
+      { id: 'statistiques/indicateurs', label: 'Indicateurs' },
+    ]
+  },
+  {
+    id: 'configuration', label: 'Configuration', icon: 'palette',
+    children: [
+      { id: 'configuration/application-cliente', label: 'Application cliente' },
+      { id: 'configuration/sav',                 label: 'SAV' },
+    ]
+  },
+  { id: 'parametres-back-office', label: 'Paramètres back-office', icon: 'monitor' },
+  { id: 'mises-a-jour',           label: 'Mises à jour',           icon: 'refresh' },
 ]
 
 export default function PartnerDashboardLayout({ children }) {
   const [partner, setPartner] = useState(null)
+  const [openGroups, setOpenGroups] = useState({})
   const pathname = usePathname()
   const router = useRouter()
   const timerRef = useRef(null)
@@ -49,6 +60,11 @@ export default function PartnerDashboardLayout({ children }) {
 
   const activeId = pathname.replace('/partner/dashboard', '').replace(/^\//, '')
 
+  useEffect(() => {
+    const group = NAV.find(n => n.children?.some(c => c.id === activeId))
+    if (group) setOpenGroups(s => ({ ...s, [group.id]: true }))
+  }, [activeId])
+
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f7', fontFamily: 'Inter, system-ui, sans-serif', display: 'flex' }}>
       {/* Sidebar */}
@@ -62,6 +78,44 @@ export default function PartnerDashboardLayout({ children }) {
         </div>
         <nav style={{ padding: '12px 8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {NAV.map(n => {
+            if (n.children) {
+              const open = !!openGroups[n.id]
+              const groupActive = n.children.some(c => c.id === activeId)
+              return (
+                <div key={n.id}>
+                  <button onClick={() => setOpenGroups(s => ({ ...s, [n.id]: !open }))}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '9px 12px',
+                      borderRadius: '6px', border: 'none', background: groupActive && !open ? '#2c3338' : 'transparent',
+                      color: groupActive ? '#fff' : '#a7aaad', fontSize: '13px', fontWeight: '600',
+                      cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
+                    }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Icon name={n.icon} size={15} color={groupActive ? '#fff' : '#a7aaad'} />{n.label}
+                    </span>
+                    <Icon name="chevron" size={12} color="#a7aaad" strokeWidth={2} style={{ transform: open ? 'rotate(90deg)' : 'none' }} />
+                  </button>
+                  {open && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: '2px 0 4px' }}>
+                      {n.children.map(c => {
+                        const active = activeId === c.id
+                        return (
+                          <button key={c.id} onClick={() => router.push(`/partner/dashboard/${c.id}`)}
+                            style={{
+                              display: 'flex', alignItems: 'center', padding: '8px 12px 8px 38px',
+                              borderRadius: '6px', border: 'none', background: active ? '#2c3338' : 'transparent',
+                              color: active ? '#fff' : '#a7aaad', fontSize: '12.5px', fontWeight: '600',
+                              cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+                            }}>
+                            {c.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            }
             const href = `/partner/dashboard${n.id ? `/${n.id}` : ''}`
             const active = activeId === n.id
             return (
