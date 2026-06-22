@@ -4,6 +4,7 @@ test-results/
 playwright-report/
 .env
 .env.local
+scripts/.test-agents-state.json
 
 # Outils internes à l'éditeur (Claude Code, Impeccable) — config locale, pas
 # du code applicatif Reparo, ne doit pas polluer le repo GitHub.
