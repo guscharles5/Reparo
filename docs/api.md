@@ -48,7 +48,7 @@ Next.js). Trois espaces d'auth distincts :
 
 - `appareils/route.js` — GET liste tous les appareils de l'utilisateur authentifié ; POST crée un appareil (déduplique sur type+marque+modele) et programme automatiquement le calendrier de rappels d'entretien préventif associé
 - `appareils/[id]/route.js` — PATCH met à jour les champs autorisés d'un appareil (type, marque, modele, achat, statut, entretien, pannes) appartenant à l'utilisateur authentifié ; DELETE supprime un appareil de l'utilisateur authentifié
-- `conversations/route.js` — GET liste les 50 dernières conversations de l'utilisateur authentifié ; POST crée une conversation ou met à jour ses champs (résultat, NPS, escalade SAV, etc.) si un id est fourni, déclenche le webhook partenaire de fin de diagnostic et auto-enregistre l'appareil détecté
+- `conversations/route.js` — GET liste les 50 dernières conversations de l'utilisateur authentifié ; POST crée une conversation ou met à jour ses champs (résultat, NPS, escalade SAV, diagnostic IA, etc.) si un id est fourni, déclenche le webhook partenaire de fin de diagnostic et auto-enregistre l'appareil détecté
 - `conversations/[id]/route.js` — DELETE supprime une conversation appartenant à l'utilisateur authentifié
 - `entretiens/route.js` — GET retourne l'historique d'entretien de l'utilisateur (filtrable par appareil_id) ; POST enregistre un entretien réalisé via Reparo, complète les rappels en_attente correspondants et programme le rappel suivant
 - `rappels/route.js` — GET retourne les rappels d'entretien (à venir et en attente) de l'utilisateur authentifié, triés par date prévue ; PATCH met à jour le statut d'un rappel (envoye/complete/ignore)
@@ -60,3 +60,8 @@ Next.js). Trois espaces d'auth distincts :
 - `partner-info/route.js` — GET retourne (sans auth) les informations publiques de routage SAV d'un partenaire actif identifié par le paramètre nom (rdv, numéro de rappel, chat, délai, garantie fabricant)
 - `partner-theme/route.js` — GET retourne (sans auth) la personnalisation visuelle/contenu d'un partenaire actif identifié par le paramètre nom (logo, couleurs, blocs de l'écran d'accueil construits via le constructeur de page partenaire)
 - `bienvenue-ouverture/route.js` — POST enregistre (sans auth) chaque ouverture d'un lien Mode Bienvenue (partner, appareil, modele) pour calculer un taux d'ouverture réel
+- `conversations/tag-parse-error/route.js` — POST journalise (sans auth) un tag IA mal formé ou tronqué détecté par le parsing défensif côté client, sans jamais bloquer l'utilisateur
+
+## Cron
+
+- `cron/analytics-daily/route.js` — GET (protégé par le header `Authorization: Bearer CRON_SECRET`, appelé par Vercel Cron chaque nuit à 2h via `vercel.json`) agrège les conversations de la veille en statistiques quotidiennes par partenaire (`analytics_daily`) et recalcule le mois en cours par marque/modèle de panne (`analytics_pannes`) via upsert idempotent

@@ -1,7 +1,7 @@
 // Fichier : route.js
 // Rôle : GET liste tous les appareils de l'utilisateur authentifié ; POST crée un appareil (déduplique sur type+marque+modele) et programme automatiquement le calendrier de rappels d'entretien préventif associé
 // Dépendances : @supabase/supabase-js, next/server, lib/maintenanceSchedule (buildInitialRappels), tables Supabase appareils et rappels
-// Dernière modification : 2026-06-29
+// Dernière modification : 2026-06-22
 
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
@@ -39,7 +39,7 @@ export async function POST(req) {
   const uid = await getUserId(req)
   if (!uid) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
 
-  const { type, marque, modele, achat, statut, partner } = await req.json()
+  const { type, marque, modele, achat, date_achat, statut, partner } = await req.json()
   if (!type || !marque) return NextResponse.json({ error: 'type et marque requis' }, { status: 400 })
 
   // Vérifie si l'appareil existe déjà
@@ -64,6 +64,7 @@ export async function POST(req) {
       marque,
       modele: modele || null,
       achat: achat || null,
+      date_achat: date_achat || null,
       statut: statut || 'ok',
       pannes: 0,
       entretien: 'Entretien à jour',

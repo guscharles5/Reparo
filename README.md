@@ -62,6 +62,7 @@ Voir `.env.example` pour la liste complète et commentée. Résumé :
 | `ANTHROPIC_API_KEY` | Clé API Claude (serveur uniquement) |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Identifiants de connexion au back-office admin |
 | `ADMIN_SECRET` | Secret signant le token de session admin |
+| `CRON_SECRET` | Secret vérifié sur le cron Vercel d'agrégation analytics quotidienne |
 | `PLAYWRIGHT_BASE_URL`, `CHROMIUM_EXECUTABLE_PATH`, `MOCK_AI` | Optionnel, pour les tests e2e uniquement |
 
 ## 6. Structure des dossiers

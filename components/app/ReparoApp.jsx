@@ -75,6 +75,17 @@ Si ça ne fonctionne pas : ne répète jamais les mêmes étapes. Propose une no
 --- FIN DE DIAGNOSTIC ---
 Quand résolu : phrase de confirmation + conseil d'entretien préventif adapté + "N'hésitez pas à revenir si vous avez d'autres questions."
 
+--- TAGS ANALYTICS (invisibles pour l'utilisateur, retirés avant affichage) ---
+Ces tags servent uniquement aux statistiques internes du back-office. Ce sont des estimations basées sur la description de l'utilisateur, pas des faits vérifiés — ne devine jamais une donnée que tu ne peux pas connaître depuis la conversation (ex : ne mets jamais de tag de garantie ou de confiance numérique, ces données sont gérées ailleurs).
+
+Dès que tu identifies la nature du problème, ajoute (une seule fois par conversation, à la fin de ton message) : [PANNE_DETECTEE: categorie|detail] — exemple : [PANNE_DETECTEE: Chauffe|Résistance probablement défaillante]
+
+Dès que tu peux estimer la difficulté de la réparation, ajoute (une seule fois) : [COMPLEXITE: simple|moyenne|complexe|critique]
+
+Si tu peux estimer la cause probable de la panne à partir des éléments donnés par l'utilisateur (entretien, usage, âge de l'appareil), ajoute (une seule fois) : [CAUSE_RACINE: manque_entretien|usure_normale|mauvaise_utilisation|defaut_fabrication|installation_incorrecte|inconnue]
+
+Si tu t'appuies sur un extrait de notice technique injecté dans ce prompt pour répondre, ajoute (une seule fois) : [NOTICE_UTILISEE: section] — exemple : [NOTICE_UTILISEE: Dépannage chauffe]. Ne mets ce tag que si une notice a réellement été fournie.
+
 --- RÈGLES GÉNÉRALES ---
 - Pas d'emojis — un langage clair, direct et rassurant
 - Vouvoie toujours l'utilisateur, sans exception
@@ -280,7 +291,7 @@ export default function ReparoApp() {
   const [savTab,      setSavTab]      = useState("marque");
   const [showAdd,     setShowAdd]     = useState(false);
   const [showDetail,  setShowDetail]  = useState(null);
-  const [form,        setForm]        = useState({ type: "", marque: "", modele: "", achat: "" });
+  const [form,        setForm]        = useState({ type: "", marque: "", modele: "", achat: "", date_achat: "" });
   const [image,       setImage]       = useState(null);
   const [imageB64,    setImageB64]    = useState(null);
   const [toast,       setToast]       = useState(null);
@@ -311,6 +322,7 @@ export default function ReparoApp() {
   const partnerRef     = useRef(null);  // partenaire CRM d'origine (paramètre URL ?partner=)
   const refExterneRef  = useRef(null);  // référence externe du partenaire (paramètre URL ?ref=)
   const convStartRef   = useRef(null);  // horodatage de début de la conversation en cours
+  const diagnosticRef  = useRef({});    // estimations IA accumulées (panne_categorie, complexite, cause_racine, notice_section) pour la conv en cours
   const convResolvedRef = useRef(false); // true dès que [PROBLEME_RESOLU] a été détecté
   const modeRef = useRef("diagnostic"); // 'bienvenue' | 'diagnostic' — mode de la conv en cours, fixé à la création
 
@@ -518,10 +530,86 @@ export default function ReparoApp() {
     return { type: match[1].trim(), marque: match[2].trim(), modele: match[3].trim() };
   };
 
-  // Nettoie le tag [MODELE_DETECTE] du texte affiché
+  // Nettoie tous les tags analytics du texte affiché — aucun ne doit jamais être visible
   const cleanModeleTag = (text) => {
     if (typeof text !== "string") return text;
-    return text.replace(/\[MODELE_DETECTE:[^\]]*\]/gi, "").replace(/\[PROBLEME_RESOLU\]/gi, "").trim();
+    return text
+      .replace(/\[MODELE_DETECTE:[^\]]*\]/gi, "")
+      .replace(/\[PROBLEME_RESOLU\]/gi, "")
+      .replace(/\[PANNE_DETECTEE:[^\]]*\]/gi, "")
+      .replace(/\[COMPLEXITE:[^\]]*\]/gi, "")
+      .replace(/\[CAUSE_RACINE:[^\]]*\]/gi, "")
+      .replace(/\[NOTICE_UTILISEE:[^\]]*\]/gi, "")
+      .trim();
+  };
+
+  // Journalise un tag mal formé sans jamais bloquer l'utilisateur (parsing défensif).
+  // Fire-and-forget : un échec de log ne doit avoir aucun impact visible.
+  const logTagParseError = (tagName, rawTag, reason) => {
+    fetch("/api/conversations/tag-parse-error", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation_id: convIdRef.current, tag_name: tagName, raw_tag: rawTag, reason }),
+    }).catch(() => {});
+  };
+
+  // Parsing défensif générique à champs multiples séparés par "|" : si le tag
+  // est absent, mal formé ou tronqué, ne plante jamais — retourne simplement
+  // value: null et journalise l'anomalie pour surveillance, sans rien casser
+  // pour l'utilisateur.
+  const parseTagSafe = (text, tagName, expectedFields) => {
+    if (typeof text !== "string") return { value: null };
+    const regex = new RegExp(`\\[${tagName}:\\s*([^\\]]+)\\]`, "i");
+    const match = text.match(regex);
+    if (!match) return { value: null };
+
+    const parts = match[1].split("|").map((s) => s.trim());
+    if (parts.length !== expectedFields.length || parts.some((p) => !p)) {
+      logTagParseError(tagName, match[0], `Attendu ${expectedFields.length} champ(s) non vides, reçu "${match[1]}"`);
+      return { value: null };
+    }
+
+    const value = {};
+    expectedFields.forEach((field, i) => { value[field] = parts[i]; });
+    return { value };
+  };
+
+  // Estimations IA des 4 tags analytics — chacune isolée : si l'une échoue à
+  // parser, les autres et l'affichage du message restent intacts.
+  const COMPLEXITE_VALUES = ["simple", "moyenne", "complexe", "critique"];
+  const CAUSE_RACINE_VALUES = ["manque_entretien", "usure_normale", "mauvaise_utilisation", "defaut_fabrication", "installation_incorrecte", "inconnue"];
+
+  const parseDiagnosticTags = (reply) => {
+    if (typeof reply !== "string") return;
+
+    const panne = parseTagSafe(reply, "PANNE_DETECTEE", ["categorie", "detail"]);
+    if (panne.value) {
+      diagnosticRef.current.panne_categorie = panne.value.categorie;
+      diagnosticRef.current.panne_detail = panne.value.detail;
+    }
+
+    const complexite = parseTagSafe(reply, "COMPLEXITE", ["niveau"]);
+    if (complexite.value) {
+      if (COMPLEXITE_VALUES.includes(complexite.value.niveau)) {
+        diagnosticRef.current.complexite = complexite.value.niveau;
+      } else {
+        logTagParseError("COMPLEXITE", complexite.value.niveau, "Valeur hors enum attendu");
+      }
+    }
+
+    const cause = parseTagSafe(reply, "CAUSE_RACINE", ["cause"]);
+    if (cause.value) {
+      if (CAUSE_RACINE_VALUES.includes(cause.value.cause)) {
+        diagnosticRef.current.cause_racine = cause.value.cause;
+      } else {
+        logTagParseError("CAUSE_RACINE", cause.value.cause, "Valeur hors enum attendu");
+      }
+    }
+
+    const notice = parseTagSafe(reply, "NOTICE_UTILISEE", ["section"]);
+    if (notice.value) {
+      diagnosticRef.current.notice_section = notice.value.section;
+    }
   };
 
   const detectAppareil = (msgs, category, brand) => {
@@ -543,6 +631,9 @@ export default function ReparoApp() {
     if (!convStartRef.current) convStartRef.current = Date.now();
     const { category, brand } = detectAppareil(msgs, sel.category, sel.brand);
     const cleanMsgs = msgs.filter(m => typeof m.content === "string");
+    // nb_tentatives est compté par le système (nombre de réponses IA déjà
+    // envoyées), jamais déclaré par l'IA elle-même.
+    const nbTentatives = msgs.filter(m => m.role === "assistant").length;
     try {
       const token = await getToken();
       if (!token) return;
@@ -554,9 +645,12 @@ export default function ReparoApp() {
           messages: cleanMsgs,
           appareil_type: category || null,
           appareil_marque: brand || null,
+          appareil_id: convAppareilRef.current || undefined,
           partner: partnerRef.current || undefined,
           ref_externe: refExterneRef.current || undefined,
           mode: !convIdRef.current ? modeRef.current : undefined,
+          nb_tentatives: nbTentatives,
+          ...diagnosticRef.current,
           ...(extra || {}),
         })
       });
@@ -575,6 +669,7 @@ export default function ReparoApp() {
   const goHome = () => {
     convIdRef.current = null; convAppareilRef.current = null;
     convStartRef.current = null; convResolvedRef.current = false;
+    diagnosticRef.current = {};
     imageUrlRef.current = null;
     setScreen("home"); setSel({}); setMessages([]);
     setInput(""); setImage(null); setImageB64(null); imageUrlRef.current = null; setShowSAV(false); setResolved(false);
@@ -594,6 +689,7 @@ export default function ReparoApp() {
     setMessages(msgs);
     // Restaure l'ID pour que persistConversation mette à jour au lieu de créer
     convIdRef.current = conv.id;
+    diagnosticRef.current = {};
     // Calcule les quick replies à partir du dernier message IA
     const lastAssistant = [...msgs].reverse().find(m => m.role === "assistant");
     if (lastAssistant && typeof lastAssistant.content === "string") {
@@ -687,6 +783,9 @@ export default function ReparoApp() {
   const handleReplyDetection = (reply, msgs) => {
     const assistantCount = (msgs || []).filter(m => m.role === "assistant").length;
     if (assistantCount < 1) return;
+    // Estimations IA (panne, complexité, cause racine, notice utilisée) —
+    // parsing défensif, accumulées dans diagnosticRef pour le prochain persist
+    parseDiagnosticTags(reply);
     // Détection modèle
     const detected = extractModeleDetecte(reply);
     if (detected && !showSaveAppareil && !appareilSaved) {
@@ -711,6 +810,7 @@ export default function ReparoApp() {
     setTab("home"); setScreen("chat"); setResolved(false);
     setShowSaveAppareil(false); setDetectedAppareil(null); setAppareilSaved(false);
     convIdRef.current = null; // nouvelle conversation
+    diagnosticRef.current = {};
     const msgs = [{ role: "user", content: userMsg }];
     setMessages(msgs);
     const reply = await callAPI(msgs, ctx);
@@ -719,8 +819,8 @@ export default function ReparoApp() {
       const finalMsgs = [...msgs, { role: "assistant", content: clean }];
       setMessages(finalMsgs);
       setQuickReplies(getQuickReplies(clean, finalMsgs));
-      persistConversation(finalMsgs);
       handleReplyDetection(reply, finalMsgs);
+      persistConversation(finalMsgs);
     }
   };
 
@@ -740,8 +840,8 @@ export default function ReparoApp() {
       const clean = cleanModeleTag(reply);
       const finalMsgs = [...msgs, { role: "assistant", content: clean }];
       setMessages(finalMsgs);
-      persistConversation(finalMsgs);
       handleReplyDetection(reply, finalMsgs);
+      persistConversation(finalMsgs);
     }
   };
 
@@ -1003,7 +1103,7 @@ export default function ReparoApp() {
     if (!form.type || !form.marque) return;
     setAppareils(prev => [...prev, { id: Date.now(), ...form, pannes: 0, entretien: "Entretien à jour" }]);
     showToast("Appareil enregistré !");
-    setForm({ type: "", marque: "", modele: "", achat: "" }); setShowAdd(false);
+    setForm({ type: "", marque: "", modele: "", achat: "", date_achat: "" }); setShowAdd(false);
   };
 
   const brands   = sel.category ? Object.keys(CATEGORIES[sel.category]?.marques || {}) : [];
@@ -1594,6 +1694,7 @@ export default function ReparoApp() {
                 { label: "Marque", key: "marque", placeholder: "Ex : Samsung, Bosch..." },
                 { label: "Modèle / Référence", key: "modele", placeholder: "Ex : WW90T534DAW" },
                 { label: "Année d'achat", key: "achat", placeholder: "Ex : 2020" },
+                { label: "Date d'achat précise (pour calculer la garantie automatiquement)", key: "date_achat", type: "date" },
               ].map(f => (
                 <div key={f.key} style={{ marginBottom: "12px" }}>
                   <div style={{ fontSize: "12px", fontWeight: "700", color: "#666", marginBottom: "4px" }}>{f.label}</div>
@@ -1602,15 +1703,15 @@ export default function ReparoApp() {
                         <option value="">Sélectionnez...</option>
                         {f.options.map(o => <option key={o} value={o}>{o}</option>)}
                       </select>
-                    : <input value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} style={{ width: "100%", border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Inter,sans-serif", outline: "none" }} />
+                    : <input type={f.type || "text"} value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} style={{ width: "100%", border: "1.5px solid #eee", borderRadius: "10px", padding: "10px 12px", fontSize: "14px", fontFamily: "Inter,sans-serif", outline: "none" }} />
                   }
                 </div>
               ))}
               <button onClick={async () => {
                 if (!form.type || !form.marque) return;
-                const a = await saveAppareil({ ...form, statut: "ok" });
+                const a = await saveAppareil({ ...form, date_achat: form.date_achat || null, statut: "ok" });
                 if (a) showToast("Appareil enregistré ✓");
-                setForm({ type: "", marque: "", modele: "", achat: "" });
+                setForm({ type: "", marque: "", modele: "", achat: "", date_achat: "" });
                 setShowAdd(false);
               }} style={{ width: "100%", background: ACCENT, border: "none", borderRadius: "12px", color: "white", padding: "14px", fontWeight: "700", fontSize: "15px", cursor: "pointer", fontFamily: "Inter,sans-serif" }}>Confirmer</button>
             </div>
@@ -1634,6 +1735,16 @@ export default function ReparoApp() {
                   <div style={{ color: "white", fontWeight: "800", fontSize: "17px" }}>{selectedAppareil.marque} {selectedAppareil.type}</div>
                   {selectedAppareil.modele && <div style={{ color: "rgba(255,255,255,.8)", fontSize: "13px", marginTop: "2px" }}>Réf. {selectedAppareil.modele}</div>}
                   {selectedAppareil.achat && <div style={{ color: "rgba(255,255,255,.6)", fontSize: "12px" }}>Acheté en {selectedAppareil.achat}</div>}
+                  {selectedAppareil.date_achat && (() => {
+                    // Garantie calculée automatiquement (2 ans légaux), jamais devinée par l'IA
+                    const moisEcoules = (Date.now() - new Date(selectedAppareil.date_achat).getTime()) / (30 * 24 * 3600 * 1000);
+                    const sousGarantie = moisEcoules < 24;
+                    return (
+                      <div style={{ color: sousGarantie ? "#86efac" : "rgba(255,255,255,.6)", fontSize: "12px" }}>
+                        {sousGarantie ? "Encore sous garantie légale" : "Garantie légale expirée"}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
