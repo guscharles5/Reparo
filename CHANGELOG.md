@@ -3,6 +3,40 @@
 Toutes les modifications notables du projet sont listées ici, par ordre
 chronologique inversé.
 
+## [Non publié] - 2026-06-30
+
+### Modifié
+- Restructuration complète du menu du back-office partenaire (`/partner/dashboard/layout.js`) :
+  nouveau menu en 7 sections — Accueil, Statistiques (Diagnostics / Satisfaction client /
+  Indicateurs), Mon SAV (Configuration SAV / Escalades reçues), Ma Bibliothèque
+  (Mes notices / Bibliothèque globale), Mon Application (Identité / Message de bienvenue /
+  Prompt IA / Fonctionnalités / Catégories d'appareils), Paramètres back-office, Mises à jour.
+  L'élément actif se met en surbrillance bleue, les groupes s'ouvrent automatiquement sur la
+  page en cours.
+- Page Accueil partenaire intégralement refaite (`app/partner/dashboard/page.js`) — 5 blocs :
+  (1) 4 chiffres clés du jour (diagnostics aujourd'hui / taux de résolution / NPS du mois /
+  taux de retour), (2) santé du service (escalades ce mois / taux d'abandon / délai moyen
+  résolution / nouveaux utilisateurs), (3) graphique multi-courbes 6 mois (diagnostics vs
+  résolus vs escalades via le nouveau composant `MultiLineChart`), (4) alertes contextuelles
+  (mise à jour disponible, conversations abandonnées, évolution NPS vs mois précédent),
+  (5) tableau des 5 derniers diagnostics avec statut.
+- "Satisfaction (NPS)" renommé "Satisfaction client" dans le menu — la page est accessible à
+  la nouvelle URL `/partner/dashboard/statistiques/satisfaction-client` (réexporte le contenu
+  de la page NPS existante sans modification).
+
+### Ajouté
+- Nouvelle route API `app/api/partner/accueil/route.js` — calcule en un seul appel tous les
+  KPIs de la page Accueil (diagnostics du jour, taux de retour, taux d'abandon, délai moyen
+  résolution, nouveaux utilisateurs, évolution 6 mois multi-séries, alertes, 5 derniers
+  diagnostics).
+- Composant `MultiLineChart` dans `components/shared/admin-ui.js` — graphique SVG pur à
+  3 courbes (diagnostics / résolus / escalades) avec légende et axes Y.
+- Pages "Bientôt disponible" pour toutes les nouvelles routes non encore implémentées :
+  `mon-sav/configuration-sav`, `mon-sav/escalades`, `ma-bibliotheque/mes-notices`,
+  `ma-bibliotheque/bibliotheque-globale`, `mon-application/identite`,
+  `mon-application/message-bienvenue`, `mon-application/prompt-ia`,
+  `mon-application/fonctionnalites`, `mon-application/categories-appareils`.
+
 ## [Non publié] - 2026-06-23 (2)
 
 ### Corrigé

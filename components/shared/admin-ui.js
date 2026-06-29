@@ -253,3 +253,62 @@ export const FieldGroup = ({ label, hint, children }) => (
 
 export const input = { width: '100%', border: '1.5px solid #e2e8f0', borderRadius: '6px', padding: '8px 11px', fontSize: '13px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#0f172a' }
 export const btnPrimaryBase = { border: 'none', borderRadius: '6px', color: '#fff', padding: '8px 16px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' }
+
+// Graphique multi-courbes SVG pur (3 séries max) — utilisé sur l'Accueil
+// partenaire pour visualiser diagnostics / résolutions / escalades sur 6 mois.
+// data : [{label, diagnostics, resolutions, escalades}]
+// series : [{key, color, label}] — ordre et couleurs personnalisables
+export const MultiLineChart = ({ data = [], height = 140, series = [
+  { key: 'diagnostics', color: '#2563eb', label: 'Diagnostics' },
+  { key: 'resolutions', color: '#16a34a', label: 'Résolus' },
+  { key: 'escalades',   color: '#d97706', label: 'Escalades' },
+] }) => {
+  if (!data.length) return <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '13px' }}>Pas encore de données</div>
+
+  const W = 600; const H = height
+  const PL = 32; const PR = 12; const PT = 10; const PB = 28
+  const chartW = W - PL - PR
+  const chartH = H - PT - PB
+
+  const allVals = data.flatMap(d => series.map(s => d[s.key] || 0))
+  const maxVal = Math.max(...allVals, 1)
+
+  const x = (i) => PL + (i / (data.length - 1 || 1)) * chartW
+  const y = (v) => PT + chartH - (v / maxVal) * chartH
+
+  const path = (key) => data.map((d, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(d[key] || 0)}`).join(' ')
+
+  // Y-axis grid lines (3 levels)
+  const ticks = [0, Math.round(maxVal / 2), maxVal]
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height, overflow: 'visible' }}>
+        {/* Grid lines */}
+        {ticks.map(t => (
+          <g key={t}>
+            <line x1={PL} y1={y(t)} x2={W - PR} y2={y(t)} stroke="#f1f5f9" strokeWidth={1} />
+            <text x={PL - 5} y={y(t) + 4} fontSize={9} fill="#94a3b8" textAnchor="end">{t}</text>
+          </g>
+        ))}
+        {/* Series lines */}
+        {series.map(s => (
+          <path key={s.key} d={path(s.key)} fill="none" stroke={s.color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+        ))}
+        {/* X-axis labels */}
+        {data.map((d, i) => (
+          <text key={i} x={x(i)} y={H - 4} fontSize={10} fill="#94a3b8" textAnchor="middle">{d.label}</text>
+        ))}
+      </svg>
+      {/* Légende */}
+      <div style={{ display: 'flex', gap: '18px', marginTop: '6px', justifyContent: 'center', flexWrap: 'wrap' }}>
+        {series.map(s => (
+          <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#475569' }}>
+            <div style={{ width: '18px', height: '3px', background: s.color, borderRadius: '2px' }} />
+            {s.label}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
