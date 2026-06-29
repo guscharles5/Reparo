@@ -888,7 +888,7 @@ export default function AdminDashboard() {
                 <StatWidget
                   label="Conversion Bienvenue → Diagnostic"
                   value={stats.tauxConversionBienvenueDiagnostic != null ? `${stats.tauxConversionBienvenueDiagnostic}%` : '—'}
-                  sub="Utilisateurs Bienvenue ayant ensuite lancé un Diagnostic"
+                  sub={`Sur ${stats.nUtilisateursBienvenue || 0} utilisateur(s) Bienvenue${(stats.nUtilisateursBienvenue || 0) < 10 ? ' — échantillon faible' : ''}`}
                   accent={accentColor}
                 />
               </div>
@@ -1435,7 +1435,7 @@ export default function AdminDashboard() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '16px' }}>
                 <StatWidget label="Diagnostics" value={partnerStats[activePartnerTab].totalDiagnostics} accent={accentColor} />
                 <StatWidget label="Taux de résolution" value={`${partnerStats[activePartnerTab].resolutionRate}%`} accent="#16a34a" />
-                <StatWidget label="Économies générées" value={`${partnerStats[activePartnerTab].economiesGenerees} €`} accent="#d97706" />
+                <StatWidget label="Économies estimées" value={`${partnerStats[activePartnerTab].economiesGenerees} €`} accent="#d97706" />
               </div>
 
               <Card title="Top pannes" noPad>

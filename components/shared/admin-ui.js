@@ -187,11 +187,14 @@ export const Badge = ({ label, variant = 'default' }) => {
   return <span style={{ background: bg, color: col, borderRadius: '20px', padding: '2px 9px', fontSize: '11px', fontWeight: '700', letterSpacing: '.3px' }}>{label}</span>
 }
 
-export const Card = ({ children, title, action, noPad }) => (
+export const Card = ({ children, title, subtitle, action, noPad }) => (
   <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,.05)', overflow: 'hidden' }}>
     {title && (
-      <div style={{ padding: '13px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h3 style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{title}</h3>
+      <div style={{ padding: '13px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{title}</h3>
+          {subtitle && <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#94a3b8' }}>{subtitle}</p>}
+        </div>
         {action}
       </div>
     )}
