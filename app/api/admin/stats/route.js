@@ -1,7 +1,7 @@
 // Fichier : route.js
 // Rôle : GET calcule le tableau de bord de stats globales admin (utilisateurs, conversations par jour, taux de résolution, répartition par résultat, top appareils/pannes, conversion bienvenue->diagnostic, escalades SAV, entretiens et rappels)
 // Dépendances : app/api/admin/auth/route.js (verifyAdminToken), Supabase Auth admin (listUsers), Supabase tables conversations, bienvenue_ouvertures, appareils, entretiens, rappels
-// Dernière modification : 2026-06-23
+// Dernière modification : 2026-06-23 (taux de résolution cohérent admin/partenaire, rappels échus uniquement, N exposé)
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { verifyAdminToken } from '../auth/route'
@@ -79,17 +79,6 @@ export async function GET(req) {
     conversationsPerDay.push({ label, value })
   }
 
-  // Taux de résolution — utilise la colonne "resultat" (déjà renseignée à
-  // "resolu" par l'app dès que [PROBLEME_RESOLU] est détecté), au lieu de
-  // re-parser le JSON des messages de chaque conversation.
-  const { count: resolvedCount } = await sb
-    .from('conversations')
-    .select('*', { count: 'exact', head: true })
-    .eq('resultat', 'resolu')
-  const resolutionRate = totalConversations > 0
-    ? Math.round(((resolvedCount || 0) / Math.max(totalConversations, 1)) * 100)
-    : 0
-
   // Top appareils — colonnes légères uniquement (pas le JSON des messages)
   const { data: appareils } = await sb
     .from('conversations')
@@ -114,6 +103,10 @@ export async function GET(req) {
     .not('user_id', 'is', null)
 
   let tauxConversionBienvenueDiagnostic = null
+  // Nombre d'utilisateurs Bienvenue distincts — exposé à part (le N derrière
+  // le %) pour ne pas afficher un taux de conversion trompeur sur un très
+  // petit échantillon (ex: "50%" sur 2 utilisateurs).
+  let nUtilisateursBienvenue = 0
   if (convsForConversion && convsForConversion.length > 0) {
     const byUser = {}
     convsForConversion.forEach(c => {
@@ -121,6 +114,7 @@ export async function GET(req) {
       byUser[c.user_id].push(c)
     })
     const bienvenueUserIds = Object.keys(byUser).filter(uid => byUser[uid].some(c => c.mode === 'bienvenue'))
+    nUtilisateursBienvenue = bienvenueUserIds.length
     if (bienvenueUserIds.length > 0) {
       const convertedCount = bienvenueUserIds.filter(uid => {
         const convs = byUser[uid]
@@ -139,9 +133,14 @@ export async function GET(req) {
 
   ;(appareils || []).forEach(c => {
     const key = `${c.appareil_type || 'Autre'}__${c.appareil_marque || ''}`
-    if (!appareilMap[key]) appareilMap[key] = { type: c.appareil_type, marque: c.appareil_marque, count: 0, resolved: 0 }
+    if (!appareilMap[key]) appareilMap[key] = { type: c.appareil_type, marque: c.appareil_marque, count: 0, resolved: 0, finished: 0 }
     appareilMap[key].count++
     if (c.resultat === 'resolu') appareilMap[key].resolved++
+    // "finished" = conversation arrivée à un résultat tranché (résolu, échec
+    // ou abandon) — exclut les conversations en cours du dénominateur, pour
+    // ne pas diluer le taux de résolution avec des diagnostics qui n'ont pas
+    // encore eu la chance de se terminer. Même logique que lib/partnerStats.js.
+    if (c.resultat) appareilMap[key].finished++
 
     if (parResultat[c.resultat] !== undefined) parResultat[c.resultat]++
     else parResultat.en_cours++
@@ -161,10 +160,16 @@ export async function GET(req) {
 
   const avg = (arr) => arr.length > 0 ? Math.round((arr.reduce((s, n) => s + n, 0) / arr.length) * 10) / 10 : null
 
+  // Taux de résolution global — calculé sur les conversations TERMINÉES
+  // uniquement (même définition que lib/partnerStats.js côté partenaire,
+  // pour que les deux back-offices affichent un taux comparable).
+  const finishedTotal = parResultat.resolu + parResultat.echec + parResultat.abandonne
+  const resolutionRate = finishedTotal > 0 ? Math.round((parResultat.resolu / finishedTotal) * 100) : 0
+
   const topAppareils = Object.values(appareilMap)
     .sort((a, b) => b.count - a.count)
     .slice(0, 8)
-    .map(a => ({ ...a, resolutionRate: a.count > 0 ? Math.round((a.resolved / a.count) * 100) : 0 }))
+    .map(a => ({ ...a, resolutionRate: a.finished > 0 ? Math.round((a.resolved / a.finished) * 100) : 0 }))
 
   // Total appareils enregistrés
   const { count: totalAppareils } = await sb
@@ -182,9 +187,14 @@ export async function GET(req) {
   ;(entretiensData || []).forEach(e => { entretienTypeMap[e.type_entretien] = (entretienTypeMap[e.type_entretien] || 0) + 1 })
   const topEntretiens = Object.entries(entretienTypeMap).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([type, count]) => ({ type, count }))
 
-  const { count: totalRappels } = await sb.from('rappels').select('*', { count: 'exact', head: true })
-  const { count: rappelsCompletes } = await sb.from('rappels').select('*', { count: 'exact', head: true }).eq('statut', 'complete')
-  const tauxCompletionRappels = totalRappels > 0 ? Math.round(((rappelsCompletes || 0) / totalRappels) * 100) : 0
+  // Taux de complétion calculé sur les rappels déjà ÉCHUS uniquement — un
+  // rappel programmé dans 6 mois n'a logiquement pas encore pu être
+  // complété, l'inclure au dénominateur sous-estime artificiellement le
+  // taux de respect du calendrier d'entretien.
+  const nowIso = new Date().toISOString()
+  const { count: totalRappelsEchus } = await sb.from('rappels').select('*', { count: 'exact', head: true }).lte('date_prevue', nowIso)
+  const { count: rappelsCompletes } = await sb.from('rappels').select('*', { count: 'exact', head: true }).lte('date_prevue', nowIso).eq('statut', 'complete')
+  const tauxCompletionRappels = totalRappelsEchus > 0 ? Math.round(((rappelsCompletes || 0) / totalRappelsEchus) * 100) : 0
 
   return NextResponse.json({
     totalUsers,
@@ -202,10 +212,14 @@ export async function GET(req) {
       total: bienvenueCount,
       npsAvg: avg(npsBienvenue),
       ouverturesLien: ouverturesLienTotal || 0,
-      tauxOuverture: (ouverturesLienTotal || 0) > 0 ? Math.round((bienvenueCount / ouverturesLienTotal) * 100) : null,
+      // Plafonné à 100% : certaines conversations Bienvenue peuvent exister
+      // sans ouverture de lien loguée (deep link direct, table antérieure à
+      // ce tracking), ce qui peut sinon produire un taux > 100% absurde.
+      tauxOuverture: (ouverturesLienTotal || 0) > 0 ? Math.min(100, Math.round((bienvenueCount / ouverturesLienTotal) * 100)) : null,
     },
     modeDiagnostic: { total: diagnosticCount, npsAvg: avg(npsDiagnostic) },
     tauxConversionBienvenueDiagnostic,
+    nUtilisateursBienvenue,
     escalades: { total: escaladesSav, parCanal: escaladesParCanal },
     entretiens: { total: entretiensData?.length || 0, topTypes: topEntretiens, tauxCompletionRappels },
   })

@@ -3,6 +3,48 @@
 Toutes les modifications notables du projet sont listées ici, par ordre
 chronologique inversé.
 
+## [Non publié] - 2026-06-23 (2)
+
+### Corrigé
+- Incohérence du taux de résolution entre admin et partenaire : l'admin le
+  calculait sur TOUTES les conversations (y compris en cours), le partenaire
+  uniquement sur les conversations terminées — les deux back-offices
+  pouvaient afficher un taux différent sur les mêmes données. L'admin
+  (`app/api/admin/stats/route.js`, y compris `topAppareils[].resolutionRate`)
+  utilise désormais la même définition que `lib/partnerStats.js`.
+- "Top pannes" côté partenaire (`app/api/partner/stats/route.js`) regroupait
+  par `appareil_type`, un doublon de "Top appareils" qui n'apportait aucune
+  information sur la nature de la panne. Regroupe désormais par
+  `panne_categorie` (estimation IA) ; les conversations sans estimation sont
+  exclues et comptées à part (`conversationsSansEstimation`). Affiché en
+  tableau sur la page Indicateurs partenaire.
+- Taux de complétion du calendrier d'entretien (admin `tauxCompletionRappels`
+  et partenaire `tauxAdoptionCalendrier`) comptaient au dénominateur des
+  rappels programmés dans le futur, qui n'avaient logiquement pas encore pu
+  être complétés — sous-estimant artificiellement le taux. Limité aux
+  rappels déjà échus (`date_prevue` passée).
+- Taux d'ouverture du lien Mode Bienvenue (admin et partenaire) pouvait
+  dépasser 100% si des conversations existent sans ouverture loguée
+  associée — plafonné à 100%.
+
+### Modifié
+- Les indicateurs financiers basés sur une hypothèse (un diagnostic IA
+  résolu = une intervention payante évitée), et non sur une mesure directe,
+  sont désormais explicitement étiquetés "estimation"/"estimé(es)" dans
+  l'UI partenaire (Indicateurs), l'UI admin (onglet Partenaires) et les
+  exports PDF — pour ne jamais les confondre avec un fait vérifié, même
+  logique que la distinction `estimation_ia`/`verifiee` déjà appliquée aux
+  tags de diagnostic.
+- Petits échantillons : la page Indicateurs partenaire affiche désormais le
+  nombre brut d'observations (N) derrière les taux de conversion Bienvenue,
+  de rétention et le NPS par parcours (`lib/partnerStats.js` retourne
+  `{value, n}` au lieu d'un simple nombre pour le NPS par parcours), avec un
+  avertissement visuel quand l'échantillon est trop faible (N < 5 ou < 10
+  selon l'indicateur) pour ne pas afficher un pourcentage trompeur.
+- `components/shared/admin-ui.js` : `Card` accepte désormais un prop
+  `subtitle` (texte secondaire sous le titre), utilisé pour ces nouvelles
+  mentions d'estimation.
+
 ## [Non publié] - 2026-06-23
 
 ### Ajouté
