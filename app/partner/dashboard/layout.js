@@ -21,7 +21,7 @@ const NAV = [
     children: [
       { id: 'statistiques/diagnostics',       label: 'Diagnostics' },
       { id: 'statistiques/satisfaction-client', label: 'Satisfaction client' },
-      { id: 'statistiques/indicateurs',       label: 'Indicateurs' },
+      { id: 'statistiques/indicateurs',       label: "Suivi d'usage" },
     ],
   },
   {
