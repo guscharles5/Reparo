@@ -434,7 +434,7 @@ function ModalVerbatims({ verbatims, periodLabel, periodFile, onClose }) {
           const borderColor = SAT_COLOR(v.score)
           const pMeta = PARCOURS_META[v.parcours]
           return (
-            <div key={v.id || i} style={{
+            <div key={v.id || `verbatim-${i}`} style={{
               borderRadius: '8px', border: '1px solid #e2e8f0',
               borderLeft: `4px solid ${borderColor}`,
               padding: '12px 14px', background: '#fafafa',
@@ -656,7 +656,7 @@ export default function SatisfactionClientPage() {
               const borderColor = SAT_COLOR(v.score)
               const pMeta = PARCOURS_META[v.parcours]
               return (
-                <div key={v.id || i} style={{
+                <div key={v.id || `verbatim-${i}`} style={{
                   borderRadius: '7px', border: '1px solid #e2e8f0',
                   borderLeft: `3px solid ${borderColor}`,
                   padding: '10px 12px', background: '#fafafa',

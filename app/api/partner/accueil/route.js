@@ -5,7 +5,7 @@
 //         Accepte ?period=month|3months|6months|year (défaut : month).
 // Dépendances : lib/partnerAuth.js (getPartnerFromRequest), lib/partnerStats.js (last6Months),
 //               Supabase tables conversations, releases, releases_partenaires
-// Dernière modification : 2026-07-06
+// Dernière modification : 2026-07-08
 import { NextResponse } from 'next/server'
 import { getPartnerFromRequest } from '../../../../lib/partnerAuth'
 import { last6Months } from '../../../../lib/partnerStats'
@@ -175,8 +175,8 @@ export async function GET(req) {
   const { data: releasesPending } = await admin
     .from('releases_partenaires')
     .select('id')
-    .eq('partenaire_nom', partner.nom)
-    .eq('statut', 'pending')
+    .eq('partner_id', partner.id)
+    .eq('statut', 'en_attente')
     .limit(1)
   const miseAJourDisponible = (releasesPending?.length || 0) > 0
 
