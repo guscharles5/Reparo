@@ -87,12 +87,39 @@ const getSystemPrompt = async (defaultPrompt) => {
   }
 }
 
+// Cache per-partner pour prompt_ia (60s TTL)
+const partnerPromptCache = {}
+
+const getPartnerPromptIa = async (nom) => {
+  const entry = partnerPromptCache[nom]
+  if (entry && Date.now() - entry.time < 60000) return entry.prompt
+  try {
+    const admin = getAdmin()
+    const { data: partnerRow } = await admin
+      .from('partners').select('id').eq('nom', nom).maybeSingle()
+    if (!partnerRow) {
+      partnerPromptCache[nom] = { prompt: null, time: Date.now() }
+      return null
+    }
+    const { data: configRow } = await admin
+      .from('config_partenaire').select('valeur')
+      .eq('partner_id', partnerRow.id).eq('cle', 'prompt_ia').maybeSingle()
+    const raw = configRow?.valeur
+    const prompt = raw && typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null
+    partnerPromptCache[nom] = { prompt, time: Date.now() }
+    return prompt
+  } catch (e) {
+    console.error('[Reparo] getPartnerPromptIa error:', e.message)
+    return null
+  }
+}
+
 export async function POST(req) {
   if (isRateLimited(getClientIp(req))) {
     return NextResponse.json({ error: 'Trop de requêtes, réessayez dans quelques minutes.' }, { status: 429 })
   }
 
-  const { messages, system } = await req.json()
+  const { messages, system, nom } = await req.json()
 
   if (!isValidMessages(messages)) {
     return NextResponse.json({ error: 'Requête invalide' }, { status: 400 })
@@ -101,6 +128,14 @@ export async function POST(req) {
   try {
     // Charge le prompt depuis le back-office si défini, sinon utilise celui de l'app
     let finalSystem = await getSystemPrompt(system)
+
+    // Injecte le prompt_ia personnalisé du partenaire (couche 3) en priorité haute
+    if (nom && typeof nom === 'string' && nom.length < 200) {
+      const partnerPrompt = await getPartnerPromptIa(nom)
+      if (partnerPrompt) {
+        finalSystem = `${partnerPrompt}\n\n${finalSystem}`
+      }
+    }
 
     // Si un modèle a été détecté dans la conversation, injecte les passages
     // les plus pertinents de sa notice technique (recherche par mots-clés).
