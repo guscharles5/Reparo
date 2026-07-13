@@ -1,7 +1,7 @@
 // Fichier : route.js
 // Rôle : GET résout et renvoie les clés de config applicative effectives (avec flag overridden) ; PATCH upsert les surcharges du partenaire dans config_partenaire
 // Dépendances : lib/partnerAuth.js (getPartnerFromRequest), lib/configResolver.js (resolveConfigBatch), Supabase table config_partenaire
-// Dernière modification : 2026-06-29
+// Dernière modification : 2026-07-14
 // app/api/partner/config/route.js
 // Couche 3 — personnalisation appliquée par le partenaire sur les clés de
 // configuration applicatives (logo, couleurs, prompt IA, etc.), stockée dans
@@ -20,6 +20,8 @@ const KEYS = [
   'couleur_secondaire',
   'nom_assistant_ia',
   'message_bienvenue',
+  'message_escalade',
+  'message_resolution',
   'prompt_ia',
   'categories_appareils_visibles',
   'langue_defaut',
@@ -34,6 +36,8 @@ const FALLBACKS = {
   couleur_secondaire: '#0f172a',
   nom_assistant_ia: 'Assistant Reparo',
   message_bienvenue: "Bienvenue ! Je suis votre assistant expert en réparation d'appareils électroménagers.",
+  message_escalade: "Votre problème nécessite un expert. J'ai transmis tout le contexte — vous n'aurez rien à répéter.",
+  message_resolution: "Parfait ! Votre appareil fonctionne à nouveau.",
   prompt_ia: null,
   categories_appareils_visibles: ['lave-linge', 'refrigerateur', 'four', 'lave-vaisselle', 'seche-linge', 'micro-ondes'],
   langue_defaut: 'fr',

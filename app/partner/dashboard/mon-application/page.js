@@ -496,7 +496,7 @@ function OngletCategories({ config, onChange }) {
                     style={{ padding: '4px 12px', borderRadius: '6px', border: 'none', background: '#ea580c', color: '#fff', fontSize: '12px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
                     Ajouter
                   </button>
-                  <button onClick={() => setIgnored(s => new Set([...s, s.type]))}
+                  <button onClick={() => setIgnored(prev => new Set([...prev, s.type]))}
                     style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>
                     Ignorer
                   </button>

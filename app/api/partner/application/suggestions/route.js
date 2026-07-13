@@ -1,8 +1,8 @@
 // Fichier : app/api/partner/application/suggestions/route.js
 // Rôle : GET suggestions de catégories d'appareils basées sur les diagnostics réels
 //         du partenaire — appareils détectés en base non encore dans ses catégories.
-// Dépendances : lib/partnerAuth, supabase/conversations, supabase/config_partenaire
-// Dernière modification : 2026-07-13
+// Dépendances : lib/partnerAuth, supabase/appareils, supabase/config_partenaire
+// Dernière modification : 2026-07-14
 
 import { getPartnerFromRequest } from '../../../../../lib/partnerAuth'
 import { createClient } from '@supabase/supabase-js'
@@ -13,8 +13,9 @@ const supabase = createClient(
 )
 
 export async function GET(req) {
-  const { partner, error } = await getPartnerFromRequest(req)
-  if (error) return Response.json({ error }, { status: 401 })
+  const ctx = await getPartnerFromRequest(req)
+  if (!ctx) return Response.json({ error: 'Non autorisé' }, { status: 401 })
+  const { partner } = ctx
 
   // Récupère les catégories actuelles du partenaire
   const { data: configRow } = await supabase
@@ -31,10 +32,11 @@ export async function GET(req) {
   )
 
   // Agrège les appareils diagnostiqués pour ce partenaire par type
+  // La colonne s'appelle 'partner' (pas 'partner_nom') dans la table appareils
   const { data: appareils } = await supabase
     .from('appareils')
     .select('type')
-    .eq('partner_nom', partner.nom)
+    .eq('partner', partner.nom)
 
   if (!appareils?.length) return Response.json({ suggestions: [] })
 
