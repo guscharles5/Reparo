@@ -24,6 +24,7 @@ const NAV = [
       { id: 'statistiques/indicateurs',       label: "Suivi d'usage" },
     ],
   },
+  { id: 'clients', label: 'Mes clients', icon: 'users' },
   {
     id: 'mon-sav', label: 'Mon SAV', icon: 'wrench',
     children: [
