@@ -1,27 +1,11 @@
 'use client'
-// Fichier : fonctionnalites/page.js
-// Rôle : Page Fonctionnalités — affiche un message "Bientôt disponible" en attendant
-//         l'implémentation complète de cette section du back-office partenaire.
-// Dépendances : components/shared/admin-ui
-// Dernière modification : 2026-06-30
-import { SectionHeader, Card, Icon } from '../../../../../components/shared/admin-ui'
-
-export default function Fonctionnalités() {
-  return (
-    <div>
-      <SectionHeader title="Fonctionnalités" subtitle="Activez ou désactivez chaque fonctionnalité de votre application : authentification, chat IA, parcours, appareils, satisfaction, bibliothèque." />
-      <Card>
-        <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <div style={{ fontSize: '36px', marginBottom: '16px' }}>🚧</div>
-          <div style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a', marginBottom: '8px' }}>
-            Bientôt disponible
-          </div>
-          <div style={{ fontSize: '13px', color: '#64748b', maxWidth: '400px', margin: '0 auto' }}>
-            Cette section est en cours de développement.
-            Elle sera disponible dans une prochaine mise à jour Reparo.
-          </div>
-        </div>
-      </Card>
-    </div>
-  )
+// Fichier : mon-application/fonctionnalites/page.js
+// Rôle : Redirige vers /partner/dashboard/mon-application (page unifiée Mon Application)
+// Dernière modification : 2026-07-13
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+export default function FonctionnalitesRedirect() {
+  const router = useRouter()
+  useEffect(() => { router.replace('/partner/dashboard/mon-application') }, [router])
+  return null
 }

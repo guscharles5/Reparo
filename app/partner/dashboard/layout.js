@@ -33,16 +33,7 @@ const NAV = [
     ],
   },
   { id: 'bibliotheque', label: 'Ma bibliothèque de notices', icon: 'book' },
-  {
-    id: 'mon-application', label: 'Mon Application', icon: 'palette',
-    children: [
-      { id: 'mon-application/identite',             label: 'Identité' },
-      { id: 'mon-application/message-bienvenue',    label: 'Message de bienvenue' },
-      { id: 'mon-application/prompt-ia',            label: 'Prompt IA' },
-      { id: 'mon-application/fonctionnalites',      label: 'Fonctionnalités' },
-      { id: 'mon-application/categories-appareils', label: "Catégories d'appareils" },
-    ],
-  },
+  { id: 'mon-application', label: 'Mon Application', icon: 'palette' },
   { id: 'parametres-back-office', label: 'Paramètres back-office', icon: 'monitor' },
   { id: 'mises-a-jour',           label: 'Mises à jour',           icon: 'refresh' },
 ]
