@@ -29,7 +29,7 @@ const NAV = [
     id: 'mon-sav', label: 'Mon SAV', icon: 'wrench',
     children: [
       { id: 'mon-sav/configuration-sav', label: 'Configuration SAV' },
-      { id: 'mon-sav/escalades',         label: 'Escalades reçues' },
+      { id: 'mon-sav/demandes',          label: 'Demandes SAV' },
     ],
   },
   {
