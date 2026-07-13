@@ -32,13 +32,7 @@ const NAV = [
       { id: 'mon-sav/demandes',          label: 'Demandes SAV' },
     ],
   },
-  {
-    id: 'ma-bibliotheque', label: 'Ma Bibliothèque', icon: 'book',
-    children: [
-      { id: 'ma-bibliotheque/mes-notices',          label: 'Mes notices' },
-      { id: 'ma-bibliotheque/bibliotheque-globale', label: 'Bibliothèque globale' },
-    ],
-  },
+  { id: 'bibliotheque', label: 'Ma bibliothèque de notices', icon: 'book' },
   {
     id: 'mon-application', label: 'Mon Application', icon: 'palette',
     children: [
