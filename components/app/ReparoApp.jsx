@@ -25,11 +25,14 @@ const getToken = async () => {
 
 // Clé API sécurisée côté serveur via /api/chat
 
-const buildSystemPrompt = (appareil) => {
+const buildSystemPrompt = (appareil, opts = {}) => {
+  const assistantName = opts.assistantName || 'Reparo'
+  const messageResolution = opts.messageResolution || "Parfait ! Votre appareil fonctionne à nouveau."
+  const messageEscalade = opts.messageEscalade || "Votre problème nécessite un expert. J'ai transmis tout le contexte — vous n'aurez rien à répéter."
   const context = appareil
     ? `L'utilisateur a un problème avec : ${appareil}.`
     : "L'utilisateur n'a pas encore précisé son appareil.";
-  return `Tu es Reparo, un expert en réparation d'appareils électroménagers. Tu aides les particuliers à diagnostiquer et résoudre eux-mêmes leurs pannes, simplement et efficacement.
+  return `Tu es ${assistantName}, un expert en réparation d'appareils électroménagers. Tu aides les particuliers à diagnostiquer et résoudre eux-mêmes leurs pannes, simplement et efficacement.
 
 ${context}
 
@@ -40,7 +43,7 @@ Tu es exclusivement spécialisé dans le dépannage d'appareils électroménager
 L'utilisateur est debout devant son appareil, souvent les mains occupées. Il doit écrire le moins possible. Dès que tu poses une question avec plusieurs réponses possibles, termine TOUJOURS ton message par un bloc [OPTIONS] avec les choix possibles. Format obligatoire : [OPTIONS: choix1 | choix2 | choix3]
 
 --- PRÉSENTATION ---
-Au tout premier message uniquement, présente-toi en une seule phrase : "Bonjour, je suis Reparo, votre assistant de dépannage électroménager." Ensuite enchaîne directement. Ne te représente jamais dans les échanges suivants.
+Au tout premier message uniquement, présente-toi en une seule phrase : "Bonjour, je suis ${assistantName}, votre assistant de dépannage électroménager." Ensuite enchaîne directement. Ne te représente jamais dans les échanges suivants.
 
 --- SÉCURITÉ OBLIGATOIRE AVANT TOUTE MANIPULATION ---
 Avant la première étape de manipulation, rappelle des précautions adaptées à l'appareil :
@@ -62,7 +65,7 @@ Si l'appareil a plus de 10 ans et la réparation semble complexe, mentionne honn
 
 --- RÉFÉRENCE APPAREIL ---
 Au début, suggère en une phrase : "Si vous avez la référence de votre appareil, elle me permettra de vous aider encore plus précisément." Une seule fois.
-Quand le problème est résolu et que l'utilisateur confirme que l'appareil fonctionne à nouveau, ajoute à la fin de ton message : [PROBLEME_RESOLU]. Une seule fois par conversation.
+Quand le problème est résolu et que l'utilisateur confirme que l'appareil fonctionne à nouveau, réponds avec ce message exact : "${messageResolution}" puis ajoute [PROBLEME_RESOLU] à la fin. Une seule fois par conversation.
 
 RÈGLE OBLIGATOIRE : Dès que l'utilisateur mentionne une référence de modèle dans son message (ex: HBG675BS1, WW90T534DAW, DFN28424W, etc.) ou que tu identifies le modèle avec certitude, tu DOIS ajouter à la toute fin de ton premier message le tag suivant, sans exception : [MODELE_DETECTE: type|marque|modele] — exemple : [MODELE_DETECTE: Four|Bosch|HBG675BS1]. Ce tag est invisible pour l'utilisateur. Tu dois le mettre même si tu poses une question dans le même message. Ne le mets qu'une seule fois par conversation.
 
@@ -70,7 +73,7 @@ RÈGLE OBLIGATOIRE : Dès que l'utilisateur mentionne une référence de modèle
 Envoie les étapes UNE PAR UNE. Donne une seule étape à la fois avec un verbe d'action. Indique le résultat attendu. Termine par [OPTIONS: C'est fait ✓ | Ça ne marche pas | Je ne comprends pas cette étape]
 
 --- GESTION DE L'ÉCHEC ---
-Si ça ne fonctionne pas : ne répète jamais les mêmes étapes. Propose une nouvelle hypothèse. Après 3 tentatives, demande : "Savez-vous si votre appareil est encore sous garantie ?" suivi de [OPTIONS: Oui, encore sous garantie | Non, plus de garantie | Je ne sais pas] puis oriente vers le SAV.
+Si ça ne fonctionne pas : ne répète jamais les mêmes étapes. Propose une nouvelle hypothèse. Après 3 tentatives, dis : "${messageEscalade}" puis demande : "Savez-vous si votre appareil est encore sous garantie ?" suivi de [OPTIONS: Oui, encore sous garantie | Non, plus de garantie | Je ne sais pas] puis oriente vers le SAV.
 
 --- FIN DE DIAGNOSTIC ---
 Quand résolu : phrase de confirmation + conseil d'entretien préventif adapté + "N'hésitez pas à revenir si vous avez d'autres questions."
@@ -109,6 +112,17 @@ const CATEGORIES = {
   "Micro-ondes":    { bgColor: "#E0E7FF", suggestions: ["Ne chauffe plus", "Étincelles", "Plateau bloqué", "Code erreur affiché"] },
   "Autre appareil": { bgColor: "#F1F5F9", suggestions: ["Ne démarre plus", "Bruit anormal", "Fuite", "Code erreur affiché"] },
 };
+
+const SLUG_TO_CATEGORY = {
+  'lave-linge': 'Lave-linge',
+  'refrigerateur': 'Réfrigérateur',
+  'lave-vaisselle': 'Lave-vaisselle',
+  'four': 'Four',
+  'seche-linge': 'Sèche-linge',
+  'machine-a-cafe': 'Machine à café',
+  'micro-ondes': 'Micro-ondes',
+  'autre-appareil': 'Autre appareil',
+}
 
 const ILLUSTRATIONS = {
   "Lave-linge": (<svg width="48" height="48" viewBox="0 0 80 80" fill="none"><rect x="16" y="12" width="48" height="56" rx="6" fill="#1B3A6B"/><rect x="20" y="16" width="40" height="48" rx="4" fill="#2563EB"/><circle cx="40" cy="44" r="14" fill="#1B3A6B"/><circle cx="40" cy="44" r="11" fill="#DBEAFE"/><circle cx="40" cy="44" r="6" fill="#2563EB"/><circle cx="40" cy="44" r="2" fill="#DBEAFE"/><rect x="24" y="20" width="8" height="4" rx="2" fill="#DBEAFE"/><circle cx="42" cy="22" r="2" fill="#DBEAFE"/><circle cx="48" cy="22" r="2" fill="#93C5FD"/></svg>),
@@ -716,8 +730,13 @@ export default function ReparoApp() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          system: buildSystemPrompt(appareilContext),
+          system: buildSystemPrompt(appareilContext, {
+            assistantName: partnerTheme?.nomAssistantIa,
+            messageResolution: partnerTheme?.messageResolution,
+            messageEscalade: partnerTheme?.messageEscalade,
+          }),
           messages: msgs,
+          nom: partnerRef.current || undefined,
         }),
         signal: controller.signal,
       });
@@ -923,6 +942,22 @@ export default function ReparoApp() {
   const PRIMARY = partnerTheme?.couleurPrimaire || DEFAULT_PRIMARY;
   const ACCENT = partnerTheme?.couleurSecondaire || DEFAULT_ACCENT;
 
+  // Catégories visibles filtrées par la config du partenaire
+  const visibleCategories = useMemo(() => {
+    const slugs = partnerTheme?.categoriesVisibles
+    if (!slugs || !Array.isArray(slugs) || slugs.length === 0) return CATEGORIES
+    const result = {}
+    for (const slug of slugs) {
+      const name = SLUG_TO_CATEGORY[slug]
+      if (name && CATEGORIES[name]) result[name] = CATEGORIES[name]
+    }
+    return Object.keys(result).length > 0 ? result : CATEGORIES
+  }, [partnerTheme])
+
+  // Locale de reconnaissance vocale dérivée de la langue du partenaire
+  const LANG_TO_LOCALE = { fr: 'fr-FR', en: 'en-US', es: 'es-ES', de: 'de-DE', it: 'it-IT', pt: 'pt-PT' }
+  const recLang = LANG_TO_LOCALE[partnerTheme?.langueDefaut] || 'fr-FR'
+
   const npsFollowUpQuestion = (score) => {
     if (score <= 6) return "Qu'est-ce qui n'a pas fonctionné ?";
     if (score <= 8) return "Qu'est-ce qu'on pourrait améliorer ?";
@@ -1014,7 +1049,7 @@ export default function ReparoApp() {
     if (!SR) { alert("Reconnaissance vocale non supportée sur ce navigateur."); return; }
     if (isRecording) { recRef.current?.stop(); setIsRecording(false); return; }
     const rec = new SR();
-    rec.lang = "fr-FR"; rec.continuous = false; rec.interimResults = false;
+    rec.lang = recLang; rec.continuous = false; rec.interimResults = false;
     rec.onstart  = () => setIsRecording(true);
     rec.onresult = (e) => { const t = e.results[0][0].transcript; setInput(p => p ? p + " " + t : t); };
     rec.onerror  = () => setIsRecording(false);
@@ -1077,7 +1112,7 @@ export default function ReparoApp() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     const rec = new SR();
-    rec.lang = "fr-FR"; rec.continuous = false; rec.interimResults = false;
+    rec.lang = recLang; rec.continuous = false; rec.interimResults = false;
     rec.onstart  = () => setIsListening(true);
     rec.onresult = async (e) => {
       setIsListening(false);
@@ -1106,8 +1141,8 @@ export default function ReparoApp() {
     setForm({ type: "", marque: "", modele: "", achat: "", date_achat: "" }); setShowAdd(false);
   };
 
-  const brands   = sel.category ? Object.keys(CATEGORIES[sel.category]?.marques || {}) : [];
-  const models   = sel.brand && sel.category ? (CATEGORIES[sel.category]?.marques?.[sel.brand] || []) : [];
+  const brands   = sel.category ? Object.keys(visibleCategories[sel.category]?.marques || {}) : [];
+  const models   = sel.brand && sel.category ? (visibleCategories[sel.category]?.marques?.[sel.brand] || []) : [];
   const detailApp = appareils.find(a => a.id === showDetail);
 
   // ── SHARED COMPONENTS ───────────────────────
@@ -1156,7 +1191,7 @@ export default function ReparoApp() {
     const iconSize = Math.round(size * 0.6);
     const icon = ILLUSTRATIONS[type] || ILLUSTRATIONS["Autre appareil"];
     return (
-      <div style={{ width: size, height: size, borderRadius: radius, flexShrink: 0, background: CATEGORIES[type]?.bgColor || "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: size, height: size, borderRadius: radius, flexShrink: 0, background: visibleCategories[type]?.bgColor || CATEGORIES[type]?.bgColor || "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {React.cloneElement(icon, { width: iconSize, height: iconSize })}
       </div>
     );
@@ -1252,7 +1287,7 @@ export default function ReparoApp() {
         <div>
           <div style={{ fontWeight: "800", fontSize: "15px", color: "#222", marginBottom: "10px" }}>Choisissez votre appareil</div>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {Object.entries(CATEGORIES).map(([name, d]) => (
+            {Object.entries(visibleCategories).map(([name, d]) => (
               <div key={name} className="card" onClick={() => { setSel({ category: name }); setScreen("appareil"); }}
                 style={{ background: "white", borderRadius: "14px", border: "1.5px solid #eee", display: "flex", alignItems: "center", overflow: "hidden" }}>
                 <div style={{ width: "80px", height: "72px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: d.bgColor }}>
@@ -1270,7 +1305,7 @@ export default function ReparoApp() {
 
   // ── APPAREIL ────────────────────────────────────────
   const AppareilScreen = () => {
-    const cat = CATEGORIES[sel.category] || {};
+    const cat = visibleCategories[sel.category] || CATEGORIES[sel.category] || {};
     return (
       <div className="slide-in" style={{ paddingBottom: "80px" }}>
         <div style={{ background: PRIMARY, padding: "16px 20px", display: "flex", alignItems: "center", gap: "12px" }}>
@@ -1430,12 +1465,12 @@ export default function ReparoApp() {
             <div style={{ display: "flex", justifyContent: "center", marginBottom: "6px" }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
             </div>
-            <div style={{ fontWeight: "700", color: "#16a34a", fontSize: "14px" }}>Parfait ! Ravi d'avoir pu vous aider.</div>
+            <div style={{ fontWeight: "700", color: "#16a34a", fontSize: "14px" }}>{partnerTheme?.messageResolution || "Parfait ! Votre appareil fonctionne à nouveau."}</div>
             <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>N'hésitez pas à revenir si la panne persiste.</div>
             {!npsSubmitted ? (
               <div style={{ marginTop: "14px" }}>
                 <div style={{ fontSize: "12px", color: "#444", fontWeight: "600", marginBottom: "8px" }}>
-                  Sur 10, quelle est la probabilité que vous recommandiez Reparo ?
+                  Sur 10, quelle est la probabilité que vous recommandiez {partnerTheme?.nomAssistantIa || 'Reparo'} ?
                 </div>
                 <div style={{ display: "flex", gap: "4px", justifyContent: "center", flexWrap: "wrap" }}>
                   {Array.from({ length: 11 }, (_, n) => n).map(n => (
@@ -1690,7 +1725,7 @@ export default function ReparoApp() {
             <div style={{ position: "relative", background: "white", borderRadius: "20px 20px 0 0", padding: "20px 20px 40px" }}>
               <div style={{ fontWeight: "800", fontSize: "17px", color: "#222", marginBottom: "16px" }}>Enregistrer un appareil</div>
               {[
-                { label: "Type d'appareil", key: "type", options: Object.keys(CATEGORIES) },
+                { label: "Type d'appareil", key: "type", options: Object.keys(visibleCategories) },
                 { label: "Marque", key: "marque", placeholder: "Ex : Samsung, Bosch..." },
                 { label: "Modèle / Référence", key: "modele", placeholder: "Ex : WW90T534DAW" },
                 { label: "Année d'achat", key: "achat", placeholder: "Ex : 2020" },

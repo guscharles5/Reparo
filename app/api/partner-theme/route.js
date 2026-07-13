@@ -20,13 +20,21 @@ const getAdmin = () => createClient(
 // Mêmes clés/fallbacks que app/api/partner/config/route.js (couche 1),
 // dupliqués ici volontairement : cet endpoint est public et ne doit exposer
 // que les champs sûrs pour l'affichage, jamais prompt_ia ou autres réglages.
-const THEME_KEYS = ['logo_url', 'couleur_primaire', 'couleur_secondaire', 'nom_assistant_ia', 'message_bienvenue', 'blocs_accueil']
+const THEME_KEYS = [
+  'logo_url', 'couleur_primaire', 'couleur_secondaire', 'nom_assistant_ia',
+  'message_bienvenue', 'message_escalade', 'message_resolution',
+  'categories_appareils_visibles', 'langue_defaut', 'blocs_accueil',
+]
 const FALLBACKS = {
   logo_url: null,
   couleur_primaire: '#1B3A6B',
   couleur_secondaire: '#2563EB',
   nom_assistant_ia: 'Assistant Reparo',
   message_bienvenue: "Bienvenue ! Je suis votre assistant expert en réparation d'appareils électroménagers.",
+  message_escalade: "Votre problème nécessite un expert. J'ai transmis tout le contexte — vous n'aurez rien à répéter.",
+  message_resolution: "Parfait ! Votre appareil fonctionne à nouveau.",
+  categories_appareils_visibles: ['lave-linge', 'refrigerateur', 'four', 'lave-vaisselle', 'seche-linge', 'micro-ondes'],
+  langue_defaut: 'fr',
   blocs_accueil: [],
 }
 
@@ -53,6 +61,10 @@ export async function GET(req) {
       couleurSecondaire: effective.couleur_secondaire,
       nomAssistantIa: effective.nom_assistant_ia,
       messageBienvenue: effective.message_bienvenue,
+      messageEscalade: effective.message_escalade,
+      messageResolution: effective.message_resolution,
+      categoriesVisibles: Array.isArray(effective.categories_appareils_visibles) ? effective.categories_appareils_visibles : [],
+      langueDefaut: effective.langue_defaut || 'fr',
       blocsAccueil: Array.isArray(effective.blocs_accueil) ? effective.blocs_accueil : [],
     }
   })
